@@ -29,7 +29,7 @@ export function BackupControls() {
       <button onClick={handleExport}>Export backup</button>
       <button onClick={() => fileInput.current?.click()}>Import backup</button>
       <input ref={fileInput} type="file" accept="application/json" style={{ display: 'none' }} onChange={handleImportFile} />
-      {status && <span style={{ fontSize: '0.8rem', color: '#666' }}>{status}</span>}
+      {status && <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{status}</span>}
     </div>
   )
 }

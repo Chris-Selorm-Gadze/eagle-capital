@@ -30,10 +30,10 @@ export function FundedNextCycleDialog({ account, onClose }: { account: Account; 
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={onClose}
     >
-      <div style={{ background: 'white', borderRadius: 8, padding: '1.5rem', minWidth: 380 }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '1.5rem', minWidth: 380 }} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginTop: 0 }}>FundedNext Pro tracker — {account.label}</h3>
 
         <label style={{ display: 'block', marginTop: '0.75rem' }}>
@@ -48,7 +48,7 @@ export function FundedNextCycleDialog({ account, onClose }: { account: Account; 
           <div>Qualifying cycles (≥{FN.proMinCycleGrowth * 100}%): {qualifyingCycles}/{FN.proCyclesRequired}</div>
           <div>Account age: {ageDays === null ? '— set funded date' : `${ageDays} days`}</div>
           <div>Days until 61-day mark: {daysUntilAgeOk === null ? '—' : daysUntilAgeOk}</div>
-          <div style={{ fontWeight: 600, color: eligible ? '#0a7d2c' : '#666', marginTop: '0.25rem' }}>
+          <div style={{ fontWeight: 600, color: eligible ? 'var(--good)' : 'var(--text-secondary)', marginTop: '0.25rem' }}>
             {eligible ? 'Pro eligible' : 'Not yet Pro eligible'}
           </div>
           <div style={{ marginTop: '0.5rem' }}>Next scaled size: ${nextSize.toLocaleString()}</div>
@@ -61,7 +61,7 @@ export function FundedNextCycleDialog({ account, onClose }: { account: Account; 
         </label>
 
         {rewards.length > 0 && (
-          <ul style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#666', paddingLeft: '1.2rem' }}>
+          <ul style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', paddingLeft: '1.2rem' }}>
             {rewards.map((r) => (
               <li key={r.id}>{r.date}: {(r.growthPct * 100).toFixed(1)}% {r.growthPct >= FN.proMinCycleGrowth ? '✓' : ''}</li>
             ))}

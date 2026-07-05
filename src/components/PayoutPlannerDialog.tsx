@@ -8,7 +8,7 @@ import { checkPayout, payoutProgress, PA_PAYOUT } from '../domain/apex'
 function GateRow({ ok, label }: { ok: boolean; label: string }) {
   return (
     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'baseline', padding: '0.25rem 0' }}>
-      <span style={{ color: ok ? '#0a7d2c' : '#c00' }}>{ok ? '✓' : '✗'}</span>
+      <span style={{ color: ok ? 'var(--good)' : 'var(--critical)' }}>{ok ? '✓' : '✗'}</span>
       <span>{label}</span>
     </div>
   )
@@ -33,12 +33,12 @@ export function PayoutPlannerDialog({ account, onClose }: { account: Account; on
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={onClose}
     >
-      <div style={{ background: 'white', borderRadius: 8, padding: '1.5rem', minWidth: 380 }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '1.5rem', minWidth: 380 }} onClick={(e) => e.stopPropagation()}>
         <h3 style={{ marginTop: 0 }}>Payout planner — {account.label}</h3>
-        <div style={{ fontSize: '0.8rem', color: '#666' }}>Requesting payout #{payoutNumber}</div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Requesting payout #{payoutNumber}</div>
 
         <div style={{ marginTop: '0.75rem' }}>
           <GateRow ok={progress.tradingDaysSinceLast >= PA_PAYOUT.tradingDaysBetween}
@@ -63,7 +63,7 @@ export function PayoutPlannerDialog({ account, onClose }: { account: Account; on
           )}
         </div>
 
-        <div style={{ marginTop: '0.75rem', fontWeight: 600, color: result.ok ? '#0a7d2c' : '#c00' }}>
+        <div style={{ marginTop: '0.75rem', fontWeight: 600, color: result.ok ? 'var(--good)' : 'var(--critical)' }}>
           {result.ok ? `Ready — max requestable $${result.maxRequestable.toLocaleString()}` : 'Not yet eligible'}
         </div>
 

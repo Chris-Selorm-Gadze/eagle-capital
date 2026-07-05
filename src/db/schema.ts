@@ -45,11 +45,28 @@ export interface Reward {
   growthPct: number // e.g. 0.05 for 5% growth
 }
 
+export interface Trade {
+  id?: number
+  accountId: number
+  date: string // ISO date, entryTime's date — for calendar/day grouping
+  symbol: string
+  side: 'long' | 'short'
+  qty: number
+  entryPrice: number
+  exitPrice: number
+  entryTime: string // ISO datetime
+  exitTime: string // ISO datetime
+  fees?: number
+  pnl: number // computed at save time: (exit-entry)*qty*dir - fees
+  notes?: string
+}
+
 class PropDb extends Dexie {
   accounts!: Table<Account>
   sessions!: Table<SessionLog>
   payouts!: Table<Payout>
   rewards!: Table<Reward>
+  trades!: Table<Trade>
   constructor() {
     super('prop-tracker')
     this.version(1).stores({
@@ -62,6 +79,13 @@ class PropDb extends Dexie {
       sessions: '++id,accountId,date',
       payouts: '++id,accountId,date',
       rewards: '++id,accountId,date',
+    })
+    this.version(3).stores({
+      accounts: '++id,firm,stage',
+      sessions: '++id,accountId,date',
+      payouts: '++id,accountId,date',
+      rewards: '++id,accountId,date',
+      trades: '++id,accountId,date',
     })
   }
 }

@@ -26,17 +26,17 @@ export function LogSessionDialog({ account, onClose }: { account: Account; onClo
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
       onClick={onClose}
     >
       <div
-        style={{ background: 'white', borderRadius: 8, padding: '1.5rem', minWidth: 320 }}
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '1.5rem', minWidth: 320 }}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 style={{ marginTop: 0 }}>Log session — {account.label}</h3>
-        <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.5rem' }}>{todayISO()}</div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>{todayISO()}</div>
 
         <label style={{ display: 'block', marginTop: '0.75rem' }}>
           P&amp;L

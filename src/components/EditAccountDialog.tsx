@@ -20,13 +20,13 @@ export function EditAccountDialog({ account, onClose }: { account: Account; onCl
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
       onClick={onClose}
     >
       <div
-        style={{ background: 'white', borderRadius: 8, padding: '1.5rem', minWidth: 320 }}
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '1.5rem', minWidth: 320 }}
         onClick={(e) => e.stopPropagation()}
       >
         <h3 style={{ marginTop: 0 }}>Edit {account.label}</h3>
