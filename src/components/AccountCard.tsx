@@ -30,11 +30,15 @@ export function AccountCard({
   breaker,
   onEdit,
   onLogSession,
+  onPayoutPlanner,
+  onCycleTracker,
 }: {
   account: Account
   breaker: BreakerLevel
   onEdit: () => void
   onLogSession: () => void
+  onPayoutPlanner?: () => void
+  onCycleTracker?: () => void
 }) {
   const { isApex, maxDd, room, risk, stop, trades, cushion } = computeAccountRisk(account)
 
@@ -87,9 +91,11 @@ export function AccountCard({
         <span>Max trades: {trades}</span>
       </div>
 
-      <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+      <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button onClick={onEdit}>Edit</button>
         <button onClick={onLogSession}>Log session</button>
+        {onPayoutPlanner && <button onClick={onPayoutPlanner}>Payout planner</button>}
+        {onCycleTracker && <button onClick={onCycleTracker}>Pro cycles</button>}
       </div>
     </div>
   )

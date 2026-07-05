@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { trailThreshold, roomToTrail, checkPayout, traderShare, profitToTarget, profitToPayoutMin } from '../apex'
+import {
+  trailThreshold, roomToTrail, checkPayout, traderShare,
+  profitToTarget, profitToPayoutMin, payoutProgress,
+} from '../apex'
 
 describe('apex trail', () => {
   it('trails 6500 behind highest balance', () => {
@@ -55,6 +58,23 @@ describe('apex split', () => {
     expect(traderShare(0, 10_000)).toBe(10_000)
     expect(traderShare(24_000, 2_000)).toBe(1_000 + 1_000 * 0.9)
     expect(traderShare(30_000, 1_000)).toBe(900)
+  })
+})
+
+describe('apex payout progress from sessions', () => {
+  it('aggregates trading days, $50+ days, biggest day, and total profit', () => {
+    const sessions = [{ pnl: 100 }, { pnl: 60 }, { pnl: -30 }, { pnl: 2_000 }, { pnl: 40 }, { pnl: 70 }]
+    expect(payoutProgress(sessions)).toEqual({
+      tradingDaysSinceLast: 6,
+      profitableDays50: 4,
+      biggestDayProfit: 2_000,
+      totalProfitSinceLastPayout: 2_240,
+    })
+  })
+  it('empty window', () => {
+    expect(payoutProgress([])).toEqual({
+      tradingDaysSinceLast: 0, profitableDays50: 0, biggestDayProfit: 0, totalProfitSinceLastPayout: 0,
+    })
   })
 })
 

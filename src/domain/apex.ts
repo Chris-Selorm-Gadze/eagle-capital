@@ -98,6 +98,21 @@ export function traderShare(cumulativePaidSoFar: number, amount: number): number
   return at100 + (amount - at100) * PA_PAYOUT.splitAfter
 }
 
+/** Turn a window of session P&Ls (since the last payout) into checkPayout's input fields. */
+export function payoutProgress(sessionsSinceLastPayout: { pnl: number }[]): {
+  tradingDaysSinceLast: number
+  profitableDays50: number
+  biggestDayProfit: number
+  totalProfitSinceLastPayout: number
+} {
+  return {
+    tradingDaysSinceLast: sessionsSinceLastPayout.length,
+    profitableDays50: sessionsSinceLastPayout.filter((s) => s.pnl >= PA_PAYOUT.profitableDayMin).length,
+    biggestDayProfit: sessionsSinceLastPayout.reduce((max, s) => Math.max(max, s.pnl), 0),
+    totalProfitSinceLastPayout: sessionsSinceLastPayout.reduce((sum, s) => sum + s.pnl, 0),
+  }
+}
+
 /** Profit still needed to hit the eval target ($15K on a 250K account). */
 export function profitToTarget(balance: number): number {
   return Math.max(0, APEX_250K.size + APEX_250K.target - balance)
