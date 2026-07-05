@@ -1,7 +1,6 @@
 import type { Account } from '../db/schema'
-import { roomToTrail, profitToTarget, profitToPayoutMin, APEX_250K } from '../domain/apex'
-import { ddLimits, type FnModel } from '../domain/fundednext'
-import { riskPerTrade, dailyStop, maxTradesPerDay } from '../domain/risk'
+import { computeAccountRisk } from '../lib/accountRisk'
+import type { BreakerLevel } from '../domain/risk'
 
 function roomColor(room: number, maxDd: number): string {
   const pct = maxDd <= 0 ? 0 : room / maxDd
@@ -20,22 +19,24 @@ const STAGE_LABEL: Record<Account['stage'], string> = {
   blown: 'Blown',
 }
 
-export function AccountCard({ account, onEdit }: { account: Account; onEdit: () => void }) {
-  const isApex = account.firm === 'apex'
-  const maxDd = isApex ? APEX_250K.trailingDD : ddLimits(account.model as FnModel, account.size).maxLoss
-  const firmDailyLimit = isApex ? null : ddLimits(account.model as FnModel, account.size).dailyLoss
-  const room = isApex
-    ? roomToTrail(account.balance, account.highestBalance, account.stage === 'pa' ? 'pa' : 'evaluation', account.platform)
-    : account.balance - (account.size - maxDd)
-  const risk = riskPerTrade(maxDd)
-  const stop = dailyStop(firmDailyLimit, maxDd)
-  const trades = maxTradesPerDay(stop, risk)
+const BREAKER_COPY: Record<Exclude<BreakerLevel, 'ok'>, { text: string; bg: string; fg: string }> = {
+  'break-30min': { text: 'Take a 30-min break', bg: '#fff4d6', fg: '#8a6300' },
+  'done-for-day': { text: 'Done for the day', bg: '#ffe1e1', fg: '#a10000' },
+  'flat-for-week': { text: 'Flat for the week', bg: '#3a0000', fg: '#fff' },
+}
 
-  const cushion = isApex
-    ? account.stage === 'pa'
-      ? { label: 'to payout minimum', amount: profitToPayoutMin(account.balance) }
-      : { label: 'to eval target', amount: profitToTarget(account.balance) }
-    : null
+export function AccountCard({
+  account,
+  breaker,
+  onEdit,
+  onLogSession,
+}: {
+  account: Account
+  breaker: BreakerLevel
+  onEdit: () => void
+  onLogSession: () => void
+}) {
+  const { isApex, maxDd, room, risk, stop, trades, cushion } = computeAccountRisk(account)
 
   return (
     <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: '1rem', minWidth: 260 }}>
@@ -50,6 +51,18 @@ export function AccountCard({ account, onEdit }: { account: Account; onEdit: () 
           {STAGE_LABEL[account.stage]}
         </span>
       </div>
+
+      {breaker !== 'ok' && (
+        <div
+          data-testid={`breaker-${breaker}`}
+          style={{
+            marginTop: '0.5rem', padding: '0.4rem 0.6rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600,
+            background: BREAKER_COPY[breaker].bg, color: BREAKER_COPY[breaker].fg,
+          }}
+        >
+          {BREAKER_COPY[breaker].text}
+        </div>
+      )}
 
       <div style={{ marginTop: '0.5rem', color: '#666' }}>
         Balance: ${account.balance.toLocaleString()}
@@ -74,9 +87,10 @@ export function AccountCard({ account, onEdit }: { account: Account; onEdit: () 
         <span>Max trades: {trades}</span>
       </div>
 
-      <button style={{ marginTop: '0.75rem' }} onClick={onEdit}>
-        Edit
-      </button>
+      <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+        <button onClick={onEdit}>Edit</button>
+        <button onClick={onLogSession}>Log session</button>
+      </div>
     </div>
   )
 }

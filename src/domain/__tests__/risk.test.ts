@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { riskPerTrade, dailyStop, maxContracts, circuitBreaker, maxTradesPerDay, TICK_VALUES } from '../risk'
+import {
+  riskPerTrade, dailyStop, maxContracts, circuitBreaker, maxTradesPerDay,
+  consecutiveRedDays, worstBreaker, applyApexCopierRisk, TICK_VALUES,
+} from '../risk'
 
 describe('risk framework', () => {
   it('risk per trade = 10% of drawdown', () => {
@@ -26,5 +29,26 @@ describe('risk framework', () => {
     expect(maxTradesPerDay(1_950, 650)).toBe(3)
     expect(maxTradesPerDay(225, 90)).toBe(2)
     expect(maxTradesPerDay(100, 0)).toBe(0)
+  })
+  it('logging 3 consecutive red days triggers flat-for-week', () => {
+    const redDays = consecutiveRedDays([-50, -100, -20])
+    expect(redDays).toBe(3)
+    expect(circuitBreaker({ consecutiveLosses: 0, dayPnl: -50, dailyStopAmount: 1_950, consecutiveRedDays: redDays }))
+      .toBe('flat-for-week')
+  })
+  it('consecutiveRedDays stops at the first non-red day, most recent first', () => {
+    expect(consecutiveRedDays([])).toBe(0)
+    expect(consecutiveRedDays([50, -10, -10])).toBe(0)
+    expect(consecutiveRedDays([-10, -10, 50])).toBe(2)
+  })
+  it('worstBreaker picks the most severe level', () => {
+    expect(worstBreaker([])).toBe('ok')
+    expect(worstBreaker(['ok', 'break-30min'])).toBe('break-30min')
+    expect(worstBreaker(['ok', 'done-for-day', 'flat-for-week'])).toBe('flat-for-week')
+  })
+  it('apex copier risk: done-for-day on one account flags all four', () => {
+    expect(applyApexCopierRisk('ok', ['ok', 'done-for-day', 'ok', 'ok'])).toBe('done-for-day')
+    expect(applyApexCopierRisk('ok', ['ok', 'break-30min', 'ok', 'ok'])).toBe('ok')
+    expect(applyApexCopierRisk('flat-for-week', ['done-for-day'])).toBe('flat-for-week')
   })
 })

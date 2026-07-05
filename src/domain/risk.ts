@@ -34,6 +34,36 @@ export function maxTradesPerDay(dailyStopAmount: number, riskPerTradeAmount: num
   return riskPerTradeAmount <= 0 ? 0 : Math.floor(dailyStopAmount / riskPerTradeAmount)
 }
 
+/** Count the trailing run of red (pnl < 0) days, most-recent-first, stopping at the first non-red day. */
+export function consecutiveRedDays(pnlsMostRecentFirst: number[]): number {
+  let n = 0
+  for (const pnl of pnlsMostRecentFirst) {
+    if (pnl < 0) n++
+    else break
+  }
+  return n
+}
+
+const BREAKER_SEVERITY: Record<BreakerLevel, number> = {
+  ok: 0,
+  'break-30min': 1,
+  'done-for-day': 2,
+  'flat-for-week': 3,
+}
+
+export function worstBreaker(levels: BreakerLevel[]): BreakerLevel {
+  return levels.reduce<BreakerLevel>(
+    (worst, l) => (BREAKER_SEVERITY[l] > BREAKER_SEVERITY[worst] ? l : worst),
+    'ok',
+  )
+}
+
+/** Apex trade-copier risk: a done-for-day (or worse) breaker on any Apex account applies to all four. */
+export function applyApexCopierRisk(own: BreakerLevel, allApexLevelsToday: BreakerLevel[]): BreakerLevel {
+  const worst = worstBreaker(allApexLevelsToday)
+  return BREAKER_SEVERITY[worst] >= BREAKER_SEVERITY['done-for-day'] ? worstBreaker([own, worst]) : own
+}
+
 export const TICK_VALUES: Record<string, number> = {
   ES: 12.5, MES: 1.25, NQ: 5, MNQ: 0.5, GC: 10, MGC: 1, CL: 10, MCL: 1, YM: 5, MYM: 0.5,
 }
