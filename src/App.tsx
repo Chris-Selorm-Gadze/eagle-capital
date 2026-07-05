@@ -7,6 +7,8 @@ import { EditAccountDialog } from './components/EditAccountDialog'
 import { LogSessionDialog } from './components/LogSessionDialog'
 import { PayoutPlannerDialog } from './components/PayoutPlannerDialog'
 import { FundedNextCycleDialog } from './components/FundedNextCycleDialog'
+import { EquityCurveChart } from './components/EquityCurveChart'
+import { ScenarioChart } from './components/ScenarioChart'
 import { effectiveBreakerLevels } from './lib/breaker'
 
 const FIRM_LABEL: Record<Account['firm'], string> = {
@@ -57,6 +59,21 @@ export default function App() {
           </div>
         </section>
       ))}
+
+      <section style={{ marginBottom: '2rem' }}>
+        <h2>Progress vs plan</h2>
+        <ScenarioChart
+          actualFundedCapital={accounts
+            .filter((a) => a.firm === 'fundednext' && a.stage === 'funded')
+            .reduce((sum, a) => sum + a.balance, 0)}
+          currentMonth={new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+        />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1rem' }}>
+          {accounts.map((a) => (
+            <EquityCurveChart key={a.id} account={a} sessions={sessionsByAccountId.get(a.id!) ?? []} />
+          ))}
+        </div>
+      </section>
 
       {editing && <EditAccountDialog account={editing} onClose={() => setEditing(null)} />}
       {logging && <LogSessionDialog account={logging} onClose={() => setLogging(null)} />}
