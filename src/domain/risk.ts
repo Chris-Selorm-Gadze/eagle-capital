@@ -29,6 +29,11 @@ export function circuitBreaker(opts: {
   return 'ok'
 }
 
+/** How many full-risk losing trades fit inside today's stop before it's hit. */
+export function maxTradesPerDay(dailyStopAmount: number, riskPerTradeAmount: number): number {
+  return riskPerTradeAmount <= 0 ? 0 : Math.floor(dailyStopAmount / riskPerTradeAmount)
+}
+
 export const TICK_VALUES: Record<string, number> = {
   ES: 12.5, MES: 1.25, NQ: 5, MNQ: 0.5, GC: 10, MGC: 1, CL: 10, MCL: 1, YM: 5, MYM: 0.5,
 }

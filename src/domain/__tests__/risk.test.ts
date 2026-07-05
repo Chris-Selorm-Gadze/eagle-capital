@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { riskPerTrade, dailyStop, maxContracts, circuitBreaker, TICK_VALUES } from '../risk'
+import { riskPerTrade, dailyStop, maxContracts, circuitBreaker, maxTradesPerDay, TICK_VALUES } from '../risk'
 
 describe('risk framework', () => {
   it('risk per trade = 10% of drawdown', () => {
@@ -21,5 +21,10 @@ describe('risk framework', () => {
     expect(circuitBreaker({ consecutiveLosses: 3, dayPnl: -500, dailyStopAmount: 1950, consecutiveRedDays: 0 })).toBe('done-for-day')
     expect(circuitBreaker({ consecutiveLosses: 0, dayPnl: -2000, dailyStopAmount: 1950, consecutiveRedDays: 0 })).toBe('done-for-day')
     expect(circuitBreaker({ consecutiveLosses: 0, dayPnl: 0, dailyStopAmount: 1950, consecutiveRedDays: 3 })).toBe('flat-for-week')
+  })
+  it('max trades per day: daily stop / risk per trade, floored', () => {
+    expect(maxTradesPerDay(1_950, 650)).toBe(3)
+    expect(maxTradesPerDay(225, 90)).toBe(2)
+    expect(maxTradesPerDay(100, 0)).toBe(0)
   })
 })

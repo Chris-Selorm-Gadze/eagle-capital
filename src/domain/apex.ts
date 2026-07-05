@@ -97,3 +97,13 @@ export function traderShare(cumulativePaidSoFar: number, amount: number): number
   const at100 = Math.min(amount, fullLeft)
   return at100 + (amount - at100) * PA_PAYOUT.splitAfter
 }
+
+/** Profit still needed to hit the eval target ($15K on a 250K account). */
+export function profitToTarget(balance: number): number {
+  return Math.max(0, APEX_250K.size + APEX_250K.target - balance)
+}
+
+/** Profit still needed to clear the PA safety-net minimum balance. */
+export function profitToPayoutMin(balance: number): number {
+  return Math.max(0, PA_PAYOUT.minBalance - balance)
+}

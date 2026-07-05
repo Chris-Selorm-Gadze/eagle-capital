@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { trailThreshold, roomToTrail, checkPayout, traderShare } from '../apex'
+import { trailThreshold, roomToTrail, checkPayout, traderShare, profitToTarget, profitToPayoutMin } from '../apex'
 
 describe('apex trail', () => {
   it('trails 6500 behind highest balance', () => {
@@ -55,5 +55,19 @@ describe('apex split', () => {
     expect(traderShare(0, 10_000)).toBe(10_000)
     expect(traderShare(24_000, 2_000)).toBe(1_000 + 1_000 * 0.9)
     expect(traderShare(30_000, 1_000)).toBe(900)
+  })
+})
+
+describe('apex cushions', () => {
+  it('profit to target: 15k needed at start, 0 once past 265k', () => {
+    expect(profitToTarget(250_000)).toBe(15_000)
+    expect(profitToTarget(260_000)).toBe(5_000)
+    expect(profitToTarget(265_000)).toBe(0)
+    expect(profitToTarget(270_000)).toBe(0)
+  })
+  it('profit to payout min: 256,600 safety net', () => {
+    expect(profitToPayoutMin(256_000)).toBe(600)
+    expect(profitToPayoutMin(256_600)).toBe(0)
+    expect(profitToPayoutMin(257_000)).toBe(0)
   })
 })
