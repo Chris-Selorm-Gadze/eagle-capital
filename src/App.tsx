@@ -10,6 +10,7 @@ import { FundedNextCycleDialog } from './components/FundedNextCycleDialog'
 import { EquityCurveChart } from './components/EquityCurveChart'
 import { ScenarioChart } from './components/ScenarioChart'
 import { BackupControls } from './components/BackupControls'
+import { DashboardSummary } from './components/DashboardSummary'
 import { effectiveBreakerLevels } from './lib/breaker'
 
 const FIRM_LABEL: Record<Account['firm'], string> = {
@@ -44,6 +45,8 @@ export default function App() {
         <h1>Prop Tracker</h1>
         <BackupControls />
       </div>
+
+      <DashboardSummary accounts={accounts} breakerLevels={breakerLevels} />
 
       {(Object.keys(byFirm) as Account['firm'][]).map((firm) => (
         <section key={firm} style={{ marginBottom: '2rem' }}>
