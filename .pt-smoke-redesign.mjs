@@ -23,12 +23,13 @@ async function addTrade({ symbol, side, entryPrice, exitPrice, entryTime, exitTi
   await page.waitForTimeout(150);
 }
 
-// two trades same day (multi-trade day for trade-count check), one long one short, varied durations
-await addTrade({ symbol: 'ES', side: 'long', entryPrice: 5000, exitPrice: 5020, entryTime: '2026-07-06T09:00', exitTime: '2026-07-06T09:05' });
-await addTrade({ symbol: 'NQ', side: 'short', entryPrice: 15000, exitPrice: 14950, entryTime: '2026-07-06T10:00', exitTime: '2026-07-06T11:30' }); // 90 min -> should show as hours
+// Two Mondays (07-06, 07-13), one Tuesday (07-07), mix of long/short, one long-duration trade (>60min)
+await addTrade({ symbol: 'ES', side: 'long',  entryPrice: 5000,  exitPrice: 5020,  entryTime: '2026-07-06T09:00', exitTime: '2026-07-06T09:05' });
+await addTrade({ symbol: 'NQ', side: 'short', entryPrice: 15000, exitPrice: 14950, entryTime: '2026-07-06T10:00', exitTime: '2026-07-06T11:30' }); // 90 min
 await addTrade({ symbol: 'MES', side: 'long', entryPrice: 15000, exitPrice: 14900, entryTime: '2026-07-07T09:00', exitTime: '2026-07-07T09:10' });
+await addTrade({ symbol: 'CL', side: 'short', entryPrice: 70,    exitPrice: 68,    entryTime: '2026-07-13T09:00', exitTime: '2026-07-13T09:15' });
 
 await page.waitForTimeout(300);
-await page.screenshot({ path: '/tmp/pt-stats-grid.png', fullPage: true });
+await page.screenshot({ path: '/tmp/pt-redesign.png', fullPage: true });
 console.log('ERRORS:', errors.join('\n') || '(none)');
 await browser.close();

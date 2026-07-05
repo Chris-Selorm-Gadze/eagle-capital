@@ -1,8 +1,21 @@
-export function StatTile({ label, value, color }: { label: string; value: string; color?: string }) {
+import { TileShell } from './TileShell'
+
+export function StatTile({
+  label,
+  value,
+  color,
+  info,
+  badge,
+}: {
+  label: string
+  value: string
+  color?: string
+  info?: string
+  badge?: string | number
+}) {
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '0.9rem 1.1rem', minWidth: 170, background: 'var(--surface)' }}>
-      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{label}</div>
+    <TileShell label={label} info={info} badge={badge}>
       <div style={{ fontSize: '1.5rem', fontWeight: 600, marginTop: '0.15rem', color: color ?? 'var(--text-primary)' }}>{value}</div>
-    </div>
+    </TileShell>
   )
 }

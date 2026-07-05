@@ -1,9 +1,11 @@
-export type NavKey = 'dashboard' | 'cockpit' | 'tradelog' | 'plan'
+export type NavKey = 'dashboard' | 'cockpit' | 'tradecopier' | 'tradelog' | 'tradejournal' | 'plan'
 
 const NAV_ITEMS: { key: NavKey; label: string }[] = [
   { key: 'dashboard', label: 'Dashboard' },
-  { key: 'cockpit', label: 'Risk Cockpit' },
+  { key: 'cockpit', label: 'Prop Firm Management' },
+  { key: 'tradecopier', label: 'Trade Copier' },
   { key: 'tradelog', label: 'Trade Log' },
+  { key: 'tradejournal', label: 'Trade Journal' },
   { key: 'plan', label: 'Plan' },
 ]
 
@@ -12,12 +14,9 @@ export function Sidebar({ active, onNavigate }: { active: NavKey; onNavigate: (k
     <nav
       style={{
         width: 200, flexShrink: 0, borderRight: '1px solid var(--border)',
-        background: 'var(--surface)', padding: '1rem 0.75rem', minHeight: '100vh', boxSizing: 'border-box',
+        background: 'var(--surface)', padding: '1rem 0.75rem', boxSizing: 'border-box',
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: '1.1rem', padding: '0 0.5rem', marginBottom: '1.5rem' }}>
-        Prop Tracker
-      </div>
       {NAV_ITEMS.map((item) => (
         <button
           key={item.key}

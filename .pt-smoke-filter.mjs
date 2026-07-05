@@ -2,10 +2,11 @@ import { chromium } from 'playwright';
 const browser = await chromium.launch();
 const page = await browser.newPage();
 await page.goto('http://localhost:5173');
-await page.waitForSelector('text=Prop Tracker');
+await page.waitForSelector('text=EagleCapital');
 
 async function addTrade({ symbol, entryPrice, exitPrice, entryTime, exitTime }) {
   await page.click('button:has-text("+ Add Trade")');
+  await page.click('button:has-text("Enter manually")');
   await page.waitForSelector('text=Add trade');
   await page.fill('input[placeholder="MES"]', symbol);
   await page.fill('input[type=number] >> nth=0', '1');

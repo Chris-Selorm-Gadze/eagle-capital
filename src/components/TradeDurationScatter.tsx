@@ -11,18 +11,18 @@ export function TradeDurationScatter({ trades }: { trades: Trade[] }) {
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '1rem', background: 'var(--surface)' }}>
       <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Trade duration performance</div>
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={340}>
         <ScatterChart>
           <CartesianGrid strokeDasharray="3 3" stroke="#2c2c2a" />
           <XAxis
             type="number" dataKey="duration" tickFormatter={(v) => `${v}m`}
-            tick={{ fontSize: 10, fill: '#898781' }} axisLine={{ stroke: '#383835' }} tickLine={{ stroke: '#383835' }}
+            tick={{ fontSize: 11, fill: '#898781' }} axisLine={{ stroke: '#383835' }} tickLine={{ stroke: '#383835' }}
             name="Duration (min)"
           />
           <YAxis
             type="number" dataKey="pnl" tickFormatter={(v) => `$${v.toLocaleString()}`}
-            tick={{ fontSize: 10, fill: '#898781' }} axisLine={{ stroke: '#383835' }} tickLine={{ stroke: '#383835' }}
-            name="P&L" width={60}
+            tick={{ fontSize: 11, fill: '#898781' }} axisLine={{ stroke: '#383835' }} tickLine={{ stroke: '#383835' }}
+            name="P&L" width={64}
           />
           <ZAxis range={[40, 40]} />
           <Tooltip

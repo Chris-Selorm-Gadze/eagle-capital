@@ -6,9 +6,9 @@ page.on('pageerror', e => errors.push(String(e)));
 page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
 
 await page.goto('http://localhost:5173');
-await page.waitForSelector('text=Prop Tracker');
+await page.waitForSelector('text=EagleCapital');
 
-await page.click('text=Risk Cockpit');
+await page.click('text=Prop Firm Management');
 await page.waitForTimeout(300);
 await page.screenshot({ path: '/tmp/pt-cockpit-dark.png', fullPage: true });
 

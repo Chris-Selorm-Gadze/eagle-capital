@@ -6,13 +6,11 @@ export function TopBar({
   accountFilter,
   onAccountFilterChange,
   onAddTrade,
-  onImportTrades,
 }: {
   accounts: Account[]
   accountFilter: number | 'all'
   onAccountFilterChange: (value: number | 'all') => void
   onAddTrade: () => void
-  onImportTrades: () => void
 }) {
   return (
     <div
@@ -25,7 +23,6 @@ export function TopBar({
         <button onClick={onAddTrade} style={{ background: 'var(--accent)', border: '1px solid var(--accent)' }}>
           + Add Trade
         </button>
-        <button onClick={onImportTrades}>Import CSV</button>
         <select
           value={accountFilter}
           onChange={(e) => onAccountFilterChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}

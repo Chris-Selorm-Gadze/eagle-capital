@@ -15,12 +15,38 @@ export function winRate(trades: TradeResult[]): number {
   return trades.filter((t) => t.pnl > 0).length / trades.length
 }
 
-/** Gross wins / abs(gross losses). No losses -> Infinity if there are wins, else 0. */
-export function profitFactor(trades: TradeResult[]): number {
+export interface GrossWinLoss {
+  grossWins: number
+  grossLosses: number // positive magnitude
+}
+
+export function grossWinLoss(trades: TradeResult[]): GrossWinLoss {
   const grossWins = trades.filter((t) => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0)
   const grossLosses = Math.abs(trades.filter((t) => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0))
+  return { grossWins, grossLosses }
+}
+
+/** Gross wins / abs(gross losses). No losses -> Infinity if there are wins, else 0. */
+export function profitFactor(trades: TradeResult[]): number {
+  const { grossWins, grossLosses } = grossWinLoss(trades)
   if (grossLosses === 0) return grossWins > 0 ? Infinity : 0
   return grossWins / grossLosses
+}
+
+export interface OutcomeCounts {
+  wins: number
+  breakeven: number
+  losses: number
+}
+
+export function outcomeCounts(trades: TradeResult[]): OutcomeCounts {
+  let wins = 0, breakeven = 0, losses = 0
+  for (const t of trades) {
+    if (t.pnl > 0) wins++
+    else if (t.pnl < 0) losses++
+    else breakeven++
+  }
+  return { wins, breakeven, losses }
 }
 
 export function avgWin(trades: TradeResult[]): number {

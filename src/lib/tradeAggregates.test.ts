@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  weekTotal, dailyPnlSeries, calendarCells, mostActiveDay, mostProfitableDay, leastProfitableDay,
+  weekTotal, dailyPnlSeries, calendarCells, weekdayStats,
+  mostActiveWeekday, mostProfitableWeekday, leastProfitableWeekday,
   type CalendarCell,
 } from './tradeAggregates'
 
@@ -48,30 +49,38 @@ describe('calendarCells', () => {
   })
 })
 
-describe('most/least active & profitable day', () => {
+describe('weekday aggregation (mostActive/mostProfitable/leastProfitableWeekday)', () => {
+  // 2026-07-06 & 2026-07-13 are both Mondays; 07-07 is a Tuesday; 07-08 is a Wednesday.
   const daily = dailyPnlSeries([
     { date: '2026-07-06', pnl: 100 },
     { date: '2026-07-06', pnl: 50 },
-    { date: '2026-07-06', pnl: -20 },
+    { date: '2026-07-13', pnl: -20 },
     { date: '2026-07-07', pnl: -200 },
     { date: '2026-07-08', pnl: 10 },
   ])
 
-  it('mostActiveDay picks the date with the highest trade count', () => {
-    expect(mostActiveDay(daily)).toMatchObject({ date: '2026-07-06', tradeCount: 3 })
+  it('weekdayStats sums pnl/tradeCount across every occurrence of a weekday', () => {
+    const stats = weekdayStats(daily)
+    expect(stats).toContainEqual({ weekday: 'Monday', pnl: 130, tradeCount: 3 })
+    expect(stats).toContainEqual({ weekday: 'Tuesday', pnl: -200, tradeCount: 1 })
+    expect(stats).toContainEqual({ weekday: 'Wednesday', pnl: 10, tradeCount: 1 })
   })
 
-  it('mostProfitableDay picks the highest net pnl date', () => {
-    expect(mostProfitableDay(daily)).toMatchObject({ date: '2026-07-06', pnl: 130 })
+  it('mostActiveWeekday picks the weekday with the highest total trade count', () => {
+    expect(mostActiveWeekday(daily)).toMatchObject({ weekday: 'Monday', tradeCount: 3 })
   })
 
-  it('leastProfitableDay picks the lowest net pnl date', () => {
-    expect(leastProfitableDay(daily)).toMatchObject({ date: '2026-07-07', pnl: -200 })
+  it('mostProfitableWeekday picks the highest total pnl weekday', () => {
+    expect(mostProfitableWeekday(daily)).toMatchObject({ weekday: 'Monday', pnl: 130 })
+  })
+
+  it('leastProfitableWeekday picks the lowest total pnl weekday', () => {
+    expect(leastProfitableWeekday(daily)).toMatchObject({ weekday: 'Tuesday', pnl: -200 })
   })
 
   it('all return null for an empty series', () => {
-    expect(mostActiveDay([])).toBeNull()
-    expect(mostProfitableDay([])).toBeNull()
-    expect(leastProfitableDay([])).toBeNull()
+    expect(mostActiveWeekday([])).toBeNull()
+    expect(mostProfitableWeekday([])).toBeNull()
+    expect(leastProfitableWeekday([])).toBeNull()
   })
 })

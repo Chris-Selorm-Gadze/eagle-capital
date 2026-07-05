@@ -57,18 +57,44 @@ export function weekTotal(week: (CalendarCell | null)[]): number {
   return week.reduce((sum, c) => sum + (c?.pnl ?? 0), 0)
 }
 
-/** The single date with the most trades taken. */
-export function mostActiveDay(daily: DailyPnl[]): DailyPnl | null {
-  if (daily.length === 0) return null
-  return daily.reduce((best, d) => (d.tradeCount > best.tradeCount ? d : best))
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+export interface WeekdayStat {
+  weekday: string
+  pnl: number
+  tradeCount: number
 }
 
-export function mostProfitableDay(daily: DailyPnl[]): DailyPnl | null {
-  if (daily.length === 0) return null
-  return daily.reduce((best, d) => (d.pnl > best.pnl ? d : best))
+function weekdayIndex(dateISO: string): number {
+  const [y, m, d] = dateISO.split('-').map(Number)
+  return new Date(y, m - 1, d).getDay()
 }
 
-export function leastProfitableDay(daily: DailyPnl[]): DailyPnl | null {
-  if (daily.length === 0) return null
-  return daily.reduce((worst, d) => (d.pnl < worst.pnl ? d : worst))
+/** Aggregates daily totals by day-of-week (Sun-Sat), summing across every occurrence —
+ * which weekday you're most active/profitable on is more actionable than a single date. */
+export function weekdayStats(daily: DailyPnl[]): WeekdayStat[] {
+  const byWeekday = new Map<number, { pnl: number; tradeCount: number }>()
+  for (const d of daily) {
+    const idx = weekdayIndex(d.date)
+    const entry = byWeekday.get(idx) ?? { pnl: 0, tradeCount: 0 }
+    entry.pnl += d.pnl
+    entry.tradeCount += d.tradeCount
+    byWeekday.set(idx, entry)
+  }
+  return [...byWeekday.entries()].map(([idx, s]) => ({ weekday: WEEKDAY_NAMES[idx], ...s }))
+}
+
+export function mostActiveWeekday(daily: DailyPnl[]): WeekdayStat | null {
+  const stats = weekdayStats(daily)
+  return stats.length === 0 ? null : stats.reduce((best, s) => (s.tradeCount > best.tradeCount ? s : best))
+}
+
+export function mostProfitableWeekday(daily: DailyPnl[]): WeekdayStat | null {
+  const stats = weekdayStats(daily)
+  return stats.length === 0 ? null : stats.reduce((best, s) => (s.pnl > best.pnl ? s : best))
+}
+
+export function leastProfitableWeekday(daily: DailyPnl[]): WeekdayStat | null {
+  const stats = weekdayStats(daily)
+  return stats.length === 0 ? null : stats.reduce((worst, s) => (s.pnl < worst.pnl ? s : worst))
 }

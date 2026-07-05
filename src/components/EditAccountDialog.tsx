@@ -1,18 +1,18 @@
 import { useState } from 'react'
-import { db, type Account } from '../db/schema'
-
-const STAGE_OPTIONS: Account['stage'][] = ['challenge', 'phase2', 'funded', 'evaluation', 'pa', 'planned', 'blown']
+import { db, STAGE_OPTIONS, type Account } from '../db/schema'
 
 export function EditAccountDialog({ account, onClose }: { account: Account; onClose: () => void }) {
   const [balance, setBalance] = useState(String(account.balance))
   const [highestBalance, setHighestBalance] = useState(String(account.highestBalance))
   const [stage, setStage] = useState<Account['stage']>(account.stage)
+  const [active, setActive] = useState(account.active)
 
   async function save() {
     await db.accounts.update(account.id!, {
       balance: Number(balance),
       highestBalance: Number(highestBalance),
       stage,
+      active,
     })
     onClose()
   }
@@ -62,6 +62,11 @@ export function EditAccountDialog({ account, onClose }: { account: Account; onCl
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+        </label>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+          Active (shown on the Risk Cockpit)
         </label>
 
         <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>

@@ -6,9 +6,10 @@ page.on('pageerror', e => errors.push(String(e)));
 page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
 
 await page.goto('http://localhost:5173');
-await page.waitForSelector('text=Prop Tracker');
+await page.waitForSelector('text=EagleCapital');
 
 await page.click('button:has-text("+ Add Trade")');
+await page.click('button:has-text("Enter manually")');
 await page.waitForSelector('text=Add trade');
 await page.fill('input[placeholder="MES"]', 'CL');
 await page.fill('input[type=number] >> nth=1', '70');

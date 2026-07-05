@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   netPnl, winRate, profitFactor, avgWin, avgLoss, dayWinRate, tradeDurationMinutes,
   avgTradeDurationMinutes, avgWinDurationMinutes, avgLossDurationMinutes,
-  totalLotsTraded, longPct, bestTrade, worstTrade,
+  totalLotsTraded, longPct, bestTrade, worstTrade, grossWinLoss, outcomeCounts,
 } from '../tradeStats'
 
 const trades = [{ pnl: 100 }, { pnl: -50 }, { pnl: 200 }, { pnl: -25 }, { pnl: 0 }]
@@ -71,5 +71,15 @@ describe('trade stats', () => {
     expect(worstTrade(withSymbols)).toMatchObject({ pnl: -50, symbol: 'NQ' })
     expect(bestTrade([])).toBeNull()
     expect(worstTrade([])).toBeNull()
+  })
+
+  it('grossWinLoss splits gross wins from gross losses (as a positive magnitude)', () => {
+    expect(grossWinLoss(trades)).toEqual({ grossWins: 300, grossLosses: 75 })
+    expect(grossWinLoss([])).toEqual({ grossWins: 0, grossLosses: 0 })
+  })
+
+  it('outcomeCounts tallies wins/breakeven/losses', () => {
+    expect(outcomeCounts(trades)).toEqual({ wins: 2, breakeven: 1, losses: 2 })
+    expect(outcomeCounts([])).toEqual({ wins: 0, breakeven: 0, losses: 0 })
   })
 })

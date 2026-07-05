@@ -6,8 +6,9 @@ page.on('pageerror', e => errors.push(String(e)));
 page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
 
 await page.goto('http://localhost:5173');
-await page.waitForSelector('text=Prop Tracker');
+await page.waitForSelector('text=EagleCapital');
 
+await page.click('button:has-text("+ Add Trade")');
 await page.click('button:has-text("Import CSV")');
 await page.waitForSelector('text=Import trades (FundedNext CSV)');
 await page.setInputFiles('input[accept=".csv"]', '/tmp/pt-test-import.csv');
@@ -29,6 +30,7 @@ await page.waitForTimeout(300);
 console.log('trade log count ->', await page.locator('text=All trades').innerText());
 
 // re-open and re-import same file to test dedupe
+await page.click('button:has-text("+ Add Trade")');
 await page.click('button:has-text("Import CSV")');
 await page.waitForSelector('text=Import trades (FundedNext CSV)');
 await page.setInputFiles('input[accept=".csv"]', '/tmp/pt-test-import.csv');

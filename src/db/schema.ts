@@ -16,7 +16,10 @@ export interface Account {
   cumulativePaid?: number
   balance: number
   highestBalance: number // include unrealized peaks!
+  active: boolean // false = not currently trading this account; hidden from the Risk Cockpit's main view
 }
+
+export const STAGE_OPTIONS: Account['stage'][] = ['challenge', 'phase2', 'funded', 'evaluation', 'pa', 'planned', 'blown']
 
 export interface SessionLog {
   id?: number
@@ -87,6 +90,19 @@ class PropDb extends Dexie {
       rewards: '++id,accountId,date',
       trades: '++id,accountId,date',
     })
+    this.version(4).stores({
+      accounts: '++id,firm,stage,active',
+      sessions: '++id,accountId,date',
+      payouts: '++id,accountId,date',
+      rewards: '++id,accountId,date',
+      trades: '++id,accountId,date',
+    }).upgrade((tx) =>
+      tx.table('accounts').toCollection().modify((a: Account) => {
+        // Accounts created before "active" existed: treat non-planned FundedNext
+        // accounts as the ones actually being traded, everything else as dormant.
+        a.active = a.firm === 'fundednext' && a.stage !== 'planned'
+      })
+    )
   }
 }
 

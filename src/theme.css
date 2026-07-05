@@ -76,3 +76,23 @@ textarea:focus {
 a {
   color: var(--accent);
 }
+
+/* KPI row: 3 columns (2 rows for 6 tiles) by default, reflowing down as the
+   viewport narrows — plain inline styles can't express breakpoints. */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 900px) {
+  .kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .kpi-row {
+    grid-template-columns: 1fr;
+  }
+}

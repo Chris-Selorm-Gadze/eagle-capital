@@ -44,7 +44,7 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
         <div style={{ fontWeight: 600 }}>{MONTH_NAMES[month]} {year}</div>
         <button onClick={nextMonth}>›</button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: GRID_COLUMNS, gap: 4, fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: GRID_COLUMNS, gap: 6, fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6 }}>
         {WEEKDAYS.map((w) => <div key={w} style={{ textAlign: 'center' }}>{w}</div>)}
         <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border)' }}>Week</div>
       </div>
@@ -52,16 +52,16 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
         const total = weekTotal(week)
         const totalStyle = weekTotalStyle(total)
         return (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: GRID_COLUMNS, gap: 4, marginBottom: 4 }}>
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: GRID_COLUMNS, gap: 6, marginBottom: 6 }}>
             {week.map((cell, j) => {
               const style = cellStyle(cell?.pnl ?? null)
               return (
                 <div
                   key={j}
                   style={{
-                    minHeight: 60, borderRadius: 4, padding: '0.25rem 0.35rem',
+                    minHeight: 84, borderRadius: 4, padding: '0.4rem 0.5rem',
                     background: cell ? style.background : 'transparent',
-                    color: style.color, fontSize: '0.7rem',
+                    color: style.color, fontSize: '0.85rem',
                   }}
                 >
                   {cell && (
@@ -69,10 +69,10 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
                       <div>{cell.day}</div>
                       {cell.pnl !== null && (
                         <>
-                          <div style={{ fontWeight: 600 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.95rem', marginTop: '0.2rem' }}>
                             {cell.pnl >= 0 ? '+' : '-'}${Math.abs(cell.pnl).toLocaleString()}
                           </div>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                             {cell.tradeCount} trade{cell.tradeCount === 1 ? '' : 's'}
                           </div>
                         </>
@@ -84,9 +84,9 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
             })}
             <div
               style={{
-                minHeight: 60, borderRadius: 4, padding: '0.25rem 0.35rem', borderLeft: '1px solid var(--border)',
+                minHeight: 84, borderRadius: 4, padding: '0.4rem 0.5rem', borderLeft: '1px solid var(--border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
-                fontSize: '0.7rem', fontWeight: 600, color: totalStyle.color,
+                fontSize: '0.85rem', fontWeight: 600, color: totalStyle.color,
               }}
             >
               {total >= 0 ? '+' : '-'}${Math.abs(total).toLocaleString()}
