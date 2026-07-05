@@ -9,6 +9,7 @@ import { PayoutPlannerDialog } from './components/PayoutPlannerDialog'
 import { FundedNextCycleDialog } from './components/FundedNextCycleDialog'
 import { EquityCurveChart } from './components/EquityCurveChart'
 import { ScenarioChart } from './components/ScenarioChart'
+import { BackupControls } from './components/BackupControls'
 import { effectiveBreakerLevels } from './lib/breaker'
 
 const FIRM_LABEL: Record<Account['firm'], string> = {
@@ -39,7 +40,10 @@ export default function App() {
 
   return (
     <main style={{ fontFamily: 'system-ui', maxWidth: 1100, margin: '2rem auto', padding: '0 1rem' }}>
-      <h1>Prop Tracker</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '1rem' }}>
+        <h1>Prop Tracker</h1>
+        <BackupControls />
+      </div>
 
       {(Object.keys(byFirm) as Account['firm'][]).map((firm) => (
         <section key={firm} style={{ marginBottom: '2rem' }}>
