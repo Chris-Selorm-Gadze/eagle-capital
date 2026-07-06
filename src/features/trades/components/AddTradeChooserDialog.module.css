@@ -1,0 +1,46 @@
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.option {
+  text-align: left;
+  padding: 0.75rem 0.9rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.optionDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.optionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.optionTitle {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.optionDesc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.2rem;
+}
+
+.badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}

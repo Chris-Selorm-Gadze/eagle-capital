@@ -1,0 +1,47 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.15rem;
+}
+
+.pieWrap {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.legendRow + .legendRow {
+  margin-top: 0.25rem;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.dotGood {
+  background: var(--good);
+}
+
+.dotCritical {
+  background: var(--critical);
+}
+
+.pct {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.legendLabel {
+  color: var(--text-muted);
+}

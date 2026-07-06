@@ -1,0 +1,98 @@
+.root {
+  border: 1px solid var(--border);
+  border-left: 3px solid;
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--surface);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.balance {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.2rem;
+}
+
+.stageBadge {
+  font-size: 0.72rem;
+  padding: 2px 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--surface-3);
+  color: var(--text-secondary);
+}
+
+.breakerBanner {
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--surface-2);
+}
+
+.roomBox {
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 6px;
+}
+
+.roomLabel {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.roomValue {
+  font-size: 1.65rem;
+  font-weight: 700;
+}
+
+.cushion {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.miniStatsRow {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.miniStat {
+  flex: 1;
+  min-width: 0;
+}
+
+.miniStatLabel {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.miniStatValue {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 0.15rem;
+}
+
+.buttonsRow {
+  margin-top: 0.85rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

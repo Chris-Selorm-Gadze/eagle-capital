@@ -55,6 +55,15 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-ghost {
+  background: transparent;
+}
+
 input,
 select,
 textarea {
@@ -75,6 +84,85 @@ textarea:focus {
 
 a {
   color: var(--accent);
+}
+
+/* The bordered/padded surface used by nearly every card, chart, and tile. */
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--surface);
+}
+
+/* Page-level heading, used at the top of every page component. */
+.page-title {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+/* Form field utilities — the label+input block and side-by-side field row
+   repeated across every dialog. */
+.field {
+  display: block;
+  margin-top: 0.75rem;
+}
+
+.field input,
+.field select,
+.field textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.field-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.field-row label {
+  display: block;
+}
+
+.field-row input,
+.field-row select,
+.field-row textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.flex-2 {
+  flex: 2;
+}
+
+/* Small circular "i" info-icon with a native title tooltip, used on tile
+   headers and chart legends throughout the dashboard. */
+.info-icon {
+  cursor: help;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  line-height: 1;
+  border: 1px solid var(--text-muted);
+  border-radius: 50%;
+  width: 13px;
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 /* KPI row: 3 columns (2 rows for 6 tiles) by default, reflowing down as the

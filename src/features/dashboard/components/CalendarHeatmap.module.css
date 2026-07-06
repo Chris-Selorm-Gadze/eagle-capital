@@ -1,0 +1,67 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.monthTitle {
+  font-weight: 600;
+}
+
+.weekdayRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr) minmax(64px, 0.9fr);
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.weekdayCell {
+  text-align: center;
+}
+
+.weekLabelCell {
+  text-align: center;
+  border-left: 1px solid var(--border);
+}
+
+.weekRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr) minmax(64px, 0.9fr);
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.dayCell {
+  min-height: 84px;
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.dayPnl {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-top: 0.2rem;
+}
+
+.dayTradeCount {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.weekTotalCell {
+  min-height: 84px;
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  border-left: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+}

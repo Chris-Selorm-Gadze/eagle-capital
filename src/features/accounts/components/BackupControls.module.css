@@ -1,0 +1,14 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.status {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}

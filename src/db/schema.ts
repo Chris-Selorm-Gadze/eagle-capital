@@ -1,68 +1,19 @@
 import Dexie, { type Table } from 'dexie'
-import type { FnModel } from '../domain/fundednext'
+import type { Account, SessionLog, Payout, Reward, Trade } from '../types'
 
-export interface Account {
-  id?: number
-  firm: 'fundednext' | 'apex'
-  label: string
-  model?: FnModel
-  size: number
-  stage: 'challenge' | 'phase2' | 'funded' | 'evaluation' | 'pa' | 'planned' | 'blown'
-  platform?: 'rithmic' | 'tradovate'
-  fundedDate?: string // ISO date
-  qualifyingCycles?: number
-  scaleEvents?: number
-  payoutsDone?: number
-  cumulativePaid?: number
-  balance: number
-  highestBalance: number // include unrealized peaks!
-  active: boolean // false = not currently trading this account; hidden from the Risk Cockpit's main view
-}
+export type { Account, SessionLog, Payout, Reward, Trade } from '../types'
 
-export const STAGE_OPTIONS: Account['stage'][] = ['challenge', 'phase2', 'funded', 'evaluation', 'pa', 'planned', 'blown']
-
-export interface SessionLog {
-  id?: number
-  accountId: number
-  date: string // ISO date
-  pnl: number
-  trades: number
-  consecutiveLosses: number
-  highestUnrealized?: number
-  rulesFollowed: boolean
-  notes?: string
-}
-
-export interface Payout {
-  id?: number
-  accountId: number
-  date: string
-  requested: number
-  received: number
-}
-
-export interface Reward {
-  id?: number
-  accountId: number
-  date: string // ISO date
-  growthPct: number // e.g. 0.05 for 5% growth
-}
-
-export interface Trade {
-  id?: number
-  accountId: number
-  date: string // ISO date, entryTime's date — for calendar/day grouping
-  symbol: string
-  side: 'long' | 'short'
-  qty: number
-  entryPrice: number
-  exitPrice: number
-  entryTime: string // ISO datetime
-  exitTime: string // ISO datetime
-  fees?: number
-  pnl: number // computed at save time: (exit-entry)*qty*dir - fees
-  notes?: string
-}
+export const STAGE_OPTIONS: Account['stage'][] = [
+  'challenge',
+  'phase2',
+  'verification',
+  'funded',
+  'evaluation',
+  'pa',
+  'planned',
+  'blown',
+  'inactive'
+]
 
 class PropDb extends Dexie {
   accounts!: Table<Account>
@@ -98,9 +49,48 @@ class PropDb extends Dexie {
       trades: '++id,accountId,date',
     }).upgrade((tx) =>
       tx.table('accounts').toCollection().modify((a: Account) => {
-        // Accounts created before "active" existed: treat non-planned FundedNext
-        // accounts as the ones actually being traded, everything else as dormant.
         a.active = a.firm === 'fundednext' && a.stage !== 'planned'
+      })
+    )
+    this.version(5).stores({
+      accounts: '++id,firmId,stage,active',
+      sessions: '++id,accountId,date',
+      payouts: '++id,accountId,date',
+      rewards: '++id,accountId,date',
+      trades: '++id,accountId,date',
+    }).upgrade((tx) =>
+      tx.table('accounts').toCollection().modify((a: any) => {
+        // Map legacy firm to firmId
+        if (a.firm) {
+          a.firmId = a.firm
+        } else if (!a.firmId) {
+          a.firmId = 'other'
+        }
+
+        // Default currency
+        a.currency = 'USD'
+
+        // Backfill user-defined risk limits based on legacy firm models
+        if (a.firmId === 'fundednext') {
+          const model = a.model || 'stellar-2step'
+          const size = a.size || 5000
+          if (model === 'stellar-1step') {
+            a.maxDrawdown = size * 0.06
+            a.dailyLossLimit = size * 0.03
+          } else if (model === 'stellar-lite') {
+            a.maxDrawdown = size * 0.08
+            a.dailyLossLimit = size * 0.04
+          } else {
+            a.maxDrawdown = size * 0.10
+            a.dailyLossLimit = size * 0.05
+          }
+          a.trailingDrawdown = false
+        } else if (a.firmId === 'apex') {
+          a.maxDrawdown = 6500
+          a.dailyLossLimit = 0
+          a.trailingDrawdown = true
+          a.profitTarget = 15000
+        }
       })
     )
   }

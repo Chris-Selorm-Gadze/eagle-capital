@@ -1,0 +1,39 @@
+.value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 0.15rem;
+  color: var(--text-primary);
+}
+
+.bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.6rem;
+}
+
+.barWin {
+  background: var(--good);
+}
+
+.barLoss {
+  background: var(--critical);
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.3rem;
+}
+
+.winLabel {
+  color: var(--good);
+}
+
+.lossLabel {
+  color: var(--critical);
+}

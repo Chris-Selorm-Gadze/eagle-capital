@@ -1,0 +1,6 @@
+.value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 0.15rem;
+  color: var(--text-primary);
+}

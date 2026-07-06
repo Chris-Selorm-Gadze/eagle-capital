@@ -1,0 +1,47 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.legend {
+  display: flex;
+  gap: 1.25rem;
+  margin: 0.6rem 0 0.25rem;
+  font-size: 0.8rem;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dotBalance {
+  background: var(--accent);
+}
+
+.dotWithdrawals {
+  background: var(--critical);
+}
+
+.chartArea {
+  flex: 1;
+  min-height: 180px;
+}

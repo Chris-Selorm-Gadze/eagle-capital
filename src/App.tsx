@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db/schema'
-import { Sidebar, type NavKey } from './components/layout/Sidebar'
-import { TopBar } from './components/layout/TopBar'
-import { TopNav } from './components/layout/TopNav'
-import { AddTradeDialog } from './components/AddTradeDialog'
-import { ImportTradesDialog } from './components/ImportTradesDialog'
-import { AddTradeChooserDialog } from './components/AddTradeChooserDialog'
-import { RiskCockpitPage } from './pages/RiskCockpitPage'
-import { TradeCopierPage } from './pages/TradeCopierPage'
-import { TradeJournalPage } from './pages/TradeJournalPage'
-import { PlanPage } from './pages/PlanPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { TradeLogPage } from './pages/TradeLogPage'
+import { Sidebar, type NavKey } from './shared/layout/Sidebar'
+import { TopBar } from './shared/layout/TopBar'
+import { TopNav } from './shared/layout/TopNav'
+import { AddTradeDialog } from './features/trades/components/AddTradeDialog'
+import { ImportTradesDialog } from './features/trades/components/ImportTradesDialog'
+import { AddTradeChooserDialog } from './features/trades/components/AddTradeChooserDialog'
+import { RiskCockpitPage } from './features/accounts/RiskCockpitPage'
+import { TradeCopierPage } from './features/copier/TradeCopierPage'
+import { TradeJournalPage } from './features/trades/TradeJournalPage'
+import { PlanPage } from './features/plan/PlanPage'
+import { DashboardPage } from './features/dashboard/DashboardPage'
+import { TradeLogPage } from './features/trades/TradeLogPage'
+import styles from './App.module.css'
 
 export default function App() {
   const accounts = useLiveQuery(() => db.accounts.toArray()) ?? []
@@ -38,18 +39,18 @@ export default function App() {
   const filteredPayouts = accountFilter === 'all' ? payouts : payouts.filter((p) => p.accountId === accountFilter)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className={styles.root}>
       <TopNav />
-      <div style={{ display: 'flex', flex: 1 }}>
+      <div className={styles.body}>
         <Sidebar active={nav} onNavigate={setNav} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div className={styles.content}>
           <TopBar
             accounts={accounts}
             accountFilter={accountFilter}
             onAccountFilterChange={setAccountFilter}
             onAddTrade={() => setChoosingAddMethod(true)}
           />
-          <main style={{ padding: '1.5rem', flex: 1 }}>
+          <main className={styles.main}>
             {nav === 'dashboard' && (
               <DashboardPage trades={filteredTrades} accounts={dashboardAccounts} payouts={filteredPayouts} />
             )}

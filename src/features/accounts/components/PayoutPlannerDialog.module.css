@@ -1,0 +1,15 @@
+.gates {
+  margin-top: 0.75rem;
+}
+
+.gateRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.25rem 0;
+}
+
+.result {
+  margin-top: 0.75rem;
+  font-weight: 600;
+}

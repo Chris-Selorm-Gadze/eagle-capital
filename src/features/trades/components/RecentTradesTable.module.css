@@ -1,0 +1,46 @@
+.title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.headerRow {
+  text-align: left;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.cell {
+  padding: 0.4rem 0.3rem;
+}
+
+.row {
+  border-bottom: 1px solid var(--border);
+}
+
+.side {
+  text-transform: capitalize;
+}
+
+.pnl {
+  font-weight: 600;
+}
+
+.actionsCell {
+  white-space: nowrap;
+}
+
+.deleteButton {
+  margin-left: 0.4rem;
+}
+
+.emptyRow {
+  padding: 0.75rem 0.3rem;
+  color: var(--text-muted);
+}
