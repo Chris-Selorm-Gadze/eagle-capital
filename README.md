@@ -1,4 +1,4 @@
-# Prop Tracker
+# EagleCapital
 
 Local-first dashboard for tracking prop-firm accounts across FundedNext (CFD) and Apex Trader Funding (futures). All data stays in your browser (IndexedDB) — no server, no login.
 

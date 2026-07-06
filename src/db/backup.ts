@@ -24,7 +24,7 @@ export function downloadBackup(backup: Backup) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `prop-tracker-backup-${todayISO()}.json`
+  a.download = `eaglecapital-backup-${todayISO()}.json`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -37,7 +37,7 @@ function isBackup(value: unknown): value is Backup {
 
 export async function parseBackupFile(file: File): Promise<Backup> {
   const parsed = JSON.parse(await file.text())
-  if (!isBackup(parsed)) throw new Error('Not a valid Prop Tracker backup file')
+  if (!isBackup(parsed)) throw new Error('Not a valid EagleCapital backup file')
   return parsed
 }
 

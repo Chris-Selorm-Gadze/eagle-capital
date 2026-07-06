@@ -1,4 +1,4 @@
-# Prop Tracker — Build Plan
+# EagleCapital (prop-tracker) — Build Plan
 
 A local-first dashboard tracking Chris's prop accounts across FundedNext (CFD) and Apex (futures, 4× 250K legacy). Companion to `FundedNext_600K_Scaling_Plan.xlsx` — the spreadsheet is the plan, this app is the daily cockpit.
 

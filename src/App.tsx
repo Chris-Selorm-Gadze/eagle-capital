@@ -15,6 +15,7 @@ import { TradeJournalPage } from './features/trades/TradeJournalPage'
 import { PlanPage } from './features/plan/PlanPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { TradeLogPage } from './features/trades/TradeLogPage'
+import { BrokerConnectionsPage } from './features/brokers/BrokerConnectionsPage'
 import styles from './App.module.css'
 
 export default function App() {
@@ -32,7 +33,7 @@ export default function App() {
 
   async function handleSnapshot() {
     if (!mainRef.current) return
-    await downloadElementAsImage(mainRef.current, `prop-tracker-dashboard-${todayISO()}.png`)
+    await downloadElementAsImage(mainRef.current, `eaglecapital-dashboard-${todayISO()}.png`)
   }
 
   const sessionsByAccountId = new Map<number, typeof sessions>()
@@ -68,6 +69,7 @@ export default function App() {
             {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} />}
             {nav === 'tradejournal' && <TradeJournalPage />}
             {nav === 'plan' && <PlanPage accounts={accounts} sessionsByAccountId={sessionsByAccountId} />}
+            {nav === 'brokers' && <BrokerConnectionsPage />}
           </main>
         </div>
 
@@ -75,6 +77,7 @@ export default function App() {
           <AddTradeChooserDialog
             onSelectManual={() => { setChoosingAddMethod(false); setAddingTrade(true) }}
             onSelectImport={() => { setChoosingAddMethod(false); setImportingTrades(true) }}
+            onSelectBroker={() => { setChoosingAddMethod(false); setNav('brokers') }}
             onClose={() => setChoosingAddMethod(false)}
           />
         )}

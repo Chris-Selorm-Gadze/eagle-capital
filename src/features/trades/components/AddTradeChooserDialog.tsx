@@ -4,10 +4,12 @@ import styles from './AddTradeChooserDialog.module.css'
 export function AddTradeChooserDialog({
   onSelectManual,
   onSelectImport,
+  onSelectBroker,
   onClose,
 }: {
   onSelectManual: () => void
   onSelectImport: () => void
+  onSelectBroker: () => void
   onClose: () => void
 }) {
   return (
@@ -23,13 +25,13 @@ export function AddTradeChooserDialog({
           <div className={styles.optionDesc}>Bulk-import trades from a FundedNext export file.</div>
         </button>
 
-        <div className={`${styles.option} ${styles.optionDisabled}`}>
+        <button className={styles.option} onClick={onSelectBroker}>
           <div className={styles.optionHeader}>
             <span className={styles.optionTitle}>Connect a broker</span>
-            <span className={styles.badge}>COMING SOON</span>
+            <span className={styles.badge}>SET UP</span>
           </div>
           <div className={styles.optionDesc}>Auto-sync trades directly from Tradovate, Rithmic, or your broker of choice.</div>
-        </div>
+        </button>
       </div>
     </Modal>
   )

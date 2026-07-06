@@ -1,4 +1,4 @@
-# CLAUDE.md — prop-tracker
+# CLAUDE.md — EagleCapital (prop-tracker)
 
 Personal dashboard tracking prop-firm accounts: FundedNext CFD (Stellar) + Apex Trader Funding (4× 250K LEGACY futures). Owner: Chris. Build milestones live in PLAN.md — always check which milestone is next before adding features.
 

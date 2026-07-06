@@ -1,0 +1,42 @@
+.root {
+  max-width: 360px;
+  margin: 3rem auto;
+}
+
+.title {
+  margin-bottom: 0.25rem;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.error {
+  color: var(--critical);
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+}
+
+.success {
+  color: var(--good);
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.toggle {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+}
