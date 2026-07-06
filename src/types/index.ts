@@ -1,5 +1,27 @@
 export type FnModel = 'stellar-1step' | 'stellar-2step' | 'stellar-lite'
 
+export interface PayoutRuleProfile {
+  tradingDaysBetween: number
+  profitableDaysRequired: number
+  profitableDayMin: number
+  safetyNetBalance?: number
+  safetyNetPayoutCount?: number
+  windfallShare?: number
+  windfallAppliesToPayoutCount?: number
+  minPayout?: number
+  capFirstNPayouts?: { count: number; cap: number }
+  splitFullUpTo?: number
+  splitAfter: number
+}
+
+export interface ScalingRuleProfile {
+  cyclesRequired: number
+  minCycleGrowthPct: number
+  minAgeDays: number
+  scaleRatePct: number
+  scaleCeiling?: number
+}
+
 export interface Account {
   id?: number
   firmId: string           // references propFirms catalog (e.g. 'apex', 'fundednext', 'ftmo', 'other')
@@ -23,6 +45,10 @@ export interface Account {
   fundedDate?: string      // ISO date: when it became funded
   active: boolean          // active/inactive in cockpit
   notes?: string
+
+  // Generic rule profiles — set by hand or loaded from a rule pack (rulePacks.ts)
+  payoutRules?: PayoutRuleProfile
+  scalingRules?: ScalingRuleProfile
   
   // Legacy / Migration fields (for backward compatibility)
   firm?: 'fundednext' | 'apex'

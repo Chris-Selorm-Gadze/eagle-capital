@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type { Account, SessionLog, Payout, Reward, Trade } from '../types'
+import { PAYOUT_RULE_PACKS, SCALING_RULE_PACKS } from '../features/accounts/rulePacks'
 
 export type { Account, SessionLog, Payout, Reward, Trade } from '../types'
 
@@ -91,6 +92,20 @@ class PropDb extends Dexie {
           a.trailingDrawdown = true
           a.profitTarget = 15000
         }
+      })
+    )
+    this.version(6).stores({
+      accounts: '++id,firmId,stage,active',
+      sessions: '++id,accountId,date',
+      payouts: '++id,accountId,date',
+      rewards: '++id,accountId,date',
+      trades: '++id,accountId,date',
+    }).upgrade((tx) =>
+      tx.table('accounts').toCollection().modify((a: Account) => {
+        // Backfill rule profiles for existing accounts so their Payout Planner /
+        // Scaling Rules dialogs keep working exactly as before this refactor.
+        if (!a.payoutRules && PAYOUT_RULE_PACKS[a.firmId]) a.payoutRules = PAYOUT_RULE_PACKS[a.firmId]
+        if (!a.scalingRules && SCALING_RULE_PACKS[a.firmId]) a.scalingRules = SCALING_RULE_PACKS[a.firmId]
       })
     )
   }

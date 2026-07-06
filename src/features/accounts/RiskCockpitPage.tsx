@@ -7,7 +7,7 @@ import { EditAccountDialog } from './components/EditAccountDialog'
 import { AddAccountDialog } from './components/AddAccountDialog'
 import { LogSessionDialog } from './components/LogSessionDialog'
 import { PayoutPlannerDialog } from './components/PayoutPlannerDialog'
-import { FundedNextCycleDialog } from './components/FundedNextCycleDialog'
+import { ScalingCycleDialog } from './components/ScalingCycleDialog'
 import { DashboardSummary } from './components/DashboardSummary'
 import { effectiveBreakerLevels } from '../risk/breaker'
 import { PROP_FIRMS } from './propFirms'
@@ -76,8 +76,8 @@ export function RiskCockpitPage({
                 breaker={breakerLevels.get(a.id!) ?? 'ok'}
                 onEdit={() => setEditing(a)}
                 onLogSession={() => setLogging(a)}
-                onPayoutPlanner={a.firmId === 'apex' && a.stage === 'pa' ? () => setPlanningPayout(a) : undefined}
-                onCycleTracker={a.firmId === 'fundednext' && a.stage !== 'planned' ? () => setTrackingCycles(a) : undefined}
+                onPayoutPlanner={['funded', 'pa'].includes(a.stage) ? () => setPlanningPayout(a) : undefined}
+                onScalingTracker={['funded', 'pa'].includes(a.stage) ? () => setTrackingCycles(a) : undefined}
               />
             ))}
           </div>
@@ -112,7 +112,7 @@ export function RiskCockpitPage({
       {editing && <EditAccountDialog account={editing} onClose={() => setEditing(null)} />}
       {logging && <LogSessionDialog account={logging} onClose={() => setLogging(null)} />}
       {planningPayout && <PayoutPlannerDialog account={planningPayout} onClose={() => setPlanningPayout(null)} />}
-      {trackingCycles && <FundedNextCycleDialog account={trackingCycles} onClose={() => setTrackingCycles(null)} />}
+      {trackingCycles && <ScalingCycleDialog account={trackingCycles} onClose={() => setTrackingCycles(null)} />}
       {adding && <AddAccountDialog onClose={() => setAdding(false)} />}
     </div>
   )

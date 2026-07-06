@@ -55,14 +55,14 @@ export function AccountCard({
   onEdit,
   onLogSession,
   onPayoutPlanner,
-  onCycleTracker,
+  onScalingTracker,
 }: {
   account: Account
   breaker: BreakerLevel
   onEdit: () => void
   onLogSession: () => void
   onPayoutPlanner?: () => void
-  onCycleTracker?: () => void
+  onScalingTracker?: () => void
 }) {
   const { maxDd, room, risk, stop, trades, cushion } = computeAccountRisk(account)
   const color = roomColor(room, maxDd)
@@ -119,7 +119,7 @@ export function AccountCard({
         <button onClick={onLogSession} className="btn-primary">Log session</button>
         <button onClick={onEdit} className="btn-ghost">Edit</button>
         {onPayoutPlanner && <button onClick={onPayoutPlanner}>Payout planner</button>}
-        {onCycleTracker && <button onClick={onCycleTracker}>Pro cycles</button>}
+        {onScalingTracker && <button onClick={onScalingTracker}>Scaling rules</button>}
       </div>
     </div>
   )
