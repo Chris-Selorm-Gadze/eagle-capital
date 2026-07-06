@@ -41,10 +41,13 @@ export interface Account {
   dailyLossLimit?: number    // absolute $ daily loss limit
   profitTarget?: number      // absolute $ profit target for current stage
   trailingDrawdown?: boolean // whether drawdown is trailing
-  
+  minTradingDays?: number    // min trading days required to complete the evaluation
+
   fundedDate?: string      // ISO date: when it became funded
   active: boolean          // active/inactive in cockpit
   notes?: string
+  cost?: number            // one-time amount paid for this challenge/evaluation attempt
+  blownReason?: string     // captured when stage is set to 'blown' — see breachReasons.ts
 
   // Generic rule profiles — set by hand or loaded from a rule pack (rulePacks.ts)
   payoutRules?: PayoutRuleProfile

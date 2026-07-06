@@ -1,0 +1,97 @@
+.section {
+  margin-bottom: 2rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  gap: 1rem;
+}
+
+.cardTitle {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.donutRow {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.donutWrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+}
+
+.donutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donutCenterLabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.donutCenterValue {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legendName {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.legendNums {
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.pathGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.pathCard {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.pathCardTitle {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.6rem;
+}

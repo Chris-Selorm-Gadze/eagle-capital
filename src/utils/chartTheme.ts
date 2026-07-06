@@ -24,3 +24,16 @@ export const AXIS_LINE_STYLE = { stroke: AXIS_LINE_COLOR }
 export const TOOLTIP_CONTENT_STYLE = { background: 'var(--surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6 }
 export const TOOLTIP_LABEL_STYLE = { color: 'var(--text-secondary)' }
 export const TOOLTIP_ITEM_STYLE = { color: 'var(--text-primary)' }
+
+// Categorical identity colors (e.g. one per firm) — fixed order, never cycled/reassigned
+// per-render. Dark-mode-safe hues, distinct from the good/critical/accent status colors above.
+export const CATEGORICAL_COLORS = [
+  '#3987e5', // blue
+  '#199e70', // aqua
+  '#c98500', // yellow
+  '#008300', // green
+  '#9085e9', // violet
+  '#e66767', // red
+  '#d55181', // magenta
+  '#d95926', // orange
+]

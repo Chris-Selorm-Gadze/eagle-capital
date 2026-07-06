@@ -63,7 +63,7 @@ export default function App() {
             {nav === 'dashboard' && (
               <DashboardPage trades={filteredTrades} accounts={dashboardAccounts} payouts={filteredPayouts} />
             )}
-            {nav === 'cockpit' && <RiskCockpitPage accounts={accounts} sessionsByAccountId={sessionsByAccountId} />}
+            {nav === 'cockpit' && <RiskCockpitPage accounts={accounts} payouts={payouts} sessionsByAccountId={sessionsByAccountId} />}
             {nav === 'tradecopier' && <TradeCopierPage />}
             {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} />}
             {nav === 'tradejournal' && <TradeJournalPage />}

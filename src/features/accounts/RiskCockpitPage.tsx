@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Account, SessionLog } from '../../db/schema'
+import type { Account, Payout, SessionLog } from '../../db/schema'
 import { todayISO } from '../../db/sessions'
 import { setAccountActive } from '../../db/accounts'
 import { AccountCard } from './components/AccountCard'
@@ -9,6 +9,7 @@ import { LogSessionDialog } from './components/LogSessionDialog'
 import { PayoutPlannerDialog } from './components/PayoutPlannerDialog'
 import { ScalingCycleDialog } from './components/ScalingCycleDialog'
 import { DashboardSummary } from './components/DashboardSummary'
+import { FirmFinanceSection } from './components/FirmFinanceSection'
 import { effectiveBreakerLevels } from '../risk/breaker'
 import { PROP_FIRMS } from './propFirms'
 import styles from './RiskCockpitPage.module.css'
@@ -20,9 +21,11 @@ interface AccountGroup {
 
 export function RiskCockpitPage({
   accounts,
+  payouts,
   sessionsByAccountId,
 }: {
   accounts: Account[]
+  payouts: Payout[]
   sessionsByAccountId: Map<number, SessionLog[]>
 }) {
   const [editing, setEditing] = useState<Account | null>(null)
@@ -58,6 +61,8 @@ export function RiskCockpitPage({
       </div>
 
       <DashboardSummary accounts={activeAccounts} breakerLevels={breakerLevels} />
+
+      <FirmFinanceSection accounts={accounts} payouts={payouts} sessionsByAccountId={sessionsByAccountId} />
 
       {activeAccounts.length === 0 && (
         <div className={styles.emptyState}>

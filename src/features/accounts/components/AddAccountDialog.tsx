@@ -51,6 +51,8 @@ export function AddAccountDialog({ onClose }: { onClose: () => void }) {
   const [dailyLossLimit, setDailyLossLimit] = useState('')
   const [profitTarget, setProfitTarget] = useState('')
   const [trailingDrawdown, setTrailingDrawdown] = useState(false)
+  const [minTradingDays, setMinTradingDays] = useState('')
+  const [cost, setCost] = useState('')
 
   // Autocomplete label and limits when size / firmId changes
   useEffect(() => {
@@ -83,6 +85,8 @@ export function AddAccountDialog({ onClose }: { onClose: () => void }) {
       dailyLossLimit: dailyLossLimit ? Number(dailyLossLimit) : undefined,
       profitTarget: profitTarget ? Number(profitTarget) : undefined,
       trailingDrawdown,
+      minTradingDays: minTradingDays ? Number(minTradingDays) : undefined,
+      cost: cost ? Number(cost) : undefined,
     })
     onClose()
   }
@@ -158,6 +162,17 @@ export function AddAccountDialog({ onClose }: { onClose: () => void }) {
         <label className="flex-1 field-checkbox" style={{ marginTop: '1.25rem' }}>
           <input type="checkbox" checked={trailingDrawdown} onChange={(e) => setTrailingDrawdown(e.target.checked)} />
           Trailing drawdown
+        </label>
+      </div>
+
+      <div className="field-row">
+        <label className="flex-1">
+          Min Trading Days
+          <input type="number" value={minTradingDays} onChange={(e) => setMinTradingDays(e.target.value)} placeholder="e.g. 10" />
+        </label>
+        <label className="flex-1">
+          Challenge Cost ($)
+          <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="e.g. 150" />
         </label>
       </div>
 

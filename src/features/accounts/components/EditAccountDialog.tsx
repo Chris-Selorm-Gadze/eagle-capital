@@ -1,18 +1,22 @@
 import { useState } from 'react'
 import { db, STAGE_OPTIONS, type Account } from '../../../db/schema'
 import { Modal } from '../../../shared/ui/Modal'
+import { BREACH_REASONS } from '../breachReasons'
 
 export function EditAccountDialog({ account, onClose }: { account: Account; onClose: () => void }) {
   const [balance, setBalance] = useState(String(account.balance))
   const [highestBalance, setHighestBalance] = useState(String(account.highestBalance))
   const [stage, setStage] = useState<Account['stage']>(account.stage)
   const [active, setActive] = useState(account.active)
-  
+  const [blownReason, setBlownReason] = useState(account.blownReason ?? '')
+
   // Custom Risk fields
   const [maxDrawdown, setMaxDrawdown] = useState(account.maxDrawdown !== undefined ? String(account.maxDrawdown) : '')
   const [dailyLossLimit, setDailyLossLimit] = useState(account.dailyLossLimit !== undefined ? String(account.dailyLossLimit) : '')
   const [profitTarget, setProfitTarget] = useState(account.profitTarget !== undefined ? String(account.profitTarget) : '')
   const [trailingDrawdown, setTrailingDrawdown] = useState(!!account.trailingDrawdown)
+  const [minTradingDays, setMinTradingDays] = useState(account.minTradingDays !== undefined ? String(account.minTradingDays) : '')
+  const [cost, setCost] = useState(account.cost !== undefined ? String(account.cost) : '')
 
   async function save() {
     await db.accounts.update(account.id!, {
@@ -24,6 +28,9 @@ export function EditAccountDialog({ account, onClose }: { account: Account; onCl
       dailyLossLimit: dailyLossLimit ? Number(dailyLossLimit) : undefined,
       profitTarget: profitTarget ? Number(profitTarget) : undefined,
       trailingDrawdown,
+      minTradingDays: minTradingDays ? Number(minTradingDays) : undefined,
+      cost: cost ? Number(cost) : undefined,
+      blownReason: stage === 'blown' ? (blownReason || undefined) : undefined,
     })
     onClose()
   }
@@ -60,6 +67,18 @@ export function EditAccountDialog({ account, onClose }: { account: Account; onCl
         </select>
       </label>
 
+      {stage === 'blown' && (
+        <label className="field">
+          Reason
+          <select value={blownReason} onChange={(e) => setBlownReason(e.target.value)}>
+            <option value="">— select a reason —</option>
+            {BREACH_REASONS.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <div style={{ margin: '1rem 0 0.5rem 0', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem' }}>
         Risk Management &amp; Rules
       </div>
@@ -83,6 +102,17 @@ export function EditAccountDialog({ account, onClose }: { account: Account; onCl
         <label className="flex-1 field-checkbox" style={{ marginTop: '1.25rem' }}>
           <input type="checkbox" checked={trailingDrawdown} onChange={(e) => setTrailingDrawdown(e.target.checked)} />
           Trailing drawdown
+        </label>
+      </div>
+
+      <div className="field-row">
+        <label className="flex-1">
+          Min Trading Days
+          <input type="number" value={minTradingDays} onChange={(e) => setMinTradingDays(e.target.value)} />
+        </label>
+        <label className="flex-1">
+          Challenge Cost ($)
+          <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} />
         </label>
       </div>
 
