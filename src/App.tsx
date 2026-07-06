@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db/schema'
+import { downloadElementAsImage } from './utils/snapshot'
+import { todayISO } from './db/sessions'
 import { Sidebar, type NavKey } from './shared/layout/Sidebar'
 import { TopBar } from './shared/layout/TopBar'
 import { TopNav } from './shared/layout/TopNav'
@@ -26,6 +28,12 @@ export default function App() {
   const [choosingAddMethod, setChoosingAddMethod] = useState(false)
   const [addingTrade, setAddingTrade] = useState(false)
   const [importingTrades, setImportingTrades] = useState(false)
+  const mainRef = useRef<HTMLDivElement>(null)
+
+  async function handleSnapshot() {
+    if (!mainRef.current) return
+    await downloadElementAsImage(mainRef.current, `prop-tracker-dashboard-${todayISO()}.png`)
+  }
 
   const sessionsByAccountId = new Map<number, typeof sessions>()
   for (const s of sessions) {
@@ -49,8 +57,9 @@ export default function App() {
             accountFilter={accountFilter}
             onAccountFilterChange={setAccountFilter}
             onAddTrade={() => setChoosingAddMethod(true)}
+            onSnapshot={nav === 'dashboard' ? handleSnapshot : undefined}
           />
-          <main className={styles.main}>
+          <main className={styles.main} ref={mainRef}>
             {nav === 'dashboard' && (
               <DashboardPage trades={filteredTrades} accounts={dashboardAccounts} payouts={filteredPayouts} />
             )}

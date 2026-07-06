@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { calendarCells, weekTotal, type DailyPnl } from '../../../utils/tradeAggregates'
+import { calendarCells, weekTotal, monthTotal, type DailyPnl } from '../../../utils/tradeAggregates'
 import { COLOR_GOOD_LIGHT, COLOR_CRITICAL_LIGHT } from '../../../utils/chartTheme'
 import styles from './CalendarHeatmap.module.css'
 
@@ -9,7 +9,7 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-function weekTotalColor(pnl: number): string {
+function totalColor(pnl: number): string {
   if (pnl > 0) return COLOR_GOOD_LIGHT
   if (pnl < 0) return COLOR_CRITICAL_LIGHT
   return 'var(--text-muted)'
@@ -30,6 +30,7 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
   const cells = calendarCells(daily, year, month)
   const weeks: (typeof cells)[] = []
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
+  const total = monthTotal(cells)
 
   function prevMonth() {
     if (month === 0) { setYear(year - 1); setMonth(11) } else setMonth(month - 1)
@@ -42,7 +43,12 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
     <div className="card">
       <div className={styles.header}>
         <button onClick={prevMonth}>‹</button>
-        <div className={styles.monthTitle}>{MONTH_NAMES[month]} {year}</div>
+        <div className={styles.monthTitleGroup}>
+          <div className={styles.monthTitle}>{MONTH_NAMES[month]} {year}</div>
+          <div className={styles.monthTotal} style={{ color: totalColor(total) }}>
+            {total >= 0 ? '+' : '-'}${Math.abs(total).toLocaleString()}
+          </div>
+        </div>
         <button onClick={nextMonth}>›</button>
       </div>
       <div className={styles.weekdayRow}>
@@ -50,7 +56,7 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
         <div className={styles.weekLabelCell}>Week</div>
       </div>
       {weeks.map((week, i) => {
-        const total = weekTotal(week)
+        const weekSum = weekTotal(week)
         return (
           <div key={i} className={styles.weekRow}>
             {week.map((cell, j) => {
@@ -79,8 +85,8 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
                 </div>
               )
             })}
-            <div className={styles.weekTotalCell} style={{ color: weekTotalColor(total) }}>
-              {total >= 0 ? '+' : '-'}${Math.abs(total).toLocaleString()}
+            <div className={styles.weekTotalCell} style={{ color: totalColor(weekSum) }}>
+              {weekSum >= 0 ? '+' : '-'}${Math.abs(weekSum).toLocaleString()}
             </div>
           </div>
         )

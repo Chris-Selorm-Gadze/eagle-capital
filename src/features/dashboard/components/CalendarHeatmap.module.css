@@ -5,8 +5,19 @@
   margin-bottom: 0.75rem;
 }
 
+.monthTitleGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
 .monthTitle {
   font-weight: 600;
+}
+
+.monthTotal {
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .weekdayRow {

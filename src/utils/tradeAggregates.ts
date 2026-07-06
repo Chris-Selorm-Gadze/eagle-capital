@@ -57,6 +57,11 @@ export function weekTotal(week: (CalendarCell | null)[]): number {
   return week.reduce((sum, c) => sum + (c?.pnl ?? 0), 0)
 }
 
+/** Sum of pnl across every cell in a month (same rule as weekTotal, over the whole grid). */
+export function monthTotal(cells: (CalendarCell | null)[]): number {
+  return cells.reduce((sum, c) => sum + (c?.pnl ?? 0), 0)
+}
+
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 export interface WeekdayStat {
