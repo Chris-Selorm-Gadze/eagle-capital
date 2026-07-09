@@ -1,5 +1,4 @@
 import type { Account } from '../../db/schema'
-import { BackupControls } from '../../features/accounts/components/BackupControls'
 import styles from './TopBar.module.css'
 
 export function TopBar({
@@ -10,8 +9,8 @@ export function TopBar({
   onSnapshot,
 }: {
   accounts: Account[]
-  accountFilter: number | 'all'
-  onAccountFilterChange: (value: number | 'all') => void
+  accountFilter: string | 'all'
+  onAccountFilterChange: (value: string | 'all') => void
   onAddTrade: () => void
   onSnapshot?: () => void
 }) {
@@ -22,7 +21,7 @@ export function TopBar({
         {onSnapshot && <button onClick={onSnapshot}>📷 Snapshot</button>}
         <select
           value={accountFilter}
-          onChange={(e) => onAccountFilterChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+          onChange={(e) => onAccountFilterChange(e.target.value === 'all' ? 'all' : e.target.value)}
         >
           <option value="all">All accounts</option>
           {accounts.map((a) => (
@@ -30,7 +29,6 @@ export function TopBar({
           ))}
         </select>
       </div>
-      <BackupControls />
     </div>
   )
 }

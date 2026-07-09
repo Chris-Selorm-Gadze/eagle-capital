@@ -1,11 +1,12 @@
 import Papa from 'papaparse'
 
-// FundedNext's dashboard exports trades in two CSV shapes depending on report type
-// ("trading-data" vs "CLOSED_POSITIONS"), with three different Open/Close Time formats
-// seen across exports (YYYY.MM.DD, YYYY-MM-DD, DD/MM/YYYY). Column lookup + date-format
-// sniffing below handles all of them.
+// Generic MT4/5-style broker trade-history CSV reader — handles the two common report
+// shapes ("trading-data" vs "CLOSED_POSITIONS") and the three Open/Close Time formats
+// seen across various brokers' exports (YYYY.MM.DD, YYYY-MM-DD, DD/MM/YYYY). Column
+// lookup below tries a few common header name variants per field; add more aliases here
+// as new export formats show up rather than building a full manual column-mapping UI.
 
-export interface ParsedFnTrade {
+export interface ParsedTrade {
   symbol: string
   side: 'long' | 'short'
   qty: number
@@ -18,7 +19,7 @@ export interface ParsedFnTrade {
   sourceId: string
 }
 
-function parseFnDateTime(raw: string): string {
+function parseCsvDateTime(raw: string): string {
   const dotOrDash = raw.match(/^(\d{4})[.-](\d{2})[.-](\d{2}) (\d{2}):(\d{2}):(\d{2})$/)
   const slash = raw.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})$/)
 
@@ -29,7 +30,7 @@ function parseFnDateTime(raw: string): string {
     const [, dd, mm, yyyy, hh, min, sec] = slash
     y = Number(yyyy); mo = Number(mm); d = Number(dd); h = Number(hh); mi = Number(min); s = Number(sec)
   } else {
-    throw new Error(`Unrecognized FundedNext date format: "${raw}"`)
+    throw new Error(`Unrecognized date format: "${raw}"`)
   }
   return new Date(y, mo - 1, d, h, mi, s).toISOString()
 }
@@ -41,18 +42,18 @@ function pick(row: Record<string, string>, keys: string[]): string | undefined {
   return undefined
 }
 
-export function mapFnRow(row: Record<string, string>): ParsedFnTrade | null {
-  const symbol = pick(row, ['Symbol'])
-  const openTime = pick(row, ['Open Time'])
-  const closeTime = pick(row, ['Close Time'])
-  const openPrice = pick(row, ['Open Price'])
-  const closePrice = pick(row, ['Close Price'])
-  const sideRaw = pick(row, ['Type', 'Side'])
-  const qtyRaw = pick(row, ['Lots', 'Volume'])
-  const profitRaw = pick(row, ['Profit'])
+export function mapTradeRow(row: Record<string, string>): ParsedTrade | null {
+  const symbol = pick(row, ['Symbol', 'Instrument'])
+  const openTime = pick(row, ['Open Time', 'Entry Time'])
+  const closeTime = pick(row, ['Close Time', 'Exit Time'])
+  const openPrice = pick(row, ['Open Price', 'Entry Price'])
+  const closePrice = pick(row, ['Close Price', 'Exit Price'])
+  const sideRaw = pick(row, ['Type', 'Side', 'Direction'])
+  const qtyRaw = pick(row, ['Lots', 'Volume', 'Quantity', 'Size'])
+  const profitRaw = pick(row, ['Profit', 'P&L', 'Net P/L'])
   const commission = Number(pick(row, ['Commission']) ?? '0')
   const swap = Number(pick(row, ['Swap']) ?? '0')
-  const sourceId = pick(row, ['Ticket ID', 'ID']) ?? `${symbol}-${openTime}-${closeTime}`
+  const sourceId = pick(row, ['Ticket ID', 'ID', 'Order ID']) ?? `${symbol}-${openTime}-${closeTime}`
 
   if (!symbol || !openTime || !closeTime || !openPrice || !closePrice || !sideRaw || !qtyRaw || !profitRaw) {
     return null
@@ -62,15 +63,15 @@ export function mapFnRow(row: Record<string, string>): ParsedFnTrade | null {
   // not a closed trade yet, so skip rather than failing the whole import.
   let entryTime: string, exitTime: string
   try {
-    entryTime = parseFnDateTime(openTime)
-    exitTime = parseFnDateTime(closeTime)
+    entryTime = parseCsvDateTime(openTime)
+    exitTime = parseCsvDateTime(closeTime)
   } catch {
     return null
   }
 
   const profit = Number(profitRaw)
-  // FundedNext's "Profit" is gross, before commission/swap — net it out the same way
-  // computePnl() does for manual entries (gross - fees), so charts sum consistently.
+  // Broker "Profit" columns are typically gross, before commission/swap — net it out the
+  // same way computePnl() does for manual entries (gross - fees), so charts sum consistently.
   return {
     symbol,
     side: sideRaw.toLowerCase().startsWith('b') ? 'long' : 'short',
@@ -85,17 +86,17 @@ export function mapFnRow(row: Record<string, string>): ParsedFnTrade | null {
   }
 }
 
-export interface FnParseResult {
-  trades: ParsedFnTrade[]
+export interface CsvParseResult {
+  trades: ParsedTrade[]
   skippedRows: number
 }
 
-export function parseFnCsv(csvText: string): FnParseResult {
+export function parseTradeCsv(csvText: string): CsvParseResult {
   const { data } = Papa.parse<Record<string, string>>(csvText, { header: true, skipEmptyLines: true })
-  const trades: ParsedFnTrade[] = []
+  const trades: ParsedTrade[] = []
   let skippedRows = 0
   for (const row of data) {
-    const trade = mapFnRow(row)
+    const trade = mapTradeRow(row)
     if (trade) trades.push(trade)
     else skippedRows++
   }

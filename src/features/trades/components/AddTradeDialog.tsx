@@ -10,8 +10,20 @@ function toLocalInput(date: Date): string {
   return d.toISOString().slice(0, 16)
 }
 
-export function AddTradeDialog({ accounts, trade, onClose }: { accounts: Account[]; trade?: Trade; onClose: () => void }) {
-  const [accountId, setAccountId] = useState(trade?.accountId ?? accounts[0]?.id ?? 0)
+export function AddTradeDialog({
+  accounts,
+  trade,
+  userId,
+  onClose,
+  onSaved,
+}: {
+  accounts: Account[]
+  trade?: Trade
+  userId: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [accountId, setAccountId] = useState(trade?.accountId ?? accounts[0]?.id ?? '')
   const [symbol, setSymbol] = useState(trade?.symbol ?? '')
   const [side, setSide] = useState<'long' | 'short'>(trade?.side ?? 'long')
   const [qty, setQty] = useState(String(trade?.qty ?? 1))
@@ -38,7 +50,8 @@ export function AddTradeDialog({ accounts, trade, onClose }: { accounts: Account
       notes: notes || undefined,
     }
     if (trade) await updateTrade(trade.id!, input)
-    else await addTrade(input)
+    else await addTrade(userId, input)
+    onSaved()
     onClose()
   }
 
@@ -56,7 +69,7 @@ export function AddTradeDialog({ accounts, trade, onClose }: { accounts: Account
     >
       <label className="field">
         Account
-        <select value={accountId} onChange={(e) => setAccountId(Number(e.target.value))}>
+        <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>{a.label}</option>
           ))}

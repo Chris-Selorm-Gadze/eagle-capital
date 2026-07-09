@@ -1,16 +1,18 @@
 # EagleCapital
 
-Local-first dashboard for tracking prop-firm accounts across FundedNext (CFD) and Apex Trader Funding (futures). All data stays in your browser (IndexedDB) — no server, no login.
+Dashboard for tracking prop-firm accounts across any prop firm — no firm's rules are hardcoded in. Data is per-user in Supabase (sign in required).
 
-Tracks per account: balance, trailing drawdown / max-loss room, self-imposed risk limits, circuit-breaker state, payout eligibility (Apex legacy PA gates), and FundedNext Pro scale-up progress.
+Tracks per account: balance, user-entered risk limits, manual payout/reward/funded-date logging, trade log/journal, and a daily report card for reviewing your own trading process.
 
 ## Quickstart
 
 ```bash
 npm install
-npm test        # verify the encoded firm rules
+npm test        # run the test suite
 npm run dev     # open http://localhost:5173
 ```
+
+Requires a Supabase project — see `.env.example` for the env vars to set in `.env.local`, and run `supabase/schema.sql` against your project's SQL editor.
 
 ## Push to GitHub
 
@@ -23,11 +25,11 @@ gh repo create prop-tracker --private --source=. --push
 
 | Path | What |
 |---|---|
-| `PLAN.md` | Milestone-by-milestone build plan (start here) |
+| `PLAN.md` | Build history (historical — see `CLAUDE.md` for current architecture) |
 | `CLAUDE.md` | Context for Claude Code sessions |
-| `src/domain/` | Firm rules + risk math, fully tested |
-| `src/db/` | Dexie schema + seeded accounts |
+| `supabase/schema.sql` | Postgres schema + RLS policies |
+| `src/db/` | Supabase-backed data access (accounts, sessions, payouts, rewards, trades, report cards) |
 
 ## Disclaimer
 
-Personal tracking tool. Rule constants were verified July 2026 against the firms' help centers — prop firms change rules often, so re-verify before relying on any number. Not financial advice.
+Personal tracking tool, not financial advice. No firm's rules are encoded — enter your own account limits.

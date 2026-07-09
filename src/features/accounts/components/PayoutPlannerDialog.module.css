@@ -1,15 +1,10 @@
-.gates {
-  margin-top: 0.75rem;
+.history {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
-.gateRow {
-  display: flex;
-  gap: 0.5rem;
-  align-items: baseline;
-  padding: 0.25rem 0;
-}
-
-.result {
-  margin-top: 0.75rem;
-  font-weight: 600;
+.history li {
+  padding: 0.15rem 0;
 }

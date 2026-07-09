@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { mapFnRow, parseFnCsv } from './fnImport'
+import { mapTradeRow, parseTradeCsv } from './csvImport'
 
-describe('fnImport', () => {
+describe('csvImport', () => {
   it('maps a "trading-data" row with dot-separated dates (Lots preferred over Volume)', () => {
     const row = {
       'Ticket ID': 'W6577997386192394', 'Open Time': '2025.12.18 15:10:44', 'Open Price': '48171.5',
@@ -9,7 +9,7 @@ describe('fnImport', () => {
       'Commission': '0', 'Swap': '0', 'Symbol': 'US30', 'Type': 'sell', 'SL': '48292.53', 'TP': '47455.59',
       'Pips': '-4501.000000', 'Volume': '2',
     }
-    const t = mapFnRow(row)
+    const t = mapTradeRow(row)
     expect(t).toMatchObject({
       symbol: 'US30', side: 'short', qty: 0.02, entryPrice: 48171.5, exitPrice: 48216.51, fees: 0, pnl: -9,
     })
@@ -24,7 +24,7 @@ describe('fnImport', () => {
       'Commission': '0', 'Swap': '0', 'Symbol': 'NDX100', 'Type': 'buy', 'SL': '0', 'TP': '0',
       'Pips': '-483.000000', 'Volume': '1',
     }
-    const t = mapFnRow(row)
+    const t = mapTradeRow(row)
     expect(t).toMatchObject({ symbol: 'NDX100', side: 'long', qty: 0.01, pnl: -0.48 })
   })
 
@@ -35,7 +35,7 @@ describe('fnImport', () => {
       'Stop Loss': '30418.72', 'Take Profit': '29528.30', 'Swap': '0.00', 'Commission': '0.00',
       'Profit': '-265.73', 'Reason': 'User',
     }
-    const t = mapFnRow(row)
+    const t = mapTradeRow(row)
     expect(t).toMatchObject({ symbol: 'NDX100', side: 'short', qty: 0.16, pnl: -265.73 })
     expect(t!.entryTime).toBe(new Date(2026, 5, 18, 13, 41, 42).toISOString())
   })
@@ -47,13 +47,13 @@ describe('fnImport', () => {
       'Commission': '-6.9', 'Swap': '0', 'Symbol': 'EURUSD', 'Type': 'sell', 'SL': '1166.66', 'TP': '1163.51',
       'Pips': '-86.000000', 'Volume': '138',
     }
-    const t = mapFnRow(row)
+    const t = mapTradeRow(row)
     expect(t!.pnl).toBeCloseTo(-125.58, 5)
     expect(t!.fees).toBeCloseTo(6.9, 5)
   })
 
   it('returns null for rows missing required fields', () => {
-    expect(mapFnRow({ Symbol: 'US30' })).toBeNull()
+    expect(mapTradeRow({ Symbol: 'US30' })).toBeNull()
   })
 
   it('skips still-open positions ("Currently Running" close time) instead of throwing', () => {
@@ -63,16 +63,16 @@ describe('fnImport', () => {
       'Commission': '-0.3', 'Swap': '0', 'Symbol': 'XAUUSD', 'Type': 'buy', 'SL': '0', 'TP': '0',
       'Pips': '0.000000', 'Volume': '6',
     }
-    expect(mapFnRow(row)).toBeNull()
+    expect(mapTradeRow(row)).toBeNull()
   })
 
-  it('parseFnCsv parses a full CSV and counts unparseable rows as skipped', () => {
+  it('parseTradeCsv parses a full CSV and counts unparseable rows as skipped', () => {
     const csv = [
       'Ticket ID,Open Time,Open Price,Close Time,Close Price,Profit,Lots,Commission,Swap,Symbol,Type,SL,TP,Pips,Volume',
       'W1,2025.12.18 15:10:44,48171.5,2025.12.18 15:27:05,48216.51,-9,0.02,0,0,US30,sell,48292.53,47455.59,-4501.000000,2',
       'W2,2026-07-03 01:18:14,29348.19,2026-07-03 01:18:23,29343.36,-0.48,0.01,0,0,NDX100,buy,0,0,-483.000000,1',
     ].join('\n')
-    const { trades, skippedRows } = parseFnCsv(csv)
+    const { trades, skippedRows } = parseTradeCsv(csv)
     expect(trades).toHaveLength(2)
     expect(skippedRows).toBe(0)
   })

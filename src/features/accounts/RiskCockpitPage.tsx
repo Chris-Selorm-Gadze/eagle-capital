@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import type { Account, Payout, SessionLog } from '../../db/schema'
-import { todayISO } from '../../db/sessions'
+import type { Account, Payout, Reward, SessionLog } from '../../db/schema'
 import { setAccountActive } from '../../db/accounts'
 import { AccountCard } from './components/AccountCard'
 import { EditAccountDialog } from './components/EditAccountDialog'
@@ -10,7 +9,6 @@ import { PayoutPlannerDialog } from './components/PayoutPlannerDialog'
 import { ScalingCycleDialog } from './components/ScalingCycleDialog'
 import { DashboardSummary } from './components/DashboardSummary'
 import { FirmFinanceSection } from './components/FirmFinanceSection'
-import { effectiveBreakerLevels } from '../risk/breaker'
 import { PROP_FIRMS } from './propFirms'
 import styles from './RiskCockpitPage.module.css'
 
@@ -22,11 +20,17 @@ interface AccountGroup {
 export function RiskCockpitPage({
   accounts,
   payouts,
+  rewards,
   sessionsByAccountId,
+  userId,
+  onChanged,
 }: {
   accounts: Account[]
   payouts: Payout[]
-  sessionsByAccountId: Map<number, SessionLog[]>
+  rewards: Reward[]
+  sessionsByAccountId: Map<string, SessionLog[]>
+  userId: string
+  onChanged: () => void
 }) {
   const [editing, setEditing] = useState<Account | null>(null)
   const [logging, setLogging] = useState<Account | null>(null)
@@ -37,8 +41,6 @@ export function RiskCockpitPage({
 
   const activeAccounts = accounts.filter((a) => a.active)
   const inactiveAccounts = accounts.filter((a) => !a.active)
-
-  const breakerLevels = effectiveBreakerLevels(activeAccounts, sessionsByAccountId, todayISO())
 
   // Group active accounts by category
   const funded = activeAccounts.filter((a) => a.stage === 'funded' || a.stage === 'pa')
@@ -53,6 +55,11 @@ export function RiskCockpitPage({
     { title: 'Blown & Inactive', accounts: blown },
   ].filter((g) => g.accounts.length > 0)
 
+  async function handleActivate(id: string) {
+    await setAccountActive(id, true)
+    onChanged()
+  }
+
   return (
     <div className={styles.root}>
       <div className={styles.header}>
@@ -60,7 +67,7 @@ export function RiskCockpitPage({
         <button onClick={() => setAdding(true)} className="btn-primary">+ Add Account</button>
       </div>
 
-      <DashboardSummary accounts={activeAccounts} breakerLevels={breakerLevels} />
+      <DashboardSummary accounts={activeAccounts} />
 
       <FirmFinanceSection accounts={accounts} payouts={payouts} sessionsByAccountId={sessionsByAccountId} />
 
@@ -78,7 +85,6 @@ export function RiskCockpitPage({
               <AccountCard
                 key={a.id}
                 account={a}
-                breaker={breakerLevels.get(a.id!) ?? 'ok'}
                 onEdit={() => setEditing(a)}
                 onLogSession={() => setLogging(a)}
                 onPayoutPlanner={['funded', 'pa'].includes(a.stage) ? () => setPlanningPayout(a) : undefined}
@@ -105,7 +111,7 @@ export function RiskCockpitPage({
                       {a.label}
                       <span className={styles.inactiveMeta}> · {firmName} · ${a.size.toLocaleString()}</span>
                     </span>
-                    <button onClick={() => setAccountActive(a.id!, true)}>Activate</button>
+                    <button onClick={() => handleActivate(a.id!)}>Activate</button>
                   </div>
                 )
               })}
@@ -114,11 +120,27 @@ export function RiskCockpitPage({
         </section>
       )}
 
-      {editing && <EditAccountDialog account={editing} onClose={() => setEditing(null)} />}
-      {logging && <LogSessionDialog account={logging} onClose={() => setLogging(null)} />}
-      {planningPayout && <PayoutPlannerDialog account={planningPayout} onClose={() => setPlanningPayout(null)} />}
-      {trackingCycles && <ScalingCycleDialog account={trackingCycles} onClose={() => setTrackingCycles(null)} />}
-      {adding && <AddAccountDialog onClose={() => setAdding(false)} />}
+      {editing && <EditAccountDialog account={editing} onClose={() => setEditing(null)} onSaved={onChanged} />}
+      {logging && <LogSessionDialog account={logging} userId={userId} onClose={() => setLogging(null)} onSaved={onChanged} />}
+      {planningPayout && (
+        <PayoutPlannerDialog
+          account={planningPayout}
+          payouts={payouts.filter((p) => p.accountId === planningPayout.id)}
+          userId={userId}
+          onClose={() => setPlanningPayout(null)}
+          onSaved={onChanged}
+        />
+      )}
+      {trackingCycles && (
+        <ScalingCycleDialog
+          account={trackingCycles}
+          rewards={rewards.filter((r) => r.accountId === trackingCycles.id)}
+          userId={userId}
+          onClose={() => setTrackingCycles(null)}
+          onSaved={onChanged}
+        />
+      )}
+      {adding && <AddAccountDialog userId={userId} onClose={() => setAdding(false)} onSaved={onChanged} />}
     </div>
   )
 }

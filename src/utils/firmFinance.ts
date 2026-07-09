@@ -1,5 +1,4 @@
 import type { Account, Payout, SessionLog } from '../db/schema'
-import { computeAccountRisk } from '../features/risk/accountRisk'
 
 function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x))
@@ -13,7 +12,7 @@ export interface FirmFinance {
 }
 
 /** Per-firm spent (challenge costs) vs earned (payouts received) vs net. */
-export function firmFinanceBreakdown(accounts: Account[], payoutsByAccountId: Map<number, Payout[]>): FirmFinance[] {
+export function firmFinanceBreakdown(accounts: Account[], payoutsByAccountId: Map<string, Payout[]>): FirmFinance[] {
   const byFirm = new Map<string, { spent: number; earned: number }>()
   for (const a of accounts) {
     const entry = byFirm.get(a.firmId) ?? { spent: 0, earned: 0 }
@@ -58,7 +57,6 @@ export interface PathToFundingProgress {
   profitPct: number
   daysPct: number | null
   dailyLossPct: number | null
-  drawdownPct: number
 }
 
 /** null when the account isn't in an evaluation-like stage — nothing to show progress toward. */
@@ -78,10 +76,7 @@ export function pathToFundingProgress(
     ? clamp01(Math.max(0, -(todaySession?.pnl ?? 0)) / account.dailyLossLimit)
     : null
 
-  const { room, maxDd } = computeAccountRisk(account)
-  const drawdownPct = maxDd > 0 ? clamp01(1 - room / maxDd) : 0
-
-  return { profitPct, daysPct, dailyLossPct, drawdownPct }
+  return { profitPct, daysPct, dailyLossPct }
 }
 
 export interface BreachReasonCount {

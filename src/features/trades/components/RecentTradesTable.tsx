@@ -12,7 +12,7 @@ export function RecentTradesTable({
   title?: string
   limit?: number
   onEdit?: (trade: Trade) => void
-  onDelete?: (id: number) => void
+  onDelete?: (id: string) => void
 }) {
   const sorted = [...trades].sort((a, b) => (a.date < b.date ? 1 : -1))
   const rows = limit ? sorted.slice(0, limit) : sorted

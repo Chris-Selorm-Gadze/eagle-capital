@@ -1,10 +1,10 @@
 # EagleCapital (prop-tracker) — Build Plan
 
-A local-first dashboard tracking Chris's prop accounts across FundedNext (CFD) and Apex (futures, 4× 250K legacy). Companion to `FundedNext_600K_Scaling_Plan.xlsx` — the spreadsheet is the plan, this app is the daily cockpit.
+A dashboard tracking Chris's prop accounts across any prop firm — firm-agnostic, no hardcoded firm rules.
 
-**Stack:** Vite + React + TypeScript, Dexie (IndexedDB) for storage, Papaparse for CSV import, Recharts for charts. No backend, no accounts, no server — runs in the browser, data stays on your machine.
+**Stack:** Vite + React + TypeScript, Supabase (Postgres, per-user via RLS) for storage and auth, Papaparse for CSV import, Recharts for charts.
 
-**Golden rule:** all firm rule constants and calculations live in `src/domain/` with source URLs, and every rule has a test. The UI never hardcodes a number.
+**Historical note:** the milestones below describe the original local-first, Dexie-backed, `src/domain/`-rule-math build (Milestones 0–6). That architecture has since been replaced — data now lives in Supabase (see `CLAUDE.md`), `src/domain/` and the firm-specific rule engine were removed, and account risk fields are plain manual entry. Kept below as historical record rather than rewritten.
 
 ---
 

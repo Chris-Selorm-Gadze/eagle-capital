@@ -1,0 +1,256 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+@media (max-width: 700px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.12s;
+  display: flex;
+  flex-direction: column;
+}
+.card:hover {
+  border-color: var(--text-muted);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.cardTitle {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.gradeBadge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.gradeAPlus { background: rgba(12, 163, 12, 0.18); color: var(--good); }
+.gradeA { background: rgba(12, 163, 12, 0.12); color: var(--good); }
+.gradeB { background: rgba(250, 178, 25, 0.15); color: var(--warning); }
+.gradeC { background: rgba(208, 59, 59, 0.15); color: var(--critical); }
+
+.cardDesc {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardExample {
+  margin-top: 0.85rem;
+}
+.cardExampleImage {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+  border: 1px solid var(--border);
+}
+.cardExampleNote {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardFooter {
+  margin-top: auto;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.cardActions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* Grade picker (used in the form dialog) */
+.stamps {
+  display: flex;
+  gap: 0.6rem;
+}
+.stamp {
+  flex: 1;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+  cursor: pointer;
+  background: var(--surface-2);
+  font-weight: 700;
+}
+.stamp:hover {
+  border-color: var(--text-muted);
+}
+.stampOn.gradeAPlus, .stampOn.gradeA { background: rgba(12, 163, 12, 0.18); border-color: var(--good); }
+.stampOn.gradeB { background: rgba(250, 178, 25, 0.18); border-color: var(--warning); }
+.stampOn.gradeC { background: rgba(208, 59, 59, 0.18); border-color: var(--critical); }
+
+/* Trade multi-select checklist (used when adding examples in the detail dialog) */
+.tradePicker {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.tradePickerRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.tradePickerRow:last-child {
+  border-bottom: none;
+}
+.tradePickerRow:hover {
+  background: var(--surface-2);
+}
+.tradePickerRow input {
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* Example list (used in the detail dialog) */
+.exampleList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.example {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  background: var(--surface-2);
+}
+.exampleHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tradeChip {
+  font-size: 0.78rem;
+  font-family: monospace;
+  color: var(--text-secondary);
+  background: var(--surface-3);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+.exampleNote {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+.exampleImage {
+  margin-top: 0.5rem;
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 6px;
+  display: block;
+}
+
+/* Staged image previews (used in the New/Edit Playbook form before saving) */
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.previewItem {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.previewImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.previewRemove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: rgba(13, 13, 13, 0.75);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+.previewRemove:hover {
+  background: var(--critical);
+}
+
+.hiddenFileInput {
+  /* !important needed: the global .field input rule in theme.css (display:block) has
+     higher specificity than a plain module class and would otherwise win and re-show it. */
+  display: none !important;
+}
+
+/* A <label htmlFor> styled as a button — triggers the (hidden) file input natively via
+   browser label-activation semantics, instead of a JS ref.click() forward, which is
+   flaky in some browsers (notably Safari) when the target input is display:none. */
+.fileButton {
+  display: inline-block;
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.fileButton:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}

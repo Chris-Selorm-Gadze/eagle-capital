@@ -1,18 +1,29 @@
 import { useState } from 'react'
 import type { Account } from '../../../db/schema'
 import { importTrades } from '../../../db/trades'
-import { parseFnCsv, type ParsedFnTrade } from '../fnImport'
+import { parseTradeCsv, type ParsedTrade } from '../csvImport'
 import { Modal } from '../../../shared/ui/Modal'
 import styles from './ImportTradesDialog.module.css'
+import { errorMessage } from '../../../utils/errors'
 
-export function ImportTradesDialog({ accounts, onClose }: { accounts: Account[]; onClose: () => void }) {
-  const fnAccounts = accounts.filter((a) => a.firm === 'fundednext')
-  const [accountId, setAccountId] = useState(fnAccounts[0]?.id ?? 0)
+export function ImportTradesDialog({
+  accounts,
+  userId,
+  onClose,
+  onSaved,
+}: {
+  accounts: Account[]
+  userId: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [fileName, setFileName] = useState('')
-  const [parsed, setParsed] = useState<ParsedFnTrade[] | null>(null)
+  const [parsed, setParsed] = useState<ParsedTrade[] | null>(null)
   const [skippedRows, setSkippedRows] = useState(0)
   const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null)
   const [error, setError] = useState('')
+  const [importing, setImporting] = useState(false)
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -22,36 +33,44 @@ export function ImportTradesDialog({ accounts, onClose }: { accounts: Account[];
     setFileName(file.name)
     try {
       const text = await file.text()
-      const { trades, skippedRows } = parseFnCsv(text)
+      const { trades, skippedRows } = parseTradeCsv(text)
       if (trades.length === 0) throw new Error('No recognizable trade rows found in this file.')
       setParsed(trades)
       setSkippedRows(skippedRows)
     } catch (err) {
       setParsed(null)
-      setError(err instanceof Error ? err.message : String(err))
+      setError(errorMessage(err))
     }
   }
 
   async function doImport() {
     if (!parsed || !accountId) return
-    const res = await importTrades(accountId, parsed)
-    setResult(res)
-    setParsed(null)
+    setError('')
+    setImporting(true)
+    try {
+      const res = await importTrades(userId, accountId, parsed)
+      setResult(res)
+      setParsed(null)
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setImporting(false)
+    }
   }
 
   const netPreview = parsed ? parsed.reduce((sum, t) => sum + t.pnl, 0) : 0
 
   return (
     <Modal
-      title="Import trades (FundedNext CSV)"
+      title="Import trades (CSV)"
       onClose={onClose}
       minWidth={420}
       footer={
         <>
           <button onClick={onClose}>{result ? 'Close' : 'Cancel'}</button>
           {!result && (
-            <button onClick={doImport} disabled={!parsed || !accountId}>
-              Import{parsed ? ` ${parsed.length} trades` : ''}
+            <button onClick={doImport} disabled={!parsed || !accountId || importing}>
+              {importing ? 'Importing…' : `Import${parsed ? ` ${parsed.length} trades` : ''}`}
             </button>
           )}
         </>
@@ -59,16 +78,16 @@ export function ImportTradesDialog({ accounts, onClose }: { accounts: Account[];
     >
       <label className="field">
         Account
-        <select value={accountId} onChange={(e) => setAccountId(Number(e.target.value))}>
-          {fnAccounts.length === 0 && <option value={0}>No FundedNext accounts</option>}
-          {fnAccounts.map((a) => (
+        <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+          {accounts.length === 0 && <option value="">No accounts yet</option>}
+          {accounts.map((a) => (
             <option key={a.id} value={a.id}>{a.label}</option>
           ))}
         </select>
       </label>
 
       <label className="field">
-        CSV file ("trading-data" or "CLOSED_POSITIONS" export)
+        CSV file (MT4/5-style broker export)
         <input type="file" accept=".csv" onChange={onFile} />
       </label>
 

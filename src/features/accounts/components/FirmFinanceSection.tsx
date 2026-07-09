@@ -18,9 +18,9 @@ export function FirmFinanceSection({
 }: {
   accounts: Account[]
   payouts: Payout[]
-  sessionsByAccountId: Map<number, SessionLog[]>
+  sessionsByAccountId: Map<string, SessionLog[]>
 }) {
-  const payoutsByAccountId = new Map<number, Payout[]>()
+  const payoutsByAccountId = new Map<string, Payout[]>()
   for (const p of payouts) {
     const list = payoutsByAccountId.get(p.accountId) ?? []
     list.push(p)
@@ -127,7 +127,6 @@ export function FirmFinanceSection({
                 {progress.dailyLossPct !== null && (
                   <Meter label="Daily loss used" pct={progress.dailyLossPct} mode="risk" rightLabel={`${Math.round(progress.dailyLossPct * 100)}%`} />
                 )}
-                <Meter label="Drawdown used" pct={progress.drawdownPct} mode="risk" rightLabel={`${Math.round(progress.drawdownPct * 100)}%`} />
               </div>
             ))}
           </div>

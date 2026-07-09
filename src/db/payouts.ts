@@ -1,18 +1,35 @@
-import { db, type Account } from './schema'
-import { traderShare } from '../features/risk/payoutRules'
+import { supabase } from '../lib/supabaseClient'
+import { updateAccount } from './accounts'
+import type { Account, Payout } from '../types'
 
-export async function lastPayoutDate(accountId: number): Promise<string | undefined> {
-  const rows = await db.payouts.where('accountId').equals(accountId).sortBy('date')
-  return rows.at(-1)?.date
+export function fromRow(row: Record<string, any>): Payout {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    date: row.date,
+    requested: Number(row.requested),
+    received: Number(row.received),
+  }
 }
 
-/** Record a payout request/receipt, applying the account's own split rule and bumping its counters. */
-export async function recordPayout(account: Account, date: string, requested: number) {
-  if (!account.payoutRules) throw new Error('Account has no payout rules configured')
+export function toRow(p: Payout): Record<string, unknown> {
+  return { account_id: p.accountId, date: p.date, requested: p.requested, received: p.received }
+}
+
+export async function listPayouts(): Promise<Payout[]> {
+  const { data, error } = await supabase.from('payouts').select('*').order('date', { ascending: true })
+  if (error) throw error
+  return (data ?? []).map(fromRow)
+}
+
+/** Record a payout request/receipt (both entered directly) and bump the account's counters. */
+export async function recordPayout(userId: string, account: Account, date: string, requested: number, received: number): Promise<void> {
   const cumulativePaid = account.cumulativePaid ?? 0
-  const received = traderShare(account.payoutRules, cumulativePaid, requested)
-  await db.payouts.add({ accountId: account.id!, date, requested, received })
-  await db.accounts.update(account.id!, {
+  const { error } = await supabase
+    .from('payouts')
+    .insert({ user_id: userId, ...toRow({ accountId: account.id!, date, requested, received }) })
+  if (error) throw error
+  await updateAccount(account.id!, {
     payoutsDone: (account.payoutsDone ?? 0) + 1,
     cumulativePaid: cumulativePaid + received,
     balance: account.balance - requested,

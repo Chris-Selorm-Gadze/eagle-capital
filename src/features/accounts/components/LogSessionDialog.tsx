@@ -2,8 +2,19 @@ import { useState } from 'react'
 import type { Account } from '../../../db/schema'
 import { logSession, todayISO } from '../../../db/sessions'
 import { Modal } from '../../../shared/ui/Modal'
+import { errorMessage } from '../../../utils/errors'
 
-export function LogSessionDialog({ account, onClose }: { account: Account; onClose: () => void }) {
+export function LogSessionDialog({
+  account,
+  userId,
+  onClose,
+  onSaved,
+}: {
+  account: Account
+  userId: string
+  onClose: () => void
+  onSaved: () => void
+}) {
   const [pnl, setPnl] = useState('0')
   const [trades, setTrades] = useState('0')
   const [consecutiveLosses, setConsecutiveLosses] = useState('0')
@@ -11,17 +22,29 @@ export function LogSessionDialog({ account, onClose }: { account: Account; onClo
   const [rulesFollowed, setRulesFollowed] = useState(true)
   const [notes, setNotes] = useState('')
 
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   async function save() {
-    await logSession(account, {
-      date: todayISO(),
-      pnl: Number(pnl),
-      trades: Number(trades),
-      consecutiveLosses: Number(consecutiveLosses),
-      highestUnrealized: highestUnrealized === '' ? undefined : Number(highestUnrealized),
-      rulesFollowed,
-      notes: notes || undefined,
-    })
-    onClose()
+    setError(null)
+    setSaving(true)
+    try {
+      await logSession(userId, account, {
+        date: todayISO(),
+        pnl: Number(pnl),
+        trades: Number(trades),
+        consecutiveLosses: Number(consecutiveLosses),
+        highestUnrealized: highestUnrealized === '' ? undefined : Number(highestUnrealized),
+        rulesFollowed,
+        notes: notes || undefined,
+      })
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -32,7 +55,7 @@ export function LogSessionDialog({ account, onClose }: { account: Account; onClo
       footer={
         <>
           <button onClick={onClose}>Cancel</button>
-          <button onClick={save}>Save</button>
+          <button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
@@ -67,6 +90,8 @@ export function LogSessionDialog({ account, onClose }: { account: Account; onClo
         Notes
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
       </label>
+
+      {error && <div style={{ color: 'var(--critical)', marginTop: '1rem' }}>{error}</div>}
     </Modal>
   )
 }

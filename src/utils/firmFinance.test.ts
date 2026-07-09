@@ -4,7 +4,7 @@ import type { Account, Payout, SessionLog } from '../db/schema'
 
 function account(overrides: Partial<Account>): Account {
   return {
-    id: 1, firmId: 'apex', label: 'test', size: 10_000, balance: 10_000,
+    id: '1', firmId: 'apex', label: 'test', size: 10_000, balance: 10_000,
     highestBalance: 10_000, stage: 'evaluation', active: true, ...overrides,
   }
 }
@@ -12,14 +12,14 @@ function account(overrides: Partial<Account>): Account {
 describe('firmFinanceBreakdown', () => {
   it('sums cost (spent) and payouts.received (earned) per firm', () => {
     const accounts = [
-      account({ id: 1, firmId: 'apex', cost: 200 }),
-      account({ id: 2, firmId: 'apex', cost: 150 }),
-      account({ id: 3, firmId: 'ftmo', cost: 100 }),
+      account({ id: '1', firmId: 'apex', cost: 200 }),
+      account({ id: '2', firmId: 'apex', cost: 150 }),
+      account({ id: '3', firmId: 'ftmo', cost: 100 }),
     ]
-    const payoutsByAccountId = new Map<number, Payout[]>([
-      [1, [{ id: 1, accountId: 1, date: '2026-06-01', requested: 500, received: 500 }, { id: 2, accountId: 1, date: '2026-06-10', requested: 300, received: 300 }]],
-      [2, []],
-      [3, [{ id: 3, accountId: 3, date: '2026-06-05', requested: 50, received: 50 }]],
+    const payoutsByAccountId = new Map<string, Payout[]>([
+      ['1', [{ id: '1', accountId: '1', date: '2026-06-01', requested: 500, received: 500 }, { id: '2', accountId: '1', date: '2026-06-10', requested: 300, received: 300 }]],
+      ['2', []],
+      ['3', [{ id: '3', accountId: '3', date: '2026-06-05', requested: 50, received: 50 }]],
     ])
     const result = firmFinanceBreakdown(accounts, payoutsByAccountId)
     expect(result).toEqual(expect.arrayContaining([
@@ -48,17 +48,17 @@ describe('firmPassRate', () => {
 
 describe('pathToFundingProgress', () => {
   const sessions: SessionLog[] = [
-    { id: 1, accountId: 1, date: '2026-07-01', pnl: 100, trades: 2, consecutiveLosses: 0, rulesFollowed: true },
-    { id: 2, accountId: 1, date: '2026-07-02', pnl: 50, trades: 1, consecutiveLosses: 0, rulesFollowed: true },
-    { id: 3, accountId: 1, date: '2026-07-03', pnl: -80, trades: 3, consecutiveLosses: 1, rulesFollowed: true },
-    { id: 4, accountId: 1, date: '2026-07-06', pnl: -50, trades: 1, consecutiveLosses: 1, rulesFollowed: true },
+    { id: '1', accountId: '1', date: '2026-07-01', pnl: 100, trades: 2, consecutiveLosses: 0, rulesFollowed: true },
+    { id: '2', accountId: '1', date: '2026-07-02', pnl: 50, trades: 1, consecutiveLosses: 0, rulesFollowed: true },
+    { id: '3', accountId: '1', date: '2026-07-03', pnl: -80, trades: 3, consecutiveLosses: 1, rulesFollowed: true },
+    { id: '4', accountId: '1', date: '2026-07-06', pnl: -50, trades: 1, consecutiveLosses: 1, rulesFollowed: true },
   ]
 
   it('returns null for non-evaluation stages', () => {
     expect(pathToFundingProgress(account({ stage: 'funded' }), sessions, '2026-07-06')).toBeNull()
   })
 
-  it('computes profit/days/dailyLoss/drawdown percentages', () => {
+  it('computes profit/days/dailyLoss percentages', () => {
     const acc = account({
       stage: 'evaluation', size: 10_000, balance: 9_700, highestBalance: 10_000,
       profitTarget: 1_000, minTradingDays: 10, dailyLossLimit: 200, maxDrawdown: 1_000, trailingDrawdown: false,
@@ -67,7 +67,6 @@ describe('pathToFundingProgress', () => {
     expect(result?.profitPct).toBe(0)
     expect(result?.daysPct).toBe(0.4)
     expect(result?.dailyLossPct).toBe(0.25)
-    expect(result?.drawdownPct).toBeCloseTo(0.3, 5)
   })
 
   it('leaves days/dailyLoss null when those fields are not set', () => {

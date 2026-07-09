@@ -22,7 +22,7 @@ export function AddTradeChooserDialog({
 
         <button className={styles.option} onClick={onSelectImport}>
           <div className={styles.optionTitle}>Import CSV</div>
-          <div className={styles.optionDesc}>Bulk-import trades from a FundedNext export file.</div>
+          <div className={styles.optionDesc}>Bulk-import trades from a broker CSV export.</div>
         </button>
 
         <button className={styles.option} onClick={onSelectBroker}>

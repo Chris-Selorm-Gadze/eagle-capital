@@ -8,10 +8,10 @@ export function PlanPage({
   sessionsByAccountId,
 }: {
   accounts: Account[]
-  sessionsByAccountId: Map<number, SessionLog[]>
+  sessionsByAccountId: Map<string, SessionLog[]>
 }) {
   const actualFundedCapital = accounts
-    .filter((a) => a.firm === 'fundednext' && a.stage === 'funded')
+    .filter((a) => a.stage === 'funded')
     .reduce((sum, a) => sum + a.balance, 0)
 
   return (

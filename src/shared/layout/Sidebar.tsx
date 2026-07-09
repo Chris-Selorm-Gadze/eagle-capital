@@ -1,6 +1,6 @@
 import styles from './Sidebar.module.css'
 
-export type NavKey = 'dashboard' | 'cockpit' | 'tradecopier' | 'tradelog' | 'tradejournal' | 'plan' | 'brokers'
+export type NavKey = 'dashboard' | 'cockpit' | 'tradecopier' | 'tradelog' | 'tradejournal' | 'tradermanagement' | 'playbooks' | 'brokers'
 
 const NAV_ITEMS: { key: NavKey; label: string }[] = [
   { key: 'dashboard', label: 'Dashboard' },
@@ -8,7 +8,8 @@ const NAV_ITEMS: { key: NavKey; label: string }[] = [
   { key: 'tradecopier', label: 'Trade Copier' },
   { key: 'tradelog', label: 'Trade Log' },
   { key: 'tradejournal', label: 'Trade Journal' },
-  { key: 'plan', label: 'Plan' },
+  { key: 'tradermanagement', label: 'Trader Management' },
+  { key: 'playbooks', label: 'Playbooks' },
   { key: 'brokers', label: 'Broker Connections' },
 ]
 

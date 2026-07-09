@@ -1,0 +1,20 @@
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+}
+
+.tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tabActive {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-primary);
+}

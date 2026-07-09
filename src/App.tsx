@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from './db/schema'
+import { useAuth } from './features/auth/AuthContext'
+import { useSupabaseData } from './db/useSupabaseData'
 import { downloadElementAsImage } from './utils/snapshot'
 import { todayISO } from './db/sessions'
 import { Sidebar, type NavKey } from './shared/layout/Sidebar'
@@ -12,20 +12,20 @@ import { AddTradeChooserDialog } from './features/trades/components/AddTradeChoo
 import { RiskCockpitPage } from './features/accounts/RiskCockpitPage'
 import { TradeCopierPage } from './features/copier/TradeCopierPage'
 import { TradeJournalPage } from './features/trades/TradeJournalPage'
-import { PlanPage } from './features/plan/PlanPage'
+import { TraderManagementPage } from './features/tradermanagement/TraderManagementPage'
+import { PlaybooksPage } from './features/playbooks/PlaybooksPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { TradeLogPage } from './features/trades/TradeLogPage'
 import { BrokerConnectionsPage } from './features/brokers/BrokerConnectionsPage'
 import styles from './App.module.css'
 
 export default function App() {
-  const accounts = useLiveQuery(() => db.accounts.toArray()) ?? []
-  const sessions = useLiveQuery(() => db.sessions.toArray()) ?? []
-  const trades = useLiveQuery(() => db.trades.toArray()) ?? []
-  const payouts = useLiveQuery(() => db.payouts.toArray()) ?? []
+  const { user } = useAuth()
+  const userId = user!.id
+  const { accounts, sessions, payouts, rewards, trades, refresh } = useSupabaseData(userId)
 
   const [nav, setNav] = useState<NavKey>('dashboard')
-  const [accountFilter, setAccountFilter] = useState<number | 'all'>('all')
+  const [accountFilter, setAccountFilter] = useState<string | 'all'>('all')
   const [choosingAddMethod, setChoosingAddMethod] = useState(false)
   const [addingTrade, setAddingTrade] = useState(false)
   const [importingTrades, setImportingTrades] = useState(false)
@@ -36,7 +36,7 @@ export default function App() {
     await downloadElementAsImage(mainRef.current, `eaglecapital-dashboard-${todayISO()}.png`)
   }
 
-  const sessionsByAccountId = new Map<number, typeof sessions>()
+  const sessionsByAccountId = new Map<string, typeof sessions>()
   for (const s of sessions) {
     const list = sessionsByAccountId.get(s.accountId) ?? []
     list.push(s)
@@ -64,11 +64,21 @@ export default function App() {
             {nav === 'dashboard' && (
               <DashboardPage trades={filteredTrades} accounts={dashboardAccounts} payouts={filteredPayouts} />
             )}
-            {nav === 'cockpit' && <RiskCockpitPage accounts={accounts} payouts={payouts} sessionsByAccountId={sessionsByAccountId} />}
+            {nav === 'cockpit' && (
+              <RiskCockpitPage
+                accounts={accounts}
+                payouts={payouts}
+                rewards={rewards}
+                sessionsByAccountId={sessionsByAccountId}
+                userId={userId}
+                onChanged={refresh}
+              />
+            )}
             {nav === 'tradecopier' && <TradeCopierPage />}
-            {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} />}
+            {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
             {nav === 'tradejournal' && <TradeJournalPage />}
-            {nav === 'plan' && <PlanPage accounts={accounts} sessionsByAccountId={sessionsByAccountId} />}
+            {nav === 'tradermanagement' && <TraderManagementPage userId={userId} />}
+            {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
             {nav === 'brokers' && <BrokerConnectionsPage />}
           </main>
         </div>
@@ -81,8 +91,12 @@ export default function App() {
             onClose={() => setChoosingAddMethod(false)}
           />
         )}
-        {addingTrade && <AddTradeDialog accounts={accounts} onClose={() => setAddingTrade(false)} />}
-        {importingTrades && <ImportTradesDialog accounts={accounts} onClose={() => setImportingTrades(false)} />}
+        {addingTrade && (
+          <AddTradeDialog accounts={accounts} userId={userId} onClose={() => setAddingTrade(false)} onSaved={refresh} />
+        )}
+        {importingTrades && (
+          <ImportTradesDialog accounts={accounts} userId={userId} onClose={() => setImportingTrades(false)} onSaved={refresh} />
+        )}
       </div>
     </div>
   )

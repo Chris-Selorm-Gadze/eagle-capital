@@ -1,9 +1,19 @@
 import { useState } from 'react'
-import { db, STAGE_OPTIONS, type Account } from '../../../db/schema'
+import { STAGE_OPTIONS, type Account } from '../../../db/schema'
+import { updateAccount } from '../../../db/accounts'
 import { Modal } from '../../../shared/ui/Modal'
 import { BREACH_REASONS } from '../breachReasons'
+import { errorMessage } from '../../../utils/errors'
 
-export function EditAccountDialog({ account, onClose }: { account: Account; onClose: () => void }) {
+export function EditAccountDialog({
+  account,
+  onClose,
+  onSaved,
+}: {
+  account: Account
+  onClose: () => void
+  onSaved: () => void
+}) {
   const [balance, setBalance] = useState(String(account.balance))
   const [highestBalance, setHighestBalance] = useState(String(account.highestBalance))
   const [stage, setStage] = useState<Account['stage']>(account.stage)
@@ -18,21 +28,33 @@ export function EditAccountDialog({ account, onClose }: { account: Account; onCl
   const [minTradingDays, setMinTradingDays] = useState(account.minTradingDays !== undefined ? String(account.minTradingDays) : '')
   const [cost, setCost] = useState(account.cost !== undefined ? String(account.cost) : '')
 
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   async function save() {
-    await db.accounts.update(account.id!, {
-      balance: Number(balance),
-      highestBalance: Number(highestBalance),
-      stage,
-      active,
-      maxDrawdown: maxDrawdown ? Number(maxDrawdown) : undefined,
-      dailyLossLimit: dailyLossLimit ? Number(dailyLossLimit) : undefined,
-      profitTarget: profitTarget ? Number(profitTarget) : undefined,
-      trailingDrawdown,
-      minTradingDays: minTradingDays ? Number(minTradingDays) : undefined,
-      cost: cost ? Number(cost) : undefined,
-      blownReason: stage === 'blown' ? (blownReason || undefined) : undefined,
-    })
-    onClose()
+    setError(null)
+    setSaving(true)
+    try {
+      await updateAccount(account.id!, {
+        balance: Number(balance),
+        highestBalance: Number(highestBalance),
+        stage,
+        active,
+        maxDrawdown: maxDrawdown ? Number(maxDrawdown) : undefined,
+        dailyLossLimit: dailyLossLimit ? Number(dailyLossLimit) : undefined,
+        profitTarget: profitTarget ? Number(profitTarget) : undefined,
+        trailingDrawdown,
+        minTradingDays: minTradingDays ? Number(minTradingDays) : undefined,
+        cost: cost ? Number(cost) : undefined,
+        blownReason: stage === 'blown' ? (blownReason || undefined) : undefined,
+      })
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -43,7 +65,7 @@ export function EditAccountDialog({ account, onClose }: { account: Account; onCl
       footer={
         <>
           <button onClick={onClose}>Cancel</button>
-          <button onClick={save}>Save</button>
+          <button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
@@ -120,6 +142,8 @@ export function EditAccountDialog({ account, onClose }: { account: Account; onCl
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
         Active (shown on the Risk Cockpit)
       </label>
+
+      {error && <div style={{ color: 'var(--critical)', marginTop: '1rem' }}>{error}</div>}
     </Modal>
   )
 }

@@ -1,29 +1,5 @@
-export type FnModel = 'stellar-1step' | 'stellar-2step' | 'stellar-lite'
-
-export interface PayoutRuleProfile {
-  tradingDaysBetween: number
-  profitableDaysRequired: number
-  profitableDayMin: number
-  safetyNetBalance?: number
-  safetyNetPayoutCount?: number
-  windfallShare?: number
-  windfallAppliesToPayoutCount?: number
-  minPayout?: number
-  capFirstNPayouts?: { count: number; cap: number }
-  splitFullUpTo?: number
-  splitAfter: number
-}
-
-export interface ScalingRuleProfile {
-  cyclesRequired: number
-  minCycleGrowthPct: number
-  minAgeDays: number
-  scaleRatePct: number
-  scaleCeiling?: number
-}
-
 export interface Account {
-  id?: number
+  id?: string
   firmId: string           // references propFirms catalog (e.g. 'apex', 'fundednext', 'ftmo', 'other')
   customFirmName?: string  // only if firmId === 'other'
   label: string            // user's label, e.g. "FTMO 100K #2"
@@ -49,23 +25,14 @@ export interface Account {
   cost?: number            // one-time amount paid for this challenge/evaluation attempt
   blownReason?: string     // captured when stage is set to 'blown' — see breachReasons.ts
 
-  // Generic rule profiles — set by hand or loaded from a rule pack (rulePacks.ts)
-  payoutRules?: PayoutRuleProfile
-  scalingRules?: ScalingRuleProfile
-  
-  // Legacy / Migration fields (for backward compatibility)
-  firm?: 'fundednext' | 'apex'
-  model?: FnModel
-  platform?: 'rithmic' | 'tradovate'
-  qualifyingCycles?: number
-  scaleEvents?: number
+  // Payout tracking — generic across firms
   payoutsDone?: number
   cumulativePaid?: number
 }
 
 export interface SessionLog {
-  id?: number
-  accountId: number
+  id?: string
+  accountId: string
   date: string // ISO date
   pnl: number
   trades: number
@@ -76,23 +43,23 @@ export interface SessionLog {
 }
 
 export interface Payout {
-  id?: number
-  accountId: number
+  id?: string
+  accountId: string
   date: string
   requested: number
   received: number
 }
 
 export interface Reward {
-  id?: number
-  accountId: number
+  id?: string
+  accountId: string
   date: string // ISO date
   growthPct: number // e.g. 0.05 for 5% growth
 }
 
 export interface Trade {
-  id?: number
-  accountId: number
+  id?: string
+  accountId: string
   date: string // ISO date, entryTime's date — for calendar/day grouping
   symbol: string
   side: 'long' | 'short'
@@ -104,4 +71,80 @@ export interface Trade {
   fees?: number
   pnl: number // computed at save time: (exit-entry)*qty*dir - fees
   notes?: string
+}
+
+export type ReportCardGrade = 'A' | 'B' | 'C' | 'R'
+
+/** Post-session review, one per user per day — tracks the trader, not a specific prop-firm account. */
+export interface ReportCard {
+  id?: string
+  date: string // ISO date
+  dayOfWeek?: string
+  instrument?: string
+  session?: string
+
+  tradesTaken?: number
+  wins?: number
+  losses?: number
+  netPnl?: string
+  largestWin?: string
+  largestLoss?: string
+  maxConsecutiveLosses?: number
+
+  // 10-item execution checklist — rule1-4 are "Core", rule5-10 are "Rule"
+  rule1?: boolean
+  rule2?: boolean
+  rule3?: boolean
+  rule4?: boolean
+  rule5?: boolean
+  rule6?: boolean
+  rule7?: boolean
+  rule8?: boolean
+  rule9?: boolean
+  rule10?: boolean
+
+  grade?: ReportCardGrade
+  fitState?: string
+  planOrFeelings?: string
+
+  whyProblem?: string
+  why1?: string
+  why2?: string
+  why3?: string
+  why4?: string
+  why5?: string
+  rootCause?: string
+  counterMeasure?: string
+
+  didWell?: string
+  mustImprove?: string
+  passedSetup?: string
+  allowedTomorrow?: string
+  noteToTomorrow?: string
+}
+
+export type PlaybookGrade = 'A+' | 'A' | 'B' | 'C'
+
+/** A documented trading setup/strategy the trader can grade and attach reference examples to. */
+export interface Playbook {
+  id?: string
+  name: string
+  description?: string
+  grade?: PlaybookGrade
+}
+
+/** A reference example for a playbook — optionally tied to a real logged trade, optionally with an image. */
+export interface PlaybookExample {
+  id?: string
+  playbookId: string
+  tradeId?: string
+  note?: string
+  imageUrl?: string
+}
+
+/** A personal trading rule, managed under Trader Management — independent of any prop firm's rules. */
+export interface TradingRule {
+  id?: string
+  text: string
+  isCore?: boolean
 }
