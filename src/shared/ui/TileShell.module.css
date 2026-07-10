@@ -4,12 +4,26 @@
   padding: 0.9rem 1.1rem;
   min-width: 170px;
   background: var(--surface);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
+}
+
+/* Centers each tile's own content within whatever height the kpi-row grid stretches this
+   tile to — without this, a tile with less content (e.g. a bare number vs. a chart+legend)
+   just sits top-aligned with dead air below it instead of looking uniform with its siblings. */
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .label {

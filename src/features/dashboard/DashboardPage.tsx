@@ -12,7 +12,17 @@ import { TradeDurationScatter } from './components/TradeDurationScatter'
 import { RecentTradesTable } from '../trades/components/RecentTradesTable'
 import styles from './DashboardPage.module.css'
 
-export function DashboardPage({ trades, accounts, payouts }: { trades: Trade[]; accounts: Account[]; payouts: Payout[] }) {
+export function DashboardPage({
+  trades,
+  accounts,
+  payouts,
+  onOpenDateInJournal,
+}: {
+  trades: Trade[]
+  accounts: Account[]
+  payouts: Payout[]
+  onOpenDateInJournal: (date: string) => void
+}) {
   const daily = dailyPnlSeries(trades)
   const tradedAccountIds = new Set(trades.map((t) => t.accountId))
   const startingBalance = accounts
@@ -25,8 +35,8 @@ export function DashboardPage({ trades, accounts, payouts }: { trades: Trade[]; 
     <div className={styles.root}>
       <KpiRow trades={trades} />
 
-      <div className={styles.row}>
-        <CalendarHeatmap daily={daily} />
+      <div className={styles.topRow}>
+        <CalendarHeatmap daily={daily} onOpenDateInJournal={onOpenDateInJournal} />
         <CumulativePnlChart daily={daily} />
       </div>
 

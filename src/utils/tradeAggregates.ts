@@ -37,7 +37,9 @@ export interface CalendarCell {
   tradeCount: number
 }
 
-/** Flat 7-wide grid (Sun-first), padded with null before day 1 — chunk into weeks of 7 in the UI. */
+/** Flat 7-wide grid (Sun-first), padded with null before day 1 and after the last day so the
+ * total length is always a whole number of weeks — chunking into weeks of 7 in the UI then
+ * always yields full rows, keeping every week's columns aligned under the weekday header. */
 export function calendarCells(daily: DailyPnl[], year: number, month: number): (CalendarCell | null)[] {
   const byDate = new Map(daily.map((d) => [d.date, d]))
   const startWeekday = new Date(year, month, 1).getDay()
@@ -49,6 +51,7 @@ export function calendarCells(daily: DailyPnl[], year: number, month: number): (
     const entry = byDate.get(date)
     cells.push({ date, day, pnl: entry?.pnl ?? null, tradeCount: entry?.tradeCount ?? 0 })
   }
+  while (cells.length % 7 !== 0) cells.push(null)
   return cells
 }
 

@@ -39,11 +39,18 @@ export interface OutcomeCounts {
   losses: number
 }
 
+export function tradeOutcome(pnl: number): 'win' | 'loss' | 'breakeven' {
+  if (pnl > 0) return 'win'
+  if (pnl < 0) return 'loss'
+  return 'breakeven'
+}
+
 export function outcomeCounts(trades: TradeResult[]): OutcomeCounts {
   let wins = 0, breakeven = 0, losses = 0
   for (const t of trades) {
-    if (t.pnl > 0) wins++
-    else if (t.pnl < 0) losses++
+    const outcome = tradeOutcome(t.pnl)
+    if (outcome === 'win') wins++
+    else if (outcome === 'loss') losses++
     else breakeven++
   }
   return { wins, breakeven, losses }

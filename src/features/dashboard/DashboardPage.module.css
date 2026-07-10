@@ -10,6 +10,19 @@
   gap: 1rem;
 }
 
+.topRow {
+  display: grid;
+  grid-template-columns: minmax(440px, 1.7fr) minmax(260px, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .topRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 .stack {
   display: flex;
   flex-direction: column;

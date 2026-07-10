@@ -1,5 +1,27 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
 .title {
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
+}
+
+.zoneToggle {
+  display: flex;
+  gap: 0.3rem;
+}
+.zoneBtn {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+.zoneBtnActive {
+  background: var(--accent);
+  color: var(--text-primary);
+  border-color: var(--accent);
 }

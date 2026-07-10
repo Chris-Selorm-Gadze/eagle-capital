@@ -23,9 +23,9 @@ export function GradeSection({
   onChange: (patch: Partial<ReportCard>) => void
 }) {
   return (
-    <section className={styles.section}>
+    <section className={styles.section} id="sec-grade">
       <div className={styles.secHead}>
-        <span className={styles.secNum}>03</span>
+        <span className={styles.secNum}>04</span>
         <h2>Grade the Day</h2>
         <span className={styles.secNote}>Process, not outcome</span>
       </div>

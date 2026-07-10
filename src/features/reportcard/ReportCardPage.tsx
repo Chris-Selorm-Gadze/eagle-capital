@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReportCard, Trade } from '../../types'
 import { getReportCard, saveReportCard } from '../../db/reportCards'
+import { todayISO } from '../../db/sessions'
 import { ScoreboardSection } from './components/ScoreboardSection'
 import { ExecutionChecklist } from './components/ExecutionChecklist'
 import { GradeSection } from './components/GradeSection'
@@ -8,6 +9,19 @@ import { FiveWhysSection } from './components/FiveWhysSection'
 import { LedgerSection } from './components/LedgerSection'
 import { TradeLinkSection } from './components/TradeLinkSection'
 import styles from './ReportCardPage.module.css'
+
+const SECTIONS = [
+  { id: 'sec-trades', label: 'Trades' },
+  { id: 'sec-scoreboard', label: 'Scoreboard' },
+  { id: 'sec-execution', label: 'Execution' },
+  { id: 'sec-grade', label: 'Grade' },
+  { id: 'sec-whys', label: '5 Whys' },
+  { id: 'sec-ledger', label: 'Ledger' },
+]
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 function dayOfWeekFor(date: string): string {
   return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long' })
@@ -113,6 +127,13 @@ export function ReportCardPage({
     setCard(blankCard(date))
   }
 
+  // Non-destructive: jumps to today's slate (loading whatever's already saved there, or blank
+  // if nothing is) so opening a past entry to read/edit it never "traps" you — no confirm needed
+  // since nothing is deleted, unlike Clear form.
+  function handleNewEntry() {
+    onDateChange(todayISO())
+  }
+
   return (
     <div>
       <div className={styles.wrap}>
@@ -139,7 +160,18 @@ export function ReportCardPage({
           </div>
         </header>
 
-        <TradeLinkSection card={card} trades={trades} onChange={patch} />
+        <nav className={styles.sectionNav}>
+          <div className={styles.sectionNavLinks}>
+            {SECTIONS.map((s) => (
+              <button key={s.id} type="button" className={styles.sectionNavItem} onClick={() => scrollToSection(s.id)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="btn-ghost" onClick={handleClear}>Clear form</button>
+        </nav>
+
+        <TradeLinkSection card={card} trades={trades} userId={userId} onChange={patch} />
         <ScoreboardSection card={card} onChange={patch} />
         <ExecutionChecklist card={card} onChange={patch} />
         <GradeSection card={card} onChange={patch} />
@@ -147,10 +179,11 @@ export function ReportCardPage({
         <LedgerSection card={card} onChange={patch} />
 
         <div className={styles.actions}>
-          <button className="btn-primary" onClick={handleSave}>Save entry</button>
-          <button onClick={handleCopy}>Copy as text</button>
-          <button onClick={handleExport}>Export JSON</button>
-          <button onClick={handleClear}>Clear form</button>
+          <button type="button" className="btn-primary" onClick={handleSave}>Save entry</button>
+          <button type="button" onClick={handleNewEntry}>New entry (today)</button>
+          <button type="button" onClick={handleCopy}>Copy as text</button>
+          <button type="button" onClick={handleExport}>Export JSON</button>
+          <button type="button" onClick={handleClear} className="btn-ghost">Clear form</button>
           <span className={`${styles.saved} ${savedMessage ? styles.savedShow : ''}`}>{savedMessage}</span>
         </div>
 

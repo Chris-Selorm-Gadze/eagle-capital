@@ -1,0 +1,56 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 75vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.row {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.row:hover {
+  border-color: var(--text-muted);
+}
+.rowActive {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.rowTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.symbol {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.outcome {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+.outcomeWin { background: rgba(12, 163, 12, 0.15); color: var(--good); }
+.outcomeLoss { background: rgba(208, 59, 59, 0.15); color: var(--critical); }
+.outcomeBreakeven { background: rgba(137, 135, 129, 0.15); color: var(--text-muted); }
+
+.rowBottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.pnl {
+  font-weight: 600;
+}

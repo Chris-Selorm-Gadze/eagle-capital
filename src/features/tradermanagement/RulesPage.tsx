@@ -71,23 +71,31 @@ export function RulesPage({ userId }: { userId: string }) {
             <div key={r.id} className={styles.row}>
               <span className={styles.text}>{r.text}</span>
               {r.isCore && <span className={styles.coreBadge}>Core</span>}
-              <button onClick={() => handleToggleCore(r)}>{r.isCore ? 'Unmark core' : 'Mark core'}</button>
-              <button onClick={() => handleDelete(r.id!)} className="btn-ghost">Delete</button>
+              <div className={styles.rowActions}>
+                <button type="button" onClick={() => handleToggleCore(r)}>{r.isCore ? 'Unmark core' : 'Mark core'}</button>
+                <button type="button" onClick={() => handleDelete(r.id!)} className="btn-ghost">Delete</button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      <div className={`card ${styles.addRow}`}>
-        <label className="flex-1">
-          New rule
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. No trades after 3 consecutive losses" />
-        </label>
-        <label className="field-checkbox">
-          <input type="checkbox" checked={isCore} onChange={(e) => setIsCore(e.target.checked)} />
-          Core
-        </label>
-        <button className="btn-primary" onClick={handleAdd} disabled={!text.trim()}>Add rule</button>
+      <div className={`card ${styles.addCard}`}>
+        <span className={styles.addLabel}>Add a new rule</span>
+        <div className={styles.addRow}>
+          <input
+            className={styles.addInput}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            placeholder="e.g. No trades after 3 consecutive losses"
+          />
+          <label className={styles.coreCheckbox}>
+            <input type="checkbox" checked={isCore} onChange={(e) => setIsCore(e.target.checked)} />
+            Core
+          </label>
+          <button type="button" className="btn-primary" onClick={handleAdd} disabled={!text.trim()}>Add rule</button>
+        </div>
       </div>
     </div>
   )

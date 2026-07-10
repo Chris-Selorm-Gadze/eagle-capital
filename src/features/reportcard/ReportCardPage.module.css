@@ -2,12 +2,23 @@
   max-width: 960px;
 }
 
+/* Plain <input>/<select> here don't inherit the app-wide .field width:100% rule (this page's
+   .field is its own locally-scoped class, not the global one) — without this they'd render at
+   native ~20ch width inside wide grid cells instead of filling them. Checkboxes are excluded
+   so rule/trade-picker rows keep their own compact native sizing. */
+.wrap input:not([type='checkbox']),
+.wrap select,
 .wrap textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.65rem 0.8rem;
+  background: var(--surface-2);
+  padding: 0.6rem 0.75rem;
+  border-radius: 7px;
+  font-size: 0.88rem;
+}
+
+.wrap textarea {
   line-height: 1.6;
-  border-radius: 8px;
   resize: vertical;
 }
 
@@ -22,7 +33,7 @@
   color: var(--text-muted); margin-bottom: 0.5rem;
 }
 .title em { font-style: normal; color: var(--accent); }
-.sub { color: var(--text-secondary); font-size: 0.85rem; max-width: 60ch; margin-top: 0.4rem; }
+.sub { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.4rem; }
 .meta { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.1rem; }
 .meta label { flex: 1; min-width: 120px; }
 .metaKey {
@@ -30,8 +41,44 @@
   letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.3rem;
 }
 
+/* Sticky quick-jump nav — the form is long, this lets you skip straight to a section
+   instead of scrolling through the whole thing every time. Clear form lives here too so
+   it's always reachable without scrolling all the way to the bottom actions bar. */
+.sectionNav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: var(--page-bg);
+  padding: 0.6rem 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.sectionNavLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.sectionNavItem {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.9rem;
+}
+.sectionNavItem:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
 /* Sections */
-.section { margin-bottom: 2rem; }
+.section { margin-bottom: 2rem; scroll-margin-top: 4.5rem; }
 .secHead {
   display: flex; align-items: baseline; gap: 0.75rem;
   border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem;
@@ -114,8 +161,7 @@
 
 /* 5 Whys: the drill */
 .whys { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
-.whysHeadTitle { font-weight: 700; font-size: 1.1rem; text-transform: uppercase; letter-spacing: -0.01em; }
-.whysHeadSub { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem; max-width: 62ch; line-height: 1.55; }
+.whysHeadSub { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.55; }
 .problem {
   margin: 1.25rem 0 0.25rem; padding: 0.75rem 0.9rem; background: var(--surface-2);
   border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0;
@@ -164,3 +210,63 @@
   color: var(--text-muted); max-width: 56ch;
 }
 .creed span { color: var(--text-primary); }
+
+/* Trade screenshot upload (used in TradeLinkSection) */
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.previewItem {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.previewImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.previewRemove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: rgba(13, 13, 13, 0.75);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+.previewRemove:hover {
+  background: var(--critical);
+}
+
+.hiddenFileInput {
+  /* !important needed: the global .field input rule in theme.css (display:block) has
+     higher specificity than a plain module class and would otherwise win and re-show it. */
+  display: none !important;
+}
+
+.fileButton {
+  display: inline-block;
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.fileButton:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}

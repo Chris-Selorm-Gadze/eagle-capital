@@ -1,0 +1,206 @@
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.85rem;
+}
+
+.headerTop {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.navArrow {
+  padding: 0.2rem 0.6rem;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.symbol {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.sideBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-secondary);
+}
+
+.outcomeBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+.outcomeWin { background: rgba(12, 163, 12, 0.15); color: var(--good); }
+.outcomeLoss { background: rgba(208, 59, 59, 0.15); color: var(--critical); }
+.outcomeBreakeven { background: rgba(137, 135, 129, 0.15); color: var(--text-muted); }
+
+.headerMeta {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.pnlBar {
+  margin-bottom: 1rem;
+}
+.pnlLabel {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pnlValue {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+.tabActive {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.tabContent {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.saveBar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+/* Stats tab */
+.statsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 0.3rem 0;
+}
+.statRow span:first-child {
+  color: var(--text-secondary);
+}
+.statRow span:last-child {
+  font-weight: 600;
+}
+.statDivider {
+  border-top: 1px solid var(--border);
+  margin: 0.5rem 0;
+}
+.zoneToggle {
+  display: flex;
+  gap: 0.3rem;
+}
+.zoneBtn {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+.zoneBtnActive {
+  background: var(--accent);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+.stars {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+}
+.star {
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--warning);
+  line-height: 1;
+}
+
+/* Strategy / Tags tabs */
+.hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.chipRow {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.4rem 0.2rem 0.7rem;
+}
+.chipRemove {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.chipRemove:hover {
+  background: var(--critical);
+  color: var(--text-primary);
+}
+
+/* Notes tab */
+.journalTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 280px;
+  padding: 0.75rem;
+  line-height: 1.6;
+  border-radius: 8px;
+  resize: vertical;
+}

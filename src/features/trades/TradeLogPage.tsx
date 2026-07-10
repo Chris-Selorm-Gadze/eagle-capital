@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Account, Trade } from '../../db/schema'
-import { deleteTrade } from '../../db/trades'
+import { deleteTrade, deleteTrades } from '../../db/trades'
+import { errorMessage } from '../../utils/errors'
 import { RecentTradesTable } from './components/RecentTradesTable'
 import { AddTradeDialog } from './components/AddTradeDialog'
 
@@ -16,14 +17,42 @@ export function TradeLogPage({
   onChanged: () => void
 }) {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleDelete(id: string) {
     await deleteTrade(id)
     onChanged()
   }
 
+  async function handleDeleteAll() {
+    const count = trades.length
+    if (count === 0) return
+    if (!confirm(`Delete all ${count} trade${count === 1 ? '' : 's'} shown here? This cannot be undone.`)) return
+    setError(null)
+    setDeleting(true)
+    try {
+      await deleteTrades(trades.map((t) => t.id!))
+      onChanged()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div>
+      {trades.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+          <button type="button" className="btn-ghost" onClick={handleDeleteAll} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete all'}
+          </button>
+        </div>
+      )}
+
+      {error && <div style={{ color: 'var(--critical)', marginBottom: '1rem' }}>{error}</div>}
+
       <RecentTradesTable
         trades={trades}
         title={`All trades (${trades.length})`}

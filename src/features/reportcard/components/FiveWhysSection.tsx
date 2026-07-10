@@ -17,10 +17,14 @@ export function FiveWhysSection({
   onChange: (patch: Partial<ReportCard>) => void
 }) {
   return (
-    <section className={styles.section}>
+    <section className={styles.section} id="sec-whys">
+      <div className={styles.secHead}>
+        <span className={styles.secNum}>05</span>
+        <h2>The 5 Whys</h2>
+        <span className={styles.secNote}>The one that actually changes you</span>
+      </div>
       <div className={styles.whys}>
         <div>
-          <div className={styles.whysHeadTitle}>The 5 Whys</div>
           <p className={styles.whysHeadSub}>
             Take the single worst decision of the day — not the biggest loss, the worst <em>decision</em>. Then ask
             why five times. Each answer becomes the next question. Never stop at the first answer; the first answer

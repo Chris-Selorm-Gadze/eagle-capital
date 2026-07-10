@@ -86,7 +86,13 @@ export function TradingViewWidget({ symbol }: { symbol: string }) {
 
     return () => {
       cancelled = true
-      widgetRef.current?.remove?.()
+      try {
+        widgetRef.current?.remove?.()
+      } catch {
+        // TradingView's widget can throw here if React has already torn down the container
+        // div (e.g. switching away from this tab) before the widget's own internal cleanup
+        // runs — a third-party library's teardown error must never crash the whole app.
+      }
       widgetRef.current = null
     }
   }, [symbol, containerId])

@@ -21,7 +21,7 @@ export function TileShell({
         </div>
         {badge !== undefined && <span className={styles.badge}>{badge}</span>}
       </div>
-      {children}
+      <div className={styles.body}>{children}</div>
     </div>
   )
 }

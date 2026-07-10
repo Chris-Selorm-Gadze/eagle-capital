@@ -24,9 +24,9 @@ export function ExecutionChecklist({
   onChange: (patch: Partial<ReportCard>) => void
 }) {
   return (
-    <section className={styles.section}>
+    <section className={styles.section} id="sec-execution">
       <div className={styles.secHead}>
-        <span className={styles.secNum}>02</span>
+        <span className={styles.secNum}>03</span>
         <h2>Execution Score</h2>
         <span className={styles.secNote}>This is your real grade</span>
       </div>

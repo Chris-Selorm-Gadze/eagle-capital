@@ -1,6 +1,7 @@
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ZAxis } from 'recharts'
 import type { Trade } from '../../../db/schema'
 import { tradeDurationMinutes } from '../../../utils/tradeStats'
+import { formatDuration } from '../../../utils/format'
 import {
   AXIS_TICK_STYLE, AXIS_LINE_STYLE, TOOLTIP_CONTENT_STYLE, TOOLTIP_LABEL_STYLE, TOOLTIP_ITEM_STYLE,
   COLOR_GOOD, COLOR_CRITICAL, COLOR_GRIDLINE,
@@ -20,9 +21,9 @@ export function TradeDurationScatter({ trades }: { trades: Trade[] }) {
         <ScatterChart>
           <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRIDLINE} />
           <XAxis
-            type="number" dataKey="duration" tickFormatter={(v) => `${v}m`}
+            type="number" dataKey="duration" tickFormatter={(v) => formatDuration(v)}
             tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE}
-            name="Duration (min)"
+            name="Duration"
           />
           <YAxis
             type="number" dataKey="pnl" tickFormatter={(v) => `$${v.toLocaleString()}`}
@@ -32,7 +33,7 @@ export function TradeDurationScatter({ trades }: { trades: Trade[] }) {
           <ZAxis range={[40, 40]} />
           <Tooltip
             cursor={{ strokeDasharray: '3 3' }}
-            formatter={(v: number, name: string) => (name === 'pnl' ? `$${v.toLocaleString()}` : `${v.toFixed(0)}m`)}
+            formatter={(v: number, name: string) => (name === 'pnl' ? `$${v.toLocaleString()}` : formatDuration(v))}
             contentStyle={TOOLTIP_CONTENT_STYLE}
             labelStyle={TOOLTIP_LABEL_STYLE}
             itemStyle={TOOLTIP_ITEM_STYLE}

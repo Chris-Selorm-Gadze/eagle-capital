@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { calendarCells, weekTotal, monthTotal, type DailyPnl } from '../../../utils/tradeAggregates'
+import { calendarCells, weekTotal, monthTotal, type DailyPnl, type CalendarCell } from '../../../utils/tradeAggregates'
 import { COLOR_GOOD_LIGHT, COLOR_CRITICAL_LIGHT } from '../../../utils/chartTheme'
 import styles from './CalendarHeatmap.module.css'
 
@@ -22,7 +22,13 @@ function cellStyle(pnl: number | null): { background: string; color: string } {
   return { background: 'var(--surface-2)', color: 'var(--text-secondary)' }
 }
 
-export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
+export function CalendarHeatmap({
+  daily,
+  onOpenDateInJournal,
+}: {
+  daily: DailyPnl[]
+  onOpenDateInJournal: (date: string) => void
+}) {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
@@ -39,17 +45,22 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
     if (month === 11) { setYear(year + 1); setMonth(0) } else setMonth(month + 1)
   }
 
+  function handleDayClick(cell: CalendarCell | null) {
+    if (!cell || cell.tradeCount === 0) return
+    onOpenDateInJournal(cell.date)
+  }
+
   return (
     <div className="card">
       <div className={styles.header}>
-        <button onClick={prevMonth}>‹</button>
+        <button type="button" onClick={prevMonth}>‹</button>
         <div className={styles.monthTitleGroup}>
           <div className={styles.monthTitle}>{MONTH_NAMES[month]} {year}</div>
           <div className={styles.monthTotal} style={{ color: totalColor(total) }}>
             {total >= 0 ? '+' : '-'}${Math.abs(total).toLocaleString()}
           </div>
         </div>
-        <button onClick={nextMonth}>›</button>
+        <button type="button" onClick={nextMonth}>›</button>
       </div>
       <div className={styles.weekdayRow}>
         {WEEKDAYS.map((w) => <div key={w} className={styles.weekdayCell}>{w}</div>)}
@@ -61,11 +72,14 @@ export function CalendarHeatmap({ daily }: { daily: DailyPnl[] }) {
           <div key={i} className={styles.weekRow}>
             {week.map((cell, j) => {
               const style = cellStyle(cell?.pnl ?? null)
+              const clickable = Boolean(cell && cell.tradeCount > 0)
               return (
                 <div
                   key={j}
-                  className={styles.dayCell}
+                  className={`${styles.dayCell} ${clickable ? styles.dayCellClickable : ''}`}
                   style={{ background: cell ? style.background : 'transparent', color: style.color }}
+                  onClick={() => handleDayClick(cell)}
+                  title={clickable ? 'Open this day\'s trades in the Trade Journal' : undefined}
                 >
                   {cell && (
                     <>

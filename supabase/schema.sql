@@ -116,8 +116,16 @@ create table if not exists public.trades (
   fees numeric,
   pnl numeric not null,
   notes text,
+  stop_loss numeric,
+  profit_target numeric,
+  rating smallint,
+  tags text[],
   created_at timestamptz default now()
 );
+alter table public.trades add column if not exists stop_loss numeric;
+alter table public.trades add column if not exists profit_target numeric;
+alter table public.trades add column if not exists rating smallint;
+alter table public.trades add column if not exists tags text[];
 alter table public.trades enable row level security;
 drop policy if exists "own trades" on public.trades;
 create policy "own trades" on public.trades for all using (auth.uid() = user_id);
@@ -131,6 +139,7 @@ create table if not exists public.report_cards (
   instrument text,
   session text,
   trade_ids uuid[], -- real logged trades this report is written about
+  image_urls text[], -- screenshots of the attached trades
   trades_taken integer,
   wins integer,
   losses integer,
@@ -157,6 +166,7 @@ create table if not exists public.report_cards (
   unique (user_id, date)
 );
 alter table public.report_cards add column if not exists trade_ids uuid[];
+alter table public.report_cards add column if not exists image_urls text[];
 alter table public.report_cards enable row level security;
 drop policy if exists "own report cards" on public.report_cards;
 create policy "own report cards" on public.report_cards for all using (auth.uid() = user_id);

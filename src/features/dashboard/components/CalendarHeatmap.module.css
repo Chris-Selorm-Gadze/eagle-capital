@@ -46,10 +46,19 @@
 }
 
 .dayCell {
-  min-height: 84px;
+  height: 84px;
+  overflow: hidden;
   border-radius: 4px;
   padding: 0.4rem 0.5rem;
   font-size: 0.85rem;
+  border: 1px solid transparent;
+}
+
+.dayCellClickable {
+  cursor: pointer;
+}
+.dayCellClickable:hover {
+  border-color: var(--text-muted);
 }
 
 .dayPnl {
@@ -65,7 +74,8 @@
 }
 
 .weekTotalCell {
-  min-height: 84px;
+  height: 84px;
+  overflow: hidden;
   border-radius: 4px;
   padding: 0.4rem 0.5rem;
   border-left: 1px solid var(--border);

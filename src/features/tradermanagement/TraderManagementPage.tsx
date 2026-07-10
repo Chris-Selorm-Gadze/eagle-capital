@@ -17,12 +17,17 @@ export function TraderManagementPage({ userId, trades }: { userId: string; trade
     setTab('reportcard')
   }
 
+  function goToFreshReportCard() {
+    setReportDate(todayISO())
+    setTab('reportcard')
+  }
+
   return (
     <div>
       <h1 className="page-title" style={{ marginBottom: '1rem' }}>Trader Management</h1>
 
       <div className={styles.tabs}>
-        <button className={`${styles.tab} ${tab === 'reportcard' ? styles.tabActive : ''}`} onClick={() => setTab('reportcard')}>
+        <button className={`${styles.tab} ${tab === 'reportcard' ? styles.tabActive : ''}`} onClick={goToFreshReportCard}>
           Daily Report Card
         </button>
         <button className={`${styles.tab} ${tab === 'completed' ? styles.tabActive : ''}`} onClick={() => setTab('completed')}>

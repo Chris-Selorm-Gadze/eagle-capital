@@ -18,6 +18,18 @@ export function TradeDirectionPie({ trades }: { trades: Trade[] }) {
   return (
     <TileShell label="Trade direction" info="Share of trades taken long vs. short.">
       <div className={styles.row}>
+        <div>
+          <div className={styles.legendRow}>
+            <span className={`${styles.dot} ${styles.dotGood}`} />
+            <span className={styles.pct}>{longPct}%</span>
+            <span className={styles.legendLabel}>Long</span>
+          </div>
+          <div className={styles.legendRow}>
+            <span className={`${styles.dot} ${styles.dotCritical}`} />
+            <span className={styles.pct}>{hasData ? 100 - longPct : 0}%</span>
+            <span className={styles.legendLabel}>Short</span>
+          </div>
+        </div>
         <div className={styles.pieWrap}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -40,18 +52,6 @@ export function TradeDirectionPie({ trades }: { trades: Trade[] }) {
               )}
             </PieChart>
           </ResponsiveContainer>
-        </div>
-        <div>
-          <div className={styles.legendRow}>
-            <span className={`${styles.dot} ${styles.dotGood}`} />
-            <span className={styles.pct}>{longPct}%</span>
-            <span className={styles.legendLabel}>Long</span>
-          </div>
-          <div className={styles.legendRow}>
-            <span className={`${styles.dot} ${styles.dotCritical}`} />
-            <span className={styles.pct}>{hasData ? 100 - longPct : 0}%</span>
-            <span className={styles.legendLabel}>Short</span>
-          </div>
         </div>
       </div>
     </TileShell>

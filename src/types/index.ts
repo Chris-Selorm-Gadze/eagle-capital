@@ -71,6 +71,12 @@ export interface Trade {
   fees?: number
   pnl: number // computed at save time: (exit-entry)*qty*dir - fees
   notes?: string
+
+  // Journal fields — planned risk, review rating, and free-form tags, all optional/manual
+  stopLoss?: number
+  profitTarget?: number
+  rating?: number // 1-5
+  tags?: string[]
 }
 
 export type ReportCardGrade = 'A' | 'B' | 'C' | 'R'
@@ -83,6 +89,7 @@ export interface ReportCard {
   instrument?: string
   session?: string
   tradeIds?: string[] // real logged trades this report is written about
+  imageUrls?: string[] // screenshots of the attached trades
 
   tradesTaken?: number
   wins?: number

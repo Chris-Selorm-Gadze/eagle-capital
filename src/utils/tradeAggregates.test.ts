@@ -47,6 +47,13 @@ describe('calendarCells', () => {
     expect(day6).toMatchObject({ pnl: 80, tradeCount: 2 })
     expect(day7).toMatchObject({ pnl: null, tradeCount: 0 })
   })
+
+  it('pads the grid to a whole number of weeks, so the last week is never short a column', () => {
+    for (let month = 0; month < 12; month++) {
+      const cells = calendarCells([], 2026, month)
+      expect(cells.length % 7).toBe(0)
+    }
+  })
 })
 
 describe('weekday aggregation (mostActive/mostProfitable/leastProfitableWeekday)', () => {

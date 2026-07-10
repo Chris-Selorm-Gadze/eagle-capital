@@ -6,18 +6,21 @@ export function TopBar({
   accountFilter,
   onAccountFilterChange,
   onAddTrade,
+  onAddAccount,
   onSnapshot,
 }: {
   accounts: Account[]
   accountFilter: string | 'all'
   onAccountFilterChange: (value: string | 'all') => void
   onAddTrade: () => void
+  onAddAccount: () => void
   onSnapshot?: () => void
 }) {
   return (
     <div className={styles.root}>
       <div className={styles.left}>
         <button onClick={onAddTrade} className="btn-primary">+ Add Trade</button>
+        <button onClick={onAddAccount} className="btn-primary">+ Add Account</button>
         {onSnapshot && <button onClick={onSnapshot}>📷 Snapshot</button>}
         <select
           value={accountFilter}

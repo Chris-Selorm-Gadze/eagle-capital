@@ -51,6 +51,7 @@ export function ImportTradesDialog({
       const res = await importTrades(userId, accountId, parsed)
       setResult(res)
       setParsed(null)
+      onSaved()
     } catch (err) {
       setError(errorMessage(err))
     } finally {
