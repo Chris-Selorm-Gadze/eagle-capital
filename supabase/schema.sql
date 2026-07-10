@@ -130,6 +130,7 @@ create table if not exists public.report_cards (
   day_of_week text,
   instrument text,
   session text,
+  trade_ids uuid[], -- real logged trades this report is written about
   trades_taken integer,
   wins integer,
   losses integer,
@@ -155,6 +156,7 @@ create table if not exists public.report_cards (
   updated_at timestamptz default now(),
   unique (user_id, date)
 );
+alter table public.report_cards add column if not exists trade_ids uuid[];
 alter table public.report_cards enable row level security;
 drop policy if exists "own report cards" on public.report_cards;
 create policy "own report cards" on public.report_cards for all using (auth.uid() = user_id);

@@ -82,6 +82,7 @@ export interface ReportCard {
   dayOfWeek?: string
   instrument?: string
   session?: string
+  tradeIds?: string[] // real logged trades this report is written about
 
   tradesTaken?: number
   wins?: number

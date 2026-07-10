@@ -47,7 +47,6 @@ export function GradeSection({
           rows={2}
           value={card.fitState ?? ''}
           onChange={(e) => onChange({ fitState: e.target.value })}
-          placeholder="Sleep, stress, pressure to make money back. Be honest."
         />
       </div>
       <div className={styles.field}>
@@ -56,7 +55,6 @@ export function GradeSection({
           rows={2}
           value={card.planOrFeelings ?? ''}
           onChange={(e) => onChange({ planOrFeelings: e.target.value })}
-          placeholder="Be specific. Name the moment it shifted, if it did."
         />
       </div>
     </section>

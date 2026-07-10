@@ -18,16 +18,16 @@ export function LedgerSection({
       <div className={styles.grid2}>
         <div className={styles.field}>
           <span className={styles.fieldKey}>What I did well</span>
-          <textarea rows={4} value={card.didWell ?? ''} onChange={(e) => onChange({ didWell: e.target.value })} placeholder="Name at least one thing. Even on a red day." />
+          <textarea rows={4} value={card.didWell ?? ''} onChange={(e) => onChange({ didWell: e.target.value })} />
         </div>
         <div className={styles.field}>
           <span className={styles.fieldKey}>What must improve tomorrow</span>
-          <textarea rows={4} value={card.mustImprove ?? ''} onChange={(e) => onChange({ mustImprove: e.target.value })} placeholder="One thing. Not five. One." />
+          <textarea rows={4} value={card.mustImprove ?? ''} onChange={(e) => onChange({ mustImprove: e.target.value })} />
         </div>
       </div>
       <div className={styles.field}>
         <span className={styles.fieldKey}>The A+ setup I passed on — and was right to</span>
-        <textarea rows={2} value={card.passedSetup ?? ''} onChange={(e) => onChange({ passedSetup: e.target.value })} placeholder="Missing a trade with discipline is a win. Log it as one." />
+        <textarea rows={2} value={card.passedSetup ?? ''} onChange={(e) => onChange({ passedSetup: e.target.value })} />
       </div>
       <div className={styles.grid2}>
         <div className={styles.field}>

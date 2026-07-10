@@ -1,0 +1,68 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 960px;
+}
+
+.row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.row:hover {
+  border-color: var(--text-muted);
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.date {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.dow {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.gradeBadge {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+}
+.gradeA { background: rgba(12, 163, 12, 0.15); color: var(--good); }
+.gradeB { background: rgba(250, 178, 25, 0.15); color: var(--warning); }
+.gradeC { background: rgba(236, 131, 90, 0.15); color: var(--serious); }
+.gradeR { background: rgba(208, 59, 59, 0.15); color: var(--critical); }
+
+.rowMeta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.rowTrades {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.tradeChip {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}

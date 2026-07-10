@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import type { ReportCard } from '../../types'
+import type { ReportCard, Trade } from '../../types'
 import { getReportCard, saveReportCard } from '../../db/reportCards'
-import { todayISO } from '../../db/sessions'
 import { ScoreboardSection } from './components/ScoreboardSection'
 import { ExecutionChecklist } from './components/ExecutionChecklist'
 import { GradeSection } from './components/GradeSection'
 import { FiveWhysSection } from './components/FiveWhysSection'
 import { LedgerSection } from './components/LedgerSection'
+import { TradeLinkSection } from './components/TradeLinkSection'
 import styles from './ReportCardPage.module.css'
 
 function dayOfWeekFor(date: string): string {
@@ -17,12 +17,17 @@ function blankCard(date: string): ReportCard {
   return { date, dayOfWeek: dayOfWeekFor(date) }
 }
 
-function toText(card: ReportCard): string {
+function toText(card: ReportCard, trades: Trade[]): string {
   const rules = [card.rule1, card.rule2, card.rule3, card.rule4, card.rule5, card.rule6, card.rule7, card.rule8, card.rule9, card.rule10]
   const followed = rules.filter(Boolean).length
+  const tradeById = new Map(trades.map((t) => [t.id, t]))
+  const linkedTrades = (card.tradeIds ?? []).map((id) => tradeById.get(id)).filter((t): t is Trade => !!t)
   return [
     `DAILY REPORT CARD — ${card.date} (${card.dayOfWeek ?? ''})`,
     `Instrument: ${card.instrument ?? ''}   Session: ${card.session ?? ''}`,
+    ...(linkedTrades.length > 0
+      ? ['', `TRADES ATTACHED`, ...linkedTrades.map((t) => `${t.symbol} · ${t.date} · ${t.pnl >= 0 ? '+' : '-'}$${Math.abs(t.pnl).toLocaleString()}`)]
+      : []),
     ``,
     `SCOREBOARD`,
     `Trades ${card.tradesTaken ?? ''} | W ${card.wins ?? ''} | L ${card.losses ?? ''} | Net ${card.netPnl ?? ''}`,
@@ -52,8 +57,17 @@ function toText(card: ReportCard): string {
   ].join('\n')
 }
 
-export function ReportCardPage({ userId }: { userId: string }) {
-  const [date, setDate] = useState(todayISO())
+export function ReportCardPage({
+  userId,
+  trades,
+  date,
+  onDateChange,
+}: {
+  userId: string
+  trades: Trade[]
+  date: string
+  onDateChange: (date: string) => void
+}) {
   const [card, setCard] = useState<ReportCard>(blankCard(date))
   const [savedMessage, setSavedMessage] = useState('')
 
@@ -81,7 +95,7 @@ export function ReportCardPage({ userId }: { userId: string }) {
   }
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(toText(card))
+    await navigator.clipboard.writeText(toText(card, trades))
     flash('COPIED')
   }
 
@@ -112,7 +126,7 @@ export function ReportCardPage({ userId }: { userId: string }) {
           <div className={styles.meta}>
             <label>
               <span className={styles.metaKey}>Date</span>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <input type="date" value={date} onChange={(e) => onDateChange(e.target.value)} />
             </label>
             <label>
               <span className={styles.metaKey}>Instrument</span>
@@ -125,6 +139,7 @@ export function ReportCardPage({ userId }: { userId: string }) {
           </div>
         </header>
 
+        <TradeLinkSection card={card} trades={trades} onChange={patch} />
         <ScoreboardSection card={card} onChange={patch} />
         <ExecutionChecklist card={card} onChange={patch} />
         <GradeSection card={card} onChange={patch} />

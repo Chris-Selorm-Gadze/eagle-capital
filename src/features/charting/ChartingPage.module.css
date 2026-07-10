@@ -1,0 +1,27 @@
+.chartWrap {
+  position: relative;
+  height: 85vh;
+  min-height: 560px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chartWrap:fullscreen {
+  border: none;
+  border-radius: 0;
+  height: 100vh;
+  background: var(--page-bg);
+}
+
+/* Sits over the chart near TradingView's own header icons (top-right), roughly
+   beside its download/screenshot button — we can't inject into their iframe
+   toolbar directly, so this overlays the app's own control next to it instead. */
+.fullscreenButton {
+  position: absolute;
+  top: 8px;
+  right: 60px;
+  z-index: 10;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+}

@@ -35,7 +35,6 @@ export function FiveWhysSection({
             rows={2}
             value={card.whyProblem ?? ''}
             onChange={(e) => onChange({ whyProblem: e.target.value })}
-            placeholder="State the worst decision plainly. No excuses, no market blame."
           />
         </div>
 
@@ -46,7 +45,7 @@ export function FiveWhysSection({
                 <span className={styles.n}>WHY {w.n}</span>
                 <span className={styles.q}>{w.q}</span>
               </div>
-              <textarea rows={w.rows} value={card[w.key] ?? ''} onChange={(e) => onChange({ [w.key]: e.target.value })} placeholder="Because…" />
+              <textarea rows={w.rows} value={card[w.key] ?? ''} onChange={(e) => onChange({ [w.key]: e.target.value })} />
               <p className={styles.whyPrompt}>{w.prompt}</p>
             </div>
           ))}
@@ -59,7 +58,6 @@ export function FiveWhysSection({
               rows={2}
               value={card.rootCause ?? ''}
               onChange={(e) => onChange({ rootCause: e.target.value })}
-              placeholder="In one sentence: the real thing underneath all five."
             />
           </div>
           <div className={styles.field} style={{ marginBottom: 0, marginTop: '14px' }}>
@@ -68,7 +66,6 @@ export function FiveWhysSection({
               rows={2}
               value={card.counterMeasure ?? ''}
               onChange={(e) => onChange({ counterMeasure: e.target.value })}
-              placeholder="Not 'be more patient.' Something a machine could check."
             />
             <p className={`${styles.whyPrompt} ${styles.fixHint}`}>If it needs willpower, it will fail. Build a rule that removes the choice.</p>
           </div>

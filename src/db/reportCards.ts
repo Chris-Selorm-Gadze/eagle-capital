@@ -8,6 +8,7 @@ function fromRow(row: Record<string, any>): ReportCard {
     dayOfWeek: row.day_of_week ?? undefined,
     instrument: row.instrument ?? undefined,
     session: row.session ?? undefined,
+    tradeIds: row.trade_ids ?? undefined,
     tradesTaken: row.trades_taken ?? undefined,
     wins: row.wins ?? undefined,
     losses: row.losses ?? undefined,
@@ -50,6 +51,7 @@ function toRow(c: ReportCard): Record<string, unknown> {
     day_of_week: c.dayOfWeek,
     instrument: c.instrument,
     session: c.session,
+    trade_ids: c.tradeIds ?? null,
     trades_taken: c.tradesTaken,
     wins: c.wins,
     losses: c.losses,
@@ -92,4 +94,14 @@ export async function saveReportCard(userId: string, card: ReportCard): Promise<
     .from('report_cards')
     .upsert({ user_id: userId, ...toRow(card) }, { onConflict: 'user_id,date' })
   if (error) throw error
+}
+
+/** Every saved report card for the signed-in user, most recent first. */
+export async function listReportCards(): Promise<ReportCard[]> {
+  const { data, error } = await supabase
+    .from('report_cards')
+    .select('*')
+    .order('date', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(fromRow)
 }
