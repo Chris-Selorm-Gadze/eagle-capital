@@ -39,7 +39,6 @@ export function AuthPage() {
   return (
     <div className={styles.root}>
       <h2 className={styles.title}>{mode === 'signup' ? 'Create an account' : 'Sign in'}</h2>
-      <p className={styles.subtitle}>Needed for broker sync and any features shared across your devices.</p>
 
       <label className="field">
         Email

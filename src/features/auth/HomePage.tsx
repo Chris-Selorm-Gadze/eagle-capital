@@ -10,7 +10,6 @@ export function HomePage() {
         <span aria-hidden="true" className={styles.logo}>🦅</span>
         <span className={styles.brandName}>EagleCapital</span>
       </div>
-      <p className={styles.tagline}>Your prop-firm cockpit — sign in to continue.</p>
       <AuthPage />
     </div>
   )

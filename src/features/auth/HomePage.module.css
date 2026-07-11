@@ -24,10 +24,3 @@
   font-size: 1.5rem;
   letter-spacing: 0.01em;
 }
-
-.tagline {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin: -1rem 0 1.5rem;
-  text-align: center;
-}
