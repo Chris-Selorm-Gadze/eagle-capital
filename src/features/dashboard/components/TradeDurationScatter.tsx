@@ -18,7 +18,7 @@ export function TradeDurationScatter({ trades }: { trades: Trade[] }) {
     <div className="card">
       <div className={styles.title}>Trade duration performance</div>
       <ResponsiveContainer width="100%" height={340}>
-        <ScatterChart>
+        <ScatterChart margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRIDLINE} />
           <XAxis
             type="number" dataKey="duration" tickFormatter={(v) => formatDuration(v)}
@@ -28,7 +28,7 @@ export function TradeDurationScatter({ trades }: { trades: Trade[] }) {
           <YAxis
             type="number" dataKey="pnl" tickFormatter={(v) => `$${v.toLocaleString()}`}
             tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE}
-            name="P&L" width={64}
+            name="P&L" width={50}
           />
           <ZAxis range={[40, 40]} />
           <Tooltip

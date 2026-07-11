@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import type { Trade } from '../../../../types'
 import styles from '../TradeDetailPanel.module.css'
 
@@ -29,7 +31,7 @@ export function TradeTagsTab({ draft, onChange }: { draft: Trade; onChange: (pat
           {tags.map((t) => (
             <span key={t} className={styles.chip}>
               {t}
-              <button type="button" onClick={() => removeTag(t)} className={styles.chipRemove}>✕</button>
+              <button type="button" onClick={() => removeTag(t)} className={styles.chipRemove}><FontAwesomeIcon icon={faXmark} /></button>
             </span>
           ))}
         </div>

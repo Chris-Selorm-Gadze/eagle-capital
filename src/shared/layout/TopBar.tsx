@@ -1,3 +1,5 @@
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faPlus, faCamera, faBuilding } from '@fortawesome/free-solid-svg-icons'
 import type { Account } from '../../db/schema'
 import styles from './TopBar.module.css'
 
@@ -19,18 +21,30 @@ export function TopBar({
   return (
     <div className={styles.root}>
       <div className={styles.left}>
-        <button onClick={onAddTrade} className="btn-primary">+ Add Trade</button>
-        <button onClick={onAddAccount} className="btn-primary">+ Add Account</button>
-        {onSnapshot && <button onClick={onSnapshot}>📷 Snapshot</button>}
-        <select
-          value={accountFilter}
-          onChange={(e) => onAccountFilterChange(e.target.value === 'all' ? 'all' : e.target.value)}
-        >
-          <option value="all">All accounts</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>{a.label}</option>
-          ))}
-        </select>
+        <button onClick={onAddTrade} className={`btn-primary ${styles.actionBtn}`}>
+          <FontAwesomeIcon icon={faPlus} /> Add Trade
+        </button>
+        <button onClick={onAddAccount} className={`btn-ghost ${styles.actionBtn}`}>
+          <FontAwesomeIcon icon={faPlus} /> Add Account
+        </button>
+        {onSnapshot && (
+          <button onClick={onSnapshot} className={styles.actionBtn}>
+            <FontAwesomeIcon icon={faCamera} /> Snapshot
+          </button>
+        )}
+        <div className={styles.divider} />
+        <div className={styles.accountFilter}>
+          <FontAwesomeIcon icon={faBuilding} className={styles.filterIcon} />
+          <select
+            value={accountFilter}
+            onChange={(e) => onAccountFilterChange(e.target.value === 'all' ? 'all' : e.target.value)}
+          >
+            <option value="all">All accounts</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
     </div>
   )

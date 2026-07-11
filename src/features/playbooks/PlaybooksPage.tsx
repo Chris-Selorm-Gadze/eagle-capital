@@ -6,12 +6,28 @@ import { PlaybookFormDialog } from './components/PlaybookFormDialog'
 import { PlaybookDetailDialog } from './components/PlaybookDetailDialog'
 import styles from './PlaybooksPage.module.css'
 import { errorMessage } from '../../utils/errors'
+import { computePlaybookStats, playbookLinkedTrades } from './playbookStats'
 
 const GRADE_CLASS: Record<PlaybookGrade, string> = {
   'A+': styles.gradeAPlus,
   A: styles.gradeA,
   B: styles.gradeB,
   C: styles.gradeC,
+}
+
+const CARD_ACCENT_CLASS: Record<PlaybookGrade, string> = {
+  'A+': styles.cardAPlus,
+  A: styles.cardA,
+  B: styles.cardB,
+  C: styles.cardC,
+}
+
+function fmtPnl(v: number): string {
+  return `${v >= 0 ? '+' : '-'}$${Math.abs(v).toLocaleString()}`
+}
+
+function fmtR(v: number): string {
+  return `${v >= 0 ? '+' : ''}${v.toFixed(1)}R`
 }
 
 export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: string }) {
@@ -62,13 +78,44 @@ export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: str
           {playbooks.map((p) => {
             const playbookExamples = examples.filter((e) => e.playbookId === p.id)
             const previewExample = playbookExamples.find((e) => e.imageUrl) ?? playbookExamples[0]
+            const linkedTrades = playbookLinkedTrades(p.id!, examples, trades)
+            const stats = computePlaybookStats(linkedTrades)
             return (
-              <div key={p.id} className={styles.card} onClick={() => setViewing(p)}>
+              <div
+                key={p.id}
+                className={`${styles.card} ${p.grade ? CARD_ACCENT_CLASS[p.grade] : ''}`}
+                onClick={() => setViewing(p)}
+              >
                 <div className={styles.cardHeader}>
                   <span className={styles.cardTitle}>{p.name}</span>
                   {p.grade && <span className={`${styles.gradeBadge} ${GRADE_CLASS[p.grade]}`}>{p.grade}</span>}
                 </div>
                 {p.description && <p className={styles.cardDesc}>{p.description}</p>}
+
+                {stats.tradeCount > 0 ? (
+                  <div className={styles.metricsRow}>
+                    <div className={styles.metric}>
+                      <div className={styles.metricLabel}>Win rate</div>
+                      <div className={`${styles.metricValue} ${stats.winRatePct! >= 50 ? styles.metricGood : styles.metricBad}`}>
+                        {stats.winRatePct!.toFixed(0)}%
+                      </div>
+                    </div>
+                    <div className={styles.metric}>
+                      <div className={styles.metricLabel}>Net P&amp;L</div>
+                      <div className={`${styles.metricValue} ${stats.netPnl! >= 0 ? styles.metricGood : styles.metricBad}`}>
+                        {fmtPnl(stats.netPnl!)}
+                      </div>
+                    </div>
+                    <div className={styles.metric}>
+                      <div className={styles.metricLabel}>R range</div>
+                      <div className={styles.metricValue}>
+                        {stats.minR !== null && stats.maxR !== null ? `${fmtR(stats.minR)} / ${fmtR(stats.maxR)}` : '—'}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className={styles.metricEmpty}>Link trades to see performance metrics here.</p>
+                )}
 
                 {previewExample && (
                   <div className={styles.cardExample}>

@@ -7,6 +7,17 @@
   gap: 0.5rem;
 }
 
+.titleGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .dateFilterPill {
   display: flex;
   align-items: center;

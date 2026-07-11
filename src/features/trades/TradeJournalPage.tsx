@@ -46,7 +46,10 @@ export function TradeJournalPage({
   return (
     <div>
       <div className={styles.header}>
-        <h1 className="page-title">Trade Journal</h1>
+        <div className={styles.titleGroup}>
+          <h1 className="page-title">Trade Journal</h1>
+          {ordered.length > 0 && <span className={styles.count}>{ordered.length} trade{ordered.length === 1 ? '' : 's'}</span>}
+        </div>
         {dateFilter && (
           <div className={styles.dateFilterPill}>
             <span>Showing trades from {dateFilter}</span>

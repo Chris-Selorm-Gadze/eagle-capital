@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { ReportCard, Trade } from '../../types'
-import { getReportCard, saveReportCard } from '../../db/reportCards'
+import { saveReportCard } from '../../db/reportCards'
 import { todayISO } from '../../db/sessions'
 import { ScoreboardSection } from './components/ScoreboardSection'
 import { ExecutionChecklist } from './components/ExecutionChecklist'
@@ -74,25 +74,22 @@ function toText(card: ReportCard, trades: Trade[]): string {
 export function ReportCardPage({
   userId,
   trades,
-  date,
-  onDateChange,
+  openedCard,
+  onClose,
+  onSaved,
 }: {
   userId: string
   trades: Trade[]
-  date: string
-  onDateChange: (date: string) => void
+  /** A specific saved entry the user explicitly opened from Completed DRCs — null means a
+   * fresh blank compose box. Saved data only ever enters this form via this prop; nothing
+   * here fetches from the server on its own. */
+  openedCard: ReportCard | null
+  /** Only meaningful while viewing an opened entry — clears back to a blank compose box. */
+  onClose?: () => void
+  onSaved?: () => void
 }) {
-  const [card, setCard] = useState<ReportCard>(blankCard(date))
+  const [card, setCard] = useState<ReportCard>(() => openedCard ?? blankCard(todayISO()))
   const [savedMessage, setSavedMessage] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-    getReportCard(date).then((existing) => {
-      if (cancelled) return
-      setCard(existing ?? blankCard(date))
-    })
-    return () => { cancelled = true }
-  }, [date])
 
   function patch(p: Partial<ReportCard>) {
     setCard((c) => ({ ...c, ...p }))
@@ -104,8 +101,10 @@ export function ReportCardPage({
   }
 
   async function handleSave() {
-    await saveReportCard(userId, { ...card, date })
+    await saveReportCard(userId, card)
     flash('SAVED')
+    setCard(blankCard(todayISO()))
+    onSaved?.()
   }
 
   async function handleCopy() {
@@ -117,21 +116,18 @@ export function ReportCardPage({
     const blob = new Blob([JSON.stringify(card, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `report-card-${date}.json`
+    a.download = `report-card-${card.date}.json`
     a.click()
     URL.revokeObjectURL(a.href)
   }
 
   function handleClear() {
     if (!confirm('Clear the form? Unsaved entries are lost.')) return
-    setCard(blankCard(date))
+    setCard(blankCard(card.date))
   }
 
-  // Non-destructive: jumps to today's slate (loading whatever's already saved there, or blank
-  // if nothing is) so opening a past entry to read/edit it never "traps" you — no confirm needed
-  // since nothing is deleted, unlike Clear form.
-  function handleNewEntry() {
-    onDateChange(todayISO())
+  function handleDateChange(newDate: string) {
+    patch({ date: newDate, dayOfWeek: dayOfWeekFor(newDate) })
   }
 
   return (
@@ -144,10 +140,17 @@ export function ReportCardPage({
             section is the one that changes you — do not skip it, and do not stop at the first answer.
           </p>
 
+          {openedCard && (
+            <div className={styles.openedBanner}>
+              <span>Viewing saved entry from {openedCard.date}</span>
+              {onClose && <button type="button" className="btn-ghost" onClick={onClose}>Close</button>}
+            </div>
+          )}
+
           <div className={styles.meta}>
             <label>
               <span className={styles.metaKey}>Date</span>
-              <input type="date" value={date} onChange={(e) => onDateChange(e.target.value)} />
+              <input type="date" value={card.date} onChange={(e) => handleDateChange(e.target.value)} />
             </label>
             <label>
               <span className={styles.metaKey}>Instrument</span>
@@ -180,7 +183,6 @@ export function ReportCardPage({
 
         <div className={styles.actions}>
           <button type="button" className="btn-primary" onClick={handleSave}>Save entry</button>
-          <button type="button" onClick={handleNewEntry}>New entry (today)</button>
           <button type="button" onClick={handleCopy}>Copy as text</button>
           <button type="button" onClick={handleExport}>Export JSON</button>
           <button type="button" onClick={handleClear} className="btn-ghost">Clear form</button>

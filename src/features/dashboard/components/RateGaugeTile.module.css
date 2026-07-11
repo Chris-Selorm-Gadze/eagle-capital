@@ -15,24 +15,3 @@
 .pieChart {
   flex-shrink: 0;
 }
-
-.counts {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  margin-top: -0.2rem;
-}
-
-.winCount {
-  color: var(--good);
-}
-
-.beCount {
-  color: var(--accent);
-}
-
-.lossCount {
-  color: var(--critical);
-}

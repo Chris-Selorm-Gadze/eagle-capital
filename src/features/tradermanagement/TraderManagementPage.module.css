@@ -9,6 +9,9 @@
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-secondary);

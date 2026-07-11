@@ -2,6 +2,12 @@
   margin-bottom: 2rem;
 }
 
+.heroRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
 .heroLabel {
   font-size: 0.85rem;
   color: var(--text-secondary);
@@ -10,28 +16,37 @@
 .heroValue {
   font-size: 2.5rem;
   font-weight: 600;
-  margin-bottom: 1rem;
+  margin-top: 0.15rem;
+}
+
+.heroMeta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.allocationBar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 1rem 0 1.25rem;
+  background: var(--surface-3);
+}
+
+.allocFunded {
+  background: var(--good);
+}
+
+.allocChallenge {
+  background: var(--accent);
+}
+
+.allocOther {
+  background: var(--text-muted);
 }
 
 .statsRow {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-}
-
-.alertsList {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.alertItem {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  background: var(--surface);
-  font-size: 0.85rem;
-  font-weight: 600;
 }

@@ -20,6 +20,16 @@
   font-size: 0.9rem;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.downloadBtn {
+  color: var(--text-secondary);
+}
+
 .weekdayRow {
   display: grid;
   grid-template-columns: repeat(7, 1fr) minmax(64px, 0.9fr);

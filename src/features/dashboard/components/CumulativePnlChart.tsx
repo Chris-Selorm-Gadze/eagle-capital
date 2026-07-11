@@ -16,7 +16,7 @@ export function CumulativePnlChart({ daily }: { daily: DailyPnl[] }) {
       <div className={styles.title}>Cumulative P&amp;L</div>
       <div className={styles.chartArea}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
+          <AreaChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="cumulativePnlFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={color} stopOpacity={0.35} />
@@ -26,7 +26,7 @@ export function CumulativePnlChart({ daily }: { daily: DailyPnl[] }) {
             <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRIDLINE} />
             <XAxis dataKey="date" tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE} />
             <YAxis tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE}
-              tickFormatter={(v) => `$${v.toLocaleString()}`} width={64} />
+              tickFormatter={(v) => `$${v.toLocaleString()}`} width={50} />
             <Tooltip
               formatter={(v: number) => `$${v.toLocaleString()}`}
               contentStyle={TOOLTIP_CONTENT_STYLE}

@@ -14,6 +14,13 @@ const OUTCOME_LABEL: Record<ReturnType<typeof tradeOutcome>, string> = {
   breakeven: 'BE',
 }
 
+// Purely presentational — matches the outcome badge color, not a computed risk signal.
+const OUTCOME_ACCENT: Record<ReturnType<typeof tradeOutcome>, string> = {
+  win: 'var(--good)',
+  loss: 'var(--critical)',
+  breakeven: 'var(--text-muted)',
+}
+
 export function TradeJournalList({
   trades,
   selectedId,
@@ -31,6 +38,7 @@ export function TradeJournalList({
           <div
             key={t.id}
             className={`${styles.row} ${t.id === selectedId ? styles.rowActive : ''}`}
+            style={{ borderLeftColor: OUTCOME_ACCENT[outcome] }}
             onClick={() => onSelect(t.id!)}
           >
             <div className={styles.rowTop}>
@@ -38,7 +46,10 @@ export function TradeJournalList({
               <span className={`${styles.outcome} ${OUTCOME_CLASS[outcome]}`}>{OUTCOME_LABEL[outcome]}</span>
             </div>
             <div className={styles.rowBottom}>
-              <span>{t.date} · {t.side}</span>
+              <span className={styles.rowMeta}>
+                {t.date}
+                <span className={`${styles.sideBadge} ${t.side === 'long' ? styles.sideLong : styles.sideShort}`}>{t.side}</span>
+              </span>
               <span className={styles.pnl} style={{ color: t.pnl >= 0 ? 'var(--good)' : 'var(--critical)' }}>
                 {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toLocaleString()}
               </span>

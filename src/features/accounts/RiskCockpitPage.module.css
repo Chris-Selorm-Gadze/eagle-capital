@@ -18,10 +18,38 @@
   border-radius: 8px;
 }
 
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.groupAccent {
+  width: 4px;
+  height: 1.1rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
 .firmTitle {
   font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 0.75rem;
+}
+
+.groupCount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-3);
+  padding: 0.05rem 0.55rem;
+  border-radius: 999px;
+}
+
+.groupTotal {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 
 .accountsGrid {

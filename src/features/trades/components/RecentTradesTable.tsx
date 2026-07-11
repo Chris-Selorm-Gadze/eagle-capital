@@ -27,8 +27,8 @@ export function RecentTradesTable({
             <th className={styles.cell}>Date</th>
             <th className={styles.cell}>Symbol</th>
             <th className={styles.cell}>Side</th>
-            <th className={styles.cell}>Qty</th>
-            <th className={styles.cell}>Net P&amp;L</th>
+            <th className={`${styles.cell} ${styles.numCell}`}>Qty</th>
+            <th className={`${styles.cell} ${styles.numCell}`}>Net P&amp;L</th>
             {showActions && <th className={styles.cell} />}
           </tr>
         </thead>
@@ -39,10 +39,12 @@ export function RecentTradesTable({
           {rows.map((t) => (
             <tr key={t.id} className={styles.row}>
               <td className={styles.cell}>{t.date}</td>
-              <td className={styles.cell}>{t.symbol}</td>
-              <td className={`${styles.cell} ${styles.side}`}>{t.side}</td>
-              <td className={styles.cell}>{t.qty}</td>
-              <td className={`${styles.cell} ${styles.pnl}`} style={{ color: t.pnl >= 0 ? 'var(--good)' : 'var(--critical)' }}>
+              <td className={`${styles.cell} ${styles.symbol}`}>{t.symbol}</td>
+              <td className={styles.cell}>
+                <span className={`${styles.sideBadge} ${t.side === 'long' ? styles.sideLong : styles.sideShort}`}>{t.side}</span>
+              </td>
+              <td className={`${styles.cell} ${styles.numCell}`}>{t.qty}</td>
+              <td className={`${styles.cell} ${styles.numCell} ${styles.pnl}`} style={{ color: t.pnl >= 0 ? 'var(--good)' : 'var(--critical)' }}>
                 {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toLocaleString()}
               </td>
               {showActions && (

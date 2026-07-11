@@ -1,7 +1,25 @@
 .title {
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.group {
+  margin-top: 1rem;
+}
+.group:first-of-type {
+  margin-top: 0;
+}
+
+.groupTitle {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.15rem;
 }
 
 .row {
@@ -9,7 +27,7 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 1rem;
-  padding: 0.5rem 0;
+  padding: 0.45rem 0;
 }
 
 .row + .row {

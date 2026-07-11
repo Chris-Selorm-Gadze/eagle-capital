@@ -2,19 +2,140 @@
   color: var(--text-muted);
   font-size: 0.8rem;
   margin: 0 0 1rem;
-  max-width: 60ch;
 }
 
-.frameInner {
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.chipDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 0.25rem;
+}
+
+.filterChip {
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+}
+.filterChip:hover:not(.filterChipActive) {
+  border-color: var(--text-muted);
+}
+.filterChipActive {
+  color: var(--text-primary);
+}
+.filterChip.impactHigh.filterChipActive { background: rgba(208, 59, 59, 0.18); border-color: var(--critical); }
+.filterChip.impactMedium.filterChipActive { background: rgba(250, 178, 25, 0.18); border-color: var(--warning); }
+.filterChip.impactLow.filterChipActive { background: var(--surface-3); border-color: var(--text-muted); }
+.filterChip.filterChipActive:not(.impactHigh):not(.impactMedium):not(.impactLow) {
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
-.frame {
-  width: 100%;
-  height: 78vh;
-  min-height: 560px;
-  border: none;
-  display: block;
+.dayGroup {
+  margin-bottom: 1.1rem;
+}
+.dayGroup:last-child {
+  margin-bottom: 0;
+}
+
+.dayHeader {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.eventRow {
+  display: grid;
+  grid-template-columns: 72px 90px 76px 1fr 110px 110px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.6rem;
+  border-left: 3px solid transparent;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.eventRow:hover {
+  background: var(--surface-2);
+}
+.eventRow.impactHigh { border-left-color: var(--critical); }
+.eventRow.impactMedium { border-left-color: var(--warning); }
+.eventRow.impactLow { border-left-color: var(--border); }
+
+.eventTime {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.eventCurrency {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.impactBadge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface-3);
+  justify-self: start;
+}
+.impactBadge.impactHigh { background: rgba(208, 59, 59, 0.18); color: var(--critical); }
+.impactBadge.impactMedium { background: rgba(250, 178, 25, 0.18); color: var(--warning); }
+.impactBadge.impactLow { background: var(--surface-3); color: var(--text-muted); }
+
+.eventTitle {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eventStat {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+}
+
+.eventStatLabel {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+@media (max-width: 800px) {
+  .eventRow {
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: 0.3rem;
+  }
+  .eventTitle {
+    order: 1;
+    flex-basis: 100%;
+    white-space: normal;
+  }
 }

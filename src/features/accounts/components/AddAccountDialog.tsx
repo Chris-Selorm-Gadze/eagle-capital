@@ -4,6 +4,7 @@ import { addAccount } from '../../../db/accounts'
 import { Modal } from '../../../shared/ui/Modal'
 import { PROP_FIRMS } from '../propFirms'
 import { errorMessage } from '../../../utils/errors'
+import styles from './AccountDialogs.module.css'
 
 export function AddAccountDialog({
   userId,
@@ -69,8 +70,8 @@ export function AddAccountDialog({
       minWidth={400}
       footer={
         <>
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={save} disabled={!canSave || saving}>{saving ? 'Adding…' : 'Add account'}</button>
+          <button onClick={onClose} className="btn-ghost">Cancel</button>
+          <button onClick={save} disabled={!canSave || saving} className="btn-primary">{saving ? 'Adding…' : 'Add account'}</button>
         </>
       }
     >
@@ -110,9 +111,7 @@ export function AddAccountDialog({
         </select>
       </label>
 
-      <div style={{ margin: '1rem 0 0.5rem 0', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem' }}>
-        Risk Management &amp; Limits
-      </div>
+      <div className={styles.sectionDivider}>Risk Management &amp; Limits</div>
 
       <div className="field-row">
         <label className="flex-1">

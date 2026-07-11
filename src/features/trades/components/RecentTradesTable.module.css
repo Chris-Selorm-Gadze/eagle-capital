@@ -1,7 +1,7 @@
 .title {
   font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.6rem;
 }
 
 .table {
@@ -13,19 +13,50 @@
 .headerRow {
   text-align: left;
   color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   border-bottom: 1px solid var(--border);
 }
 
 .cell {
-  padding: 0.4rem 0.3rem;
+  padding: 0.55rem 0.5rem;
+}
+
+.numCell {
+  text-align: right;
 }
 
 .row {
   border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+.row:hover {
+  background: var(--surface-2);
+}
+.row:last-child {
+  border-bottom: none;
 }
 
-.side {
+.symbol {
+  font-weight: 600;
+}
+
+.sideBadge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
   text-transform: capitalize;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+}
+.sideLong {
+  background: rgba(12, 163, 12, 0.15);
+  color: var(--good);
+}
+.sideShort {
+  background: rgba(208, 59, 59, 0.15);
+  color: var(--critical);
 }
 
 .pnl {
@@ -34,6 +65,7 @@
 
 .actionsCell {
   white-space: nowrap;
+  text-align: right;
 }
 
 .deleteButton {

@@ -11,18 +11,19 @@ export function DailyPnlBarChart({ daily }: { daily: DailyPnl[] }) {
     <div className="card">
       <div className={styles.title}>Net daily P&amp;L</div>
       <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={daily}>
+        <BarChart data={daily} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRIDLINE} />
           <XAxis dataKey="date" tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE} />
           <YAxis tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE}
-            tickFormatter={(v) => `$${v.toLocaleString()}`} width={64} />
+            tickFormatter={(v) => `$${v.toLocaleString()}`} width={50} />
           <Tooltip
+            cursor={false}
             formatter={(v: number) => `$${v.toLocaleString()}`}
             contentStyle={TOOLTIP_CONTENT_STYLE}
             labelStyle={TOOLTIP_LABEL_STYLE}
             itemStyle={TOOLTIP_ITEM_STYLE}
           />
-          <Bar dataKey="pnl">
+          <Bar dataKey="pnl" maxBarSize={26}>
             {daily.map((d, i) => (
               <Cell key={i} fill={d.pnl >= 0 ? COLOR_GOOD : COLOR_CRITICAL} />
             ))}

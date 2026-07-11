@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faXmark } from '@fortawesome/free-solid-svg-icons'
 import type { Playbook, PlaybookExample } from '../../../../types'
 import { addPlaybookExample, deletePlaybookExample } from '../../../../db/playbookExamples'
 import { errorMessage } from '../../../../utils/errors'
@@ -56,7 +58,7 @@ export function TradeStrategyTab({
             return (
               <span key={e.id} className={styles.chip}>
                 {playbook?.name ?? 'Unknown playbook'}
-                <button type="button" onClick={() => handleDetach(e.id!)} className={styles.chipRemove}>✕</button>
+                <button type="button" onClick={() => handleDetach(e.id!)} className={styles.chipRemove}><FontAwesomeIcon icon={faXmark} /></button>
               </span>
             )
           })}

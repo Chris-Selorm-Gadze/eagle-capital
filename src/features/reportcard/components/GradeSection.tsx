@@ -34,7 +34,7 @@ export function GradeSection({
           <div
             key={g.key}
             className={`${styles.stamp} ${GRADE_CLASS[g.key]} ${card.grade === g.key ? styles.stampOn : ''}`}
-            onClick={() => onChange({ grade: g.key })}
+            onClick={() => onChange({ grade: card.grade === g.key ? undefined : g.key })}
           >
             <span className={styles.g}>{g.label}</span>
             <span className={styles.d}>{g.desc}</span>

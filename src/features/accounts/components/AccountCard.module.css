@@ -18,54 +18,50 @@
   font-weight: 700;
 }
 
-.balance {
-  font-size: 0.8rem;
+.firmLine {
+  font-size: 0.78rem;
   color: var(--text-secondary);
   margin-top: 0.2rem;
 }
 
 .stageBadge {
   font-size: 0.72rem;
-  padding: 2px 9px;
+  font-weight: 600;
+  padding: 1px 9px;
   border-radius: 999px;
+  border: 1px solid;
   flex-shrink: 0;
   background: var(--surface-3);
-  color: var(--text-secondary);
 }
 
-.breakerBanner {
-  margin-top: 0.75rem;
-  padding: 0.4rem 0.6rem;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: var(--surface-2);
+.balanceRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 0.9rem;
 }
 
-.roomBox {
-  margin-top: 0.85rem;
-  padding: 0.7rem 0.85rem;
-  border-radius: 6px;
+.balanceLabel {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
-.roomLabel {
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-}
-
-.roomValue {
-  font-size: 1.65rem;
+.balanceValue {
+  font-size: 1.4rem;
   font-weight: 700;
+  margin-top: 0.15rem;
 }
 
-.cushion {
-  margin-top: 0.3rem;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
+.pnl {
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .miniStatsRow {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 0.85rem;
   padding-top: 0.75rem;
@@ -74,7 +70,7 @@
 
 .miniStat {
   flex: 1;
-  min-width: 0;
+  min-width: 90px;
 }
 
 .miniStatLabel {
@@ -88,6 +84,15 @@
   font-weight: 600;
   color: var(--text-primary);
   margin-top: 0.15rem;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.6rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .buttonsRow {

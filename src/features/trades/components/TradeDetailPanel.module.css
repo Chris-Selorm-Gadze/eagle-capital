@@ -21,8 +21,8 @@
 }
 
 .navArrow {
-  padding: 0.2rem 0.6rem;
-  font-size: 1rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.85rem;
   line-height: 1;
 }
 
@@ -37,8 +37,14 @@
   letter-spacing: 0.05em;
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
-  background: var(--surface-3);
-  color: var(--text-secondary);
+}
+.sideLong {
+  background: rgba(12, 163, 12, 0.15);
+  color: var(--good);
+}
+.sideShort {
+  background: rgba(208, 59, 59, 0.15);
+  color: var(--critical);
 }
 
 .outcomeBadge {
@@ -80,6 +86,9 @@
   flex-wrap: wrap;
 }
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-secondary);
@@ -110,7 +119,21 @@
 .statsGrid {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 1.1rem;
+}
+.group {
+  display: flex;
+  flex-direction: column;
+}
+.groupTitle {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.15rem;
 }
 .statRow {
   display: flex;
@@ -123,10 +146,6 @@
 }
 .statRow span:last-child {
   font-weight: 600;
-}
-.statDivider {
-  border-top: 1px solid var(--border);
-  margin: 0.5rem 0;
 }
 .zoneToggle {
   display: flex;

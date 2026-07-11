@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCamera } from '@fortawesome/free-solid-svg-icons'
 import { calendarCells, weekTotal, monthTotal, type DailyPnl, type CalendarCell } from '../../../utils/tradeAggregates'
 import { COLOR_GOOD_LIGHT, COLOR_CRITICAL_LIGHT } from '../../../utils/chartTheme'
+import { downloadElementAsImage } from '../../../utils/snapshot'
 import styles from './CalendarHeatmap.module.css'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -32,6 +35,7 @@ export function CalendarHeatmap({
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const cells = calendarCells(daily, year, month)
   const weeks: (typeof cells)[] = []
@@ -45,22 +49,36 @@ export function CalendarHeatmap({
     if (month === 11) { setYear(year + 1); setMonth(0) } else setMonth(month + 1)
   }
 
+  async function handleDownload() {
+    if (!cardRef.current) return
+    await downloadElementAsImage(
+      cardRef.current,
+      `eaglecapital-calendar-${MONTH_NAMES[month].toLowerCase()}-${year}.png`,
+      { filter: (domNode) => !(domNode instanceof HTMLElement && domNode.dataset.snapshotExclude === 'true') },
+    )
+  }
+
   function handleDayClick(cell: CalendarCell | null) {
     if (!cell || cell.tradeCount === 0) return
     onOpenDateInJournal(cell.date)
   }
 
   return (
-    <div className="card">
+    <div className="card" ref={cardRef}>
       <div className={styles.header}>
-        <button type="button" onClick={prevMonth}>‹</button>
+        <button type="button" onClick={prevMonth} data-snapshot-exclude="true">‹</button>
         <div className={styles.monthTitleGroup}>
           <div className={styles.monthTitle}>{MONTH_NAMES[month]} {year}</div>
           <div className={styles.monthTotal} style={{ color: totalColor(total) }}>
             {total >= 0 ? '+' : '-'}${Math.abs(total).toLocaleString()}
           </div>
         </div>
-        <button type="button" onClick={nextMonth}>›</button>
+        <div className={styles.headerActions} data-snapshot-exclude="true">
+          <button type="button" onClick={nextMonth}>›</button>
+          <button type="button" onClick={handleDownload} className={styles.downloadBtn} title="Download this month as an image">
+            <FontAwesomeIcon icon={faCamera} />
+          </button>
+        </div>
       </div>
       <div className={styles.weekdayRow}>
         {WEEKDAYS.map((w) => <div key={w} className={styles.weekdayCell}>{w}</div>)}

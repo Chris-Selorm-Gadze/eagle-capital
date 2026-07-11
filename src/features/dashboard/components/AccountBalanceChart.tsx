@@ -32,12 +32,12 @@ export function AccountBalanceChart({ data }: { data: BalancePoint[] }) {
       </div>
       <div className={styles.chartArea}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
+          <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRIDLINE} />
             <XAxis dataKey="date" tick={TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE} />
             <YAxis
               tick={TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE}
-              tickFormatter={(v) => `$${v.toLocaleString()}`} width={64}
+              tickFormatter={(v) => `$${v.toLocaleString()}`} width={50}
             />
             <Tooltip
               formatter={(v: number) => `$${v.toLocaleString()}`}

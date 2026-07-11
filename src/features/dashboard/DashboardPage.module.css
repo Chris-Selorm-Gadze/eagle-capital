@@ -4,10 +4,20 @@
   gap: 1.5rem;
 }
 
-.row {
+/* One continuous two-column flow for everything below the calendar row — not split into
+   separate grid rows, since a shared row track always sizes to its tallest column, leaving
+   a gap below the shorter one before the next section can start. */
+.columns {
   display: grid;
   grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
   gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .topRow {

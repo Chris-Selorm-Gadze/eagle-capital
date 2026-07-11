@@ -4,6 +4,7 @@ import { updateAccount } from '../../../db/accounts'
 import { Modal } from '../../../shared/ui/Modal'
 import { BREACH_REASONS } from '../breachReasons'
 import { errorMessage } from '../../../utils/errors'
+import styles from './AccountDialogs.module.css'
 
 export function EditAccountDialog({
   account,
@@ -64,8 +65,8 @@ export function EditAccountDialog({
       minWidth={360}
       footer={
         <>
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          <button onClick={onClose} className="btn-ghost">Cancel</button>
+          <button onClick={save} disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >
@@ -101,9 +102,7 @@ export function EditAccountDialog({
         </label>
       )}
 
-      <div style={{ margin: '1rem 0 0.5rem 0', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem' }}>
-        Risk Management &amp; Rules
-      </div>
+      <div className={styles.sectionDivider}>Risk Management &amp; Rules</div>
 
       <div className="field-row">
         <label className="flex-1">

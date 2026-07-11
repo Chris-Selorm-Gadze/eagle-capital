@@ -15,6 +15,7 @@ import styles from './RiskCockpitPage.module.css'
 interface AccountGroup {
   title: string
   accounts: Account[]
+  accent: string
 }
 
 export function RiskCockpitPage({
@@ -49,10 +50,10 @@ export function RiskCockpitPage({
   const blown = activeAccounts.filter((a) => a.stage === 'blown' || a.stage === 'inactive')
 
   const groups: AccountGroup[] = [
-    { title: 'Funded Portfolio', accounts: funded },
-    { title: 'Evaluations & Challenges', accounts: evaluation },
-    { title: 'Planned Accounts', accounts: planned },
-    { title: 'Blown & Inactive', accounts: blown },
+    { title: 'Funded Portfolio', accounts: funded, accent: 'var(--good)' },
+    { title: 'Evaluations & Challenges', accounts: evaluation, accent: 'var(--accent)' },
+    { title: 'Planned Accounts', accounts: planned, accent: 'var(--text-muted)' },
+    { title: 'Blown & Inactive', accounts: blown, accent: 'var(--critical)' },
   ].filter((g) => g.accounts.length > 0)
 
   async function handleActivate(id: string) {
@@ -77,23 +78,31 @@ export function RiskCockpitPage({
         </div>
       )}
 
-      {groups.map((group) => (
-        <section key={group.title} style={{ marginBottom: '2rem' }}>
-          <h2 className={styles.firmTitle}>{group.title}</h2>
-          <div className={styles.accountsGrid}>
-            {group.accounts.map((a) => (
-              <AccountCard
-                key={a.id}
-                account={a}
-                onEdit={() => setEditing(a)}
-                onLogSession={() => setLogging(a)}
-                onPayoutPlanner={['funded', 'pa'].includes(a.stage) ? () => setPlanningPayout(a) : undefined}
-                onScalingTracker={['funded', 'pa'].includes(a.stage) ? () => setTrackingCycles(a) : undefined}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+      {groups.map((group) => {
+        const totalBalance = group.accounts.reduce((sum, a) => sum + a.balance, 0)
+        return (
+          <section key={group.title} style={{ marginBottom: '2rem' }}>
+            <div className={styles.groupHeader}>
+              <span className={styles.groupAccent} style={{ background: group.accent }} />
+              <h2 className={styles.firmTitle}>{group.title}</h2>
+              <span className={styles.groupCount}>{group.accounts.length}</span>
+              <span className={styles.groupTotal}>${totalBalance.toLocaleString()} total</span>
+            </div>
+            <div className={styles.accountsGrid}>
+              {group.accounts.map((a) => (
+                <AccountCard
+                  key={a.id}
+                  account={a}
+                  onEdit={() => setEditing(a)}
+                  onLogSession={() => setLogging(a)}
+                  onPayoutPlanner={['funded', 'pa'].includes(a.stage) ? () => setPlanningPayout(a) : undefined}
+                  onScalingTracker={['funded', 'pa'].includes(a.stage) ? () => setTrackingCycles(a) : undefined}
+                />
+              ))}
+            </div>
+          </section>
+        )
+      })}
 
       {inactiveAccounts.length > 0 && (
         <section>

@@ -107,7 +107,7 @@ a {
   margin-top: 0.75rem;
 }
 
-.field input,
+.field input:not([type='checkbox']):not([type='radio']),
 .field select,
 .field textarea {
   display: block;
@@ -125,7 +125,7 @@ a {
   display: block;
 }
 
-.field-row input,
+.field-row input:not([type='checkbox']):not([type='radio']),
 .field-row select,
 .field-row textarea {
   display: block;

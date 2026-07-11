@@ -40,20 +40,17 @@ export function DashboardPage({
         <CumulativePnlChart daily={daily} />
       </div>
 
-      <div className={styles.row}>
+      <div className={styles.columns}>
         <div className={styles.stack}>
           <DailyPnlBarChart daily={daily} />
           <AccountBalanceChart data={balance} />
+          <TradeTimeScatter trades={trades} />
         </div>
         <div className={styles.stack}>
           <RecentTradesTable trades={trades} limit={8} />
           <TradeStatsList trades={trades} />
+          <TradeDurationScatter trades={trades} />
         </div>
-      </div>
-
-      <div className={styles.row}>
-        <TradeTimeScatter trades={trades} />
-        <TradeDurationScatter trades={trades} />
       </div>
     </div>
   )

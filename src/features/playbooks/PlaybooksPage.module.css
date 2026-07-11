@@ -18,17 +18,22 @@
 
 .card {
   border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
   border-radius: 8px;
   padding: 1.25rem;
   background: var(--surface);
   cursor: pointer;
-  transition: border-color 0.12s;
+  transition: border-color 0.12s, transform 0.12s;
   display: flex;
   flex-direction: column;
 }
 .card:hover {
   border-color: var(--text-muted);
+  transform: translateY(-1px);
 }
+.cardAPlus, .cardA { border-left-color: var(--good); }
+.cardB { border-left-color: var(--warning); }
+.cardC { border-left-color: var(--critical); }
 
 .cardHeader {
   display: flex;
@@ -40,6 +45,41 @@
 .cardTitle {
   font-size: 1rem;
   font-weight: 700;
+}
+
+.metricsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+.metric {
+  flex: 1;
+  min-width: 72px;
+}
+.metricLabel {
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.metricValue {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 0.2rem;
+}
+.metricGood { color: var(--good); }
+.metricBad { color: var(--critical); }
+.metricEmpty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 0.9rem;
 }
 
 .gradeBadge {
@@ -149,7 +189,11 @@
   background: var(--surface-2);
 }
 .tradePickerRow input {
-  width: auto;
+  /* !important needed: the global .field input rule in theme.css (width:100%, display:block)
+     wins the cascade over this module class (same conflict as .hiddenFileInput below) and
+     otherwise stretches the checkbox full-width, breaking the row layout. */
+  width: auto !important;
+  display: inline-block !important;
   flex-shrink: 0;
 }
 

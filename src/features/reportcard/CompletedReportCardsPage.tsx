@@ -10,11 +10,18 @@ const GRADE_CLASS: Record<ReportCardGrade, string> = {
   R: styles.gradeR,
 }
 
+const ROW_ACCENT_CLASS: Record<ReportCardGrade, string> = {
+  A: styles.rowA,
+  B: styles.rowB,
+  C: styles.rowC,
+  R: styles.rowR,
+}
+
 function dayOfWeekFor(date: string): string {
   return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long' })
 }
 
-export function CompletedReportCardsPage({ trades, onOpen }: { trades: Trade[]; onOpen: (date: string) => void }) {
+export function CompletedReportCardsPage({ trades, onOpen }: { trades: Trade[]; onOpen: (card: ReportCard) => void }) {
   const [cards, setCards] = useState<ReportCard[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -44,7 +51,11 @@ export function CompletedReportCardsPage({ trades, onOpen }: { trades: Trade[]; 
         {cards.map((c) => {
           const linked = (c.tradeIds ?? []).map((id) => tradeById.get(id)).filter((t): t is Trade => !!t)
           return (
-            <div key={c.id} className={styles.row} onClick={() => onOpen(c.date)}>
+            <div
+              key={c.id}
+              className={`${styles.row} ${c.grade ? ROW_ACCENT_CLASS[c.grade] : ''}`}
+              onClick={() => onOpen(c)}
+            >
               <div className={styles.rowBody}>
                 <div className={styles.rowMain}>
                   <span className={styles.date}>{c.date}</span>
