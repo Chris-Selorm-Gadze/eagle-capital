@@ -11,6 +11,7 @@ const NAV_TO_PATH: Record<NavKey, string> = {
   tradelog: '/trade-log',
   tradecopier: '/trade-copier',
   brokers: '/broker-connections',
+  insights: '/ai-insights',
 }
 
 const PATH_TO_NAV = Object.fromEntries(

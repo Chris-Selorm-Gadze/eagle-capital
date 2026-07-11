@@ -21,13 +21,69 @@ alter table public.broker_connections enable row level security;
 drop policy if exists "own connections" on public.broker_connections;
 create policy "own connections" on public.broker_connections for all using (auth.uid() = user_id);
 
+-- Broker sync: links a connection to a specific prop account and tracks live sync state.
+-- account_id is nullable — a connection can exist before being pointed at a specific Account row.
+-- unique(account_id) stops two connections fighting over the same account's balance.
+alter table public.broker_connections add column if not exists account_id uuid references public.accounts(id) on delete set null;
+alter table public.broker_connections add column if not exists last_synced_at timestamptz;
+alter table public.broker_connections add column if not exists last_error text;
+create unique index if not exists broker_connections_account_id_key on public.broker_connections(account_id) where account_id is not null;
+
+-- Broker login material (Tradovate username/password/API key, etc.) — never exposed to the
+-- anon-key browser client, not even to the row's own owning user. RLS is enabled but
+-- deliberately has ZERO policies: only a service-role key (held only by the broker-sync backend,
+-- which legitimately bypasses RLS) can read/write this table. The stored payload is also
+-- application-layer AES-256-GCM encrypted — RLS lockout alone isn't treated as sufficient for
+-- real broker login credentials.
+create table if not exists public.broker_credentials (
+  id uuid primary key default gen_random_uuid(),
+  connection_id uuid references public.broker_connections(id) on delete cascade not null unique,
+  user_id uuid references auth.users(id) on delete cascade not null, -- defense-in-depth only; no policy grants access via it
+  ciphertext text not null, -- base64 AES-256-GCM ciphertext of the JSON credential payload
+  iv text not null,         -- base64, random 12 bytes per encryption
+  auth_tag text not null,   -- base64 GCM auth tag
+  key_version integer not null default 1, -- lets the backend's encryption key be rotated later without a big-bang migration
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table public.broker_credentials enable row level security;
+-- intentionally no create policy — see comment above
+
+-- CopyFactory trade copier: MetaApi's own accountId/server/login for a connection, populated
+-- once at credential-intake time so copier routes don't need to decrypt broker_credentials on
+-- every request. Only populated for MT5 (MetaApi) connections — Tradovate rows leave these null.
+alter table public.broker_connections add column if not exists metaapi_account_id text;
+alter table public.broker_connections add column if not exists broker_server text;
+alter table public.broker_connections add column if not exists account_login text;
+
+-- CopyFactory itself is the source of truth for strategies/subscriptions — this table only
+-- stores what CopyFactory has no field for: a human label, and "temporarily disabled but
+-- remembered" local bookkeeping (a CopyFactory subscription either exists or is gone entirely).
+create table if not exists public.copier_links (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  master_connection_id uuid references public.broker_connections(id) on delete cascade not null,
+  follower_connection_id uuid references public.broker_connections(id) on delete cascade not null,
+  label text,
+  risk_mode text not null default 'multiplier',  -- 'multiplier' | 'risk_percent' only
+  multiplier numeric,
+  max_trade_risk numeric,                         -- CopyFactory fraction-of-1
+  is_enabled boolean not null default false,       -- local bookkeeping: should this exist in
+                                                    -- CopyFactory right now (see disable/enable)
+  created_at timestamptz default now(),
+  unique (master_connection_id, follower_connection_id)
+);
+alter table public.copier_links enable row level security;
+drop policy if exists "own copier links" on public.copier_links;
+create policy "own copier links" on public.copier_links for all using (auth.uid() = user_id);
+
 -- Prop-firm cockpit data — was browser-local Dexie/IndexedDB, moved here so each signed-in
 -- user gets their own accounts/history instead of sharing one browser's local database.
 
 create table if not exists public.accounts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade not null,
-  firm_id text not null,
+  firm_id text,
   custom_firm_name text,
   label text not null,
   account_number text,
@@ -58,6 +114,10 @@ create table if not exists public.accounts (
 alter table public.accounts enable row level security;
 drop policy if exists "own accounts" on public.accounts;
 create policy "own accounts" on public.accounts for all using (auth.uid() = user_id);
+
+-- 'live' stage accounts (real/personal broker accounts, not under any prop firm's rules) have no
+-- firm at all — safe to re-run, a no-op once already nullable.
+alter table public.accounts alter column firm_id drop not null;
 
 create table if not exists public.sessions (
   id uuid primary key default gen_random_uuid(),
@@ -220,3 +280,26 @@ create table if not exists public.trading_rules (
 alter table public.trading_rules enable row level security;
 drop policy if exists "own trading rules" on public.trading_rules;
 create policy "own trading rules" on public.trading_rules for all using (auth.uid() = user_id);
+
+-- AI Trading Insights — on-demand coaching digests generated from the user's own trade/report
+-- card/playbook history. One row per "Generate Insights" click, never edited after generation.
+create table if not exists public.ai_insights (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+
+  range_start date not null,
+  range_end date not null,
+  range_preset text not null, -- 'last_30' | 'last_60' | 'last_90' | 'all_time'
+
+  trade_count integer not null,
+  report_card_count integer not null,
+
+  model text not null, -- exact Claude model string used, captured per-row for correct attribution
+  response jsonb not null, -- {summary, painPoints[], strengths[], recommendations[]}
+  request_payload jsonb, -- the aggregated payload sent — kept for later traceability
+
+  created_at timestamptz default now()
+);
+alter table public.ai_insights enable row level security;
+drop policy if exists "own ai insights" on public.ai_insights;
+create policy "own ai insights" on public.ai_insights for all using (auth.uid() = user_id);

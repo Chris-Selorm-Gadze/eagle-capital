@@ -59,3 +59,151 @@
   font-size: 0.85rem;
   margin-bottom: 1rem;
 }
+
+.summaryRow {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.summaryRow strong {
+  color: var(--text-primary);
+}
+
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.group {
+  padding: 0;
+  overflow: hidden;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.masterBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(57, 135, 229, 0.18);
+  color: var(--accent);
+}
+
+.masterLabel {
+  font-weight: 600;
+}
+
+.followerCount {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.groupActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.5rem 1rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.masterRow {
+  background: rgba(57, 135, 229, 0.06);
+}
+
+.rowMeta {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.rowActions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.groupFooter {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1rem;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.unlinkedNotice {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.pnlGood {
+  color: var(--good);
+}
+
+.pnlBad {
+  color: var(--critical);
+}
+
+.pnlNeutral {
+  color: var(--text-secondary);
+}

@@ -30,6 +30,10 @@ export function DashboardPage({
     .reduce((sum, a) => sum + a.size, 0)
   const relevantPayouts = payouts.filter((p) => tradedAccountIds.has(p.accountId))
   const balance = accountBalanceSeries(daily, startingBalance, relevantPayouts)
+  // `accounts` here is already scoped by the top-bar account filter (one account, or all of
+  // them) — summing balance works for both: it's just that one account's balance when a single
+  // account is selected, or the real total when "All accounts" is picked.
+  const currentBalance = accounts.reduce((sum, a) => sum + a.balance, 0)
 
   return (
     <div className={styles.root}>
@@ -43,7 +47,7 @@ export function DashboardPage({
       <div className={styles.columns}>
         <div className={styles.stack}>
           <DailyPnlBarChart daily={daily} />
-          <AccountBalanceChart data={balance} />
+          <AccountBalanceChart data={balance} currentBalance={currentBalance} />
           <TradeTimeScatter trades={trades} />
         </div>
         <div className={styles.stack}>

@@ -1,16 +1,21 @@
 export interface Account {
   id?: string
-  firmId: string           // references propFirms catalog (e.g. 'apex', 'fundednext', 'ftmo', 'other')
+  // Optional because 'live' accounts (see stage below) have no prop firm at all — not every
+  // account added is or will be a prop-firm evaluation/funded account, especially now that real
+  // broker accounts (via broker_connections) are being connected directly.
+  firmId?: string          // references propFirms catalog (e.g. 'apex', 'fundednext', 'ftmo', 'other')
   customFirmName?: string  // only if firmId === 'other'
   label: string            // user's label, e.g. "FTMO 100K #2"
   accountNumber?: string   // optional: broker/firm account number
-  
+
   size: number             // account size (initial capital)
   balance: number          // current balance
   highestBalance: number   // for trailing drawdown tracking
   currency?: string        // default 'USD'
-  
-  stage: 'challenge' | 'phase2' | 'verification' | 'funded' | 'evaluation' | 'pa' | 'planned' | 'blown' | 'inactive'
+
+  // 'live' means a real/personal broker account with no prop-firm rules to track — skips
+  // firmId and every risk-management field below entirely (see AddAccountDialog.tsx).
+  stage: 'challenge' | 'phase2' | 'verification' | 'funded' | 'evaluation' | 'pa' | 'planned' | 'blown' | 'inactive' | 'live'
   
   // User-defined risk parameters
   maxDrawdown?: number       // absolute $ max drawdown

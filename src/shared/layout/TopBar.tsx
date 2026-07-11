@@ -20,7 +20,7 @@ export function TopBar({
 }) {
   return (
     <div className={styles.root}>
-      <div className={styles.left}>
+      <div className={styles.actions}>
         <button onClick={onAddTrade} className={`btn-primary ${styles.actionBtn}`}>
           <FontAwesomeIcon icon={faPlus} /> Add Trade
         </button>
@@ -28,23 +28,23 @@ export function TopBar({
           <FontAwesomeIcon icon={faPlus} /> Add Account
         </button>
         {onSnapshot && (
-          <button onClick={onSnapshot} className={styles.actionBtn}>
+          <button onClick={onSnapshot} className={`btn-ghost ${styles.actionBtn}`}>
             <FontAwesomeIcon icon={faCamera} /> Snapshot
           </button>
         )}
-        <div className={styles.divider} />
-        <div className={styles.accountFilter}>
-          <FontAwesomeIcon icon={faBuilding} className={styles.filterIcon} />
-          <select
-            value={accountFilter}
-            onChange={(e) => onAccountFilterChange(e.target.value === 'all' ? 'all' : e.target.value)}
-          >
-            <option value="all">All accounts</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.label}</option>
-            ))}
-          </select>
-        </div>
+      </div>
+
+      <div className={styles.accountFilter}>
+        <FontAwesomeIcon icon={faBuilding} className={styles.filterIcon} />
+        <select
+          value={accountFilter}
+          onChange={(e) => onAccountFilterChange(e.target.value === 'all' ? 'all' : e.target.value)}
+        >
+          <option value="all">All accounts</option>
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>{a.label}</option>
+          ))}
+        </select>
       </div>
     </div>
   )

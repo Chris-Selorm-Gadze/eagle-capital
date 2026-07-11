@@ -46,12 +46,14 @@ export function RiskCockpitPage({
   // Group active accounts by category
   const funded = activeAccounts.filter((a) => a.stage === 'funded' || a.stage === 'pa')
   const evaluation = activeAccounts.filter((a) => ['challenge', 'phase2', 'verification', 'evaluation'].includes(a.stage))
+  const live = activeAccounts.filter((a) => a.stage === 'live')
   const planned = activeAccounts.filter((a) => a.stage === 'planned')
   const blown = activeAccounts.filter((a) => a.stage === 'blown' || a.stage === 'inactive')
 
   const groups: AccountGroup[] = [
     { title: 'Funded Portfolio', accounts: funded, accent: 'var(--good)' },
     { title: 'Evaluations & Challenges', accounts: evaluation, accent: 'var(--accent)' },
+    { title: 'Live Accounts', accounts: live, accent: 'var(--accent)' },
     { title: 'Planned Accounts', accounts: planned, accent: 'var(--text-muted)' },
     { title: 'Blown & Inactive', accounts: blown, accent: 'var(--critical)' },
   ].filter((g) => g.accounts.length > 0)
@@ -113,7 +115,7 @@ export function RiskCockpitPage({
             <div className={styles.inactiveList}>
               {inactiveAccounts.map((a) => {
                 const firm = PROP_FIRMS.find((f) => f.id === a.firmId)
-                const firmName = a.firmId === 'other' ? (a.customFirmName || 'Custom') : (firm?.name || a.firmId)
+                const firmName = a.stage === 'live' ? 'Live account' : a.firmId === 'other' ? (a.customFirmName || 'Custom') : (firm?.name || a.firmId)
                 return (
                   <div key={a.id} className={styles.inactiveRow}>
                     <span className={styles.inactiveLabel}>

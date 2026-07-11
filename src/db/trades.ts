@@ -98,7 +98,7 @@ export type ImportedTrade = Omit<Trade, 'id' | 'date' | 'accountId'>
 // produced when parsing a CSV (toISOString()'s "Z" form) — comparing the strings directly
 // meant identical moments in time never matched, so re-importing the same CSV silently
 // inserted duplicates instead of being skipped.
-function importKey(t: Pick<Trade, 'symbol' | 'entryTime' | 'exitTime' | 'entryPrice' | 'exitPrice'>): string {
+export function importKey(t: Pick<Trade, 'symbol' | 'entryTime' | 'exitTime' | 'entryPrice' | 'exitPrice'>): string {
   return `${t.symbol}|${new Date(t.entryTime).getTime()}|${new Date(t.exitTime).getTime()}|${t.entryPrice}|${t.exitPrice}`
 }
 

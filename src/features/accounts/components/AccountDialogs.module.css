@@ -10,3 +10,34 @@
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--border);
 }
+
+.kindChoice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kindOption {
+  text-align: left;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.kindOption:hover {
+  border-color: var(--accent);
+  background: var(--surface-3);
+}
+
+.kindTitle {
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.kindDesc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}

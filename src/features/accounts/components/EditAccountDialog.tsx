@@ -32,6 +32,8 @@ export function EditAccountDialog({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const isLive = stage === 'live'
+
   async function save() {
     setError(null)
     setSaving(true)
@@ -41,12 +43,12 @@ export function EditAccountDialog({
         highestBalance: Number(highestBalance),
         stage,
         active,
-        maxDrawdown: maxDrawdown ? Number(maxDrawdown) : undefined,
-        dailyLossLimit: dailyLossLimit ? Number(dailyLossLimit) : undefined,
-        profitTarget: profitTarget ? Number(profitTarget) : undefined,
-        trailingDrawdown,
-        minTradingDays: minTradingDays ? Number(minTradingDays) : undefined,
-        cost: cost ? Number(cost) : undefined,
+        maxDrawdown: !isLive && maxDrawdown ? Number(maxDrawdown) : undefined,
+        dailyLossLimit: !isLive && dailyLossLimit ? Number(dailyLossLimit) : undefined,
+        profitTarget: !isLive && profitTarget ? Number(profitTarget) : undefined,
+        trailingDrawdown: !isLive && trailingDrawdown,
+        minTradingDays: !isLive && minTradingDays ? Number(minTradingDays) : undefined,
+        cost: !isLive && cost ? Number(cost) : undefined,
         blownReason: stage === 'blown' ? (blownReason || undefined) : undefined,
       })
       onSaved()
@@ -102,40 +104,44 @@ export function EditAccountDialog({
         </label>
       )}
 
-      <div className={styles.sectionDivider}>Risk Management &amp; Rules</div>
+      {!isLive && (
+        <>
+          <div className={styles.sectionDivider}>Risk Management &amp; Rules</div>
 
-      <div className="field-row">
-        <label className="flex-1">
-          Max Drawdown ($)
-          <input type="number" value={maxDrawdown} onChange={(e) => setMaxDrawdown(e.target.value)} />
-        </label>
-        <label className="flex-1">
-          Daily Loss Limit ($)
-          <input type="number" value={dailyLossLimit} onChange={(e) => setDailyLossLimit(e.target.value)} />
-        </label>
-      </div>
+          <div className="field-row">
+            <label className="flex-1">
+              Max Drawdown ($)
+              <input type="number" value={maxDrawdown} onChange={(e) => setMaxDrawdown(e.target.value)} />
+            </label>
+            <label className="flex-1">
+              Daily Loss Limit ($)
+              <input type="number" value={dailyLossLimit} onChange={(e) => setDailyLossLimit(e.target.value)} />
+            </label>
+          </div>
 
-      <div className="field-row" style={{ alignItems: 'center' }}>
-        <label className="flex-1">
-          Profit Target ($)
-          <input type="number" value={profitTarget} onChange={(e) => setProfitTarget(e.target.value)} />
-        </label>
-        <label className="flex-1 field-checkbox" style={{ marginTop: '1.25rem' }}>
-          <input type="checkbox" checked={trailingDrawdown} onChange={(e) => setTrailingDrawdown(e.target.checked)} />
-          Trailing drawdown
-        </label>
-      </div>
+          <div className="field-row" style={{ alignItems: 'center' }}>
+            <label className="flex-1">
+              Profit Target ($)
+              <input type="number" value={profitTarget} onChange={(e) => setProfitTarget(e.target.value)} />
+            </label>
+            <label className="flex-1 field-checkbox" style={{ marginTop: '1.25rem' }}>
+              <input type="checkbox" checked={trailingDrawdown} onChange={(e) => setTrailingDrawdown(e.target.checked)} />
+              Trailing drawdown
+            </label>
+          </div>
 
-      <div className="field-row">
-        <label className="flex-1">
-          Min Trading Days
-          <input type="number" value={minTradingDays} onChange={(e) => setMinTradingDays(e.target.value)} />
-        </label>
-        <label className="flex-1">
-          Challenge Cost ($)
-          <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} />
-        </label>
-      </div>
+          <div className="field-row">
+            <label className="flex-1">
+              Min Trading Days
+              <input type="number" value={minTradingDays} onChange={(e) => setMinTradingDays(e.target.value)} />
+            </label>
+            <label className="flex-1">
+              Challenge Cost ($)
+              <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} />
+            </label>
+          </div>
+        </>
+      )}
 
       <label className="field-checkbox" style={{ marginTop: '1.5rem' }}>
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />

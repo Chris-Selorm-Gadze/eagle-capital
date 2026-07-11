@@ -16,6 +16,7 @@ import { TradeCopierPage } from './features/copier/TradeCopierPage'
 import { TradeJournalPage } from './features/trades/TradeJournalPage'
 import { TraderManagementPage } from './features/tradermanagement/TraderManagementPage'
 import { PlaybooksPage } from './features/playbooks/PlaybooksPage'
+import { InsightsPage } from './features/insights/InsightsPage'
 import { ChartingPage } from './features/charting/ChartingPage'
 import { EconomicCalendarPage } from './features/calendar/EconomicCalendarPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
@@ -141,9 +142,10 @@ export default function App() {
             )}
             {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
             {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
+            {nav === 'insights' && <InsightsPage trades={trades} userId={userId} />}
             {nav === 'charting' && <ChartingPage trades={trades} />}
             {nav === 'calendar' && <EconomicCalendarPage />}
-            {nav === 'brokers' && <BrokerConnectionsPage />}
+            {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}
           </main>
         </div>
 

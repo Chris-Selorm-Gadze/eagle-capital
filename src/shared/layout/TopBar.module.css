@@ -2,12 +2,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
   padding: 0.75rem 1.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 
-.left {
+.actions {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -17,27 +18,38 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+  font-weight: 500;
+  transition: transform 0.1s ease, background-color 0.15s ease;
 }
 
-.divider {
-  width: 1px;
-  height: 22px;
-  background: var(--border);
-  margin: 0 0.15rem;
+.actionBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .accountFilter {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--text-muted);
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
 .filterIcon {
   font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .accountFilter select {
   min-width: 150px;
+  border: none;
+  background: transparent;
+  padding: 0.1rem 0;
+}
+
+.accountFilter select:focus {
+  outline: none;
 }

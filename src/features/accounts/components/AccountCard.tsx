@@ -12,6 +12,7 @@ const STAGE_LABEL: Record<Account['stage'], string> = {
   planned: 'Planned',
   blown: 'Blown',
   inactive: 'Inactive',
+  live: 'Live',
 }
 
 // Purely presentational grouping by stage — not a computed risk/eligibility signal.
@@ -25,6 +26,7 @@ const STAGE_ACCENT: Record<Account['stage'], string> = {
   planned: 'var(--text-muted)',
   blown: 'var(--critical)',
   inactive: 'var(--text-muted)',
+  live: 'var(--accent)',
 }
 
 function money(n: number): string {
@@ -45,9 +47,11 @@ export function AccountCard({
   onScalingTracker?: () => void
 }) {
   const firm = PROP_FIRMS.find((f) => f.id === account.firmId)
-  const firmName = account.firmId === 'other'
-    ? (account.customFirmName || 'Custom Firm')
-    : (firm?.name || account.firmId)
+  const firmName = account.stage === 'live'
+    ? 'Live account'
+    : account.firmId === 'other'
+      ? (account.customFirmName || 'Custom Firm')
+      : (firm?.name || account.firmId)
   const accent = STAGE_ACCENT[account.stage]
   const netPnl = account.balance - account.size
 

@@ -67,19 +67,35 @@ button:disabled {
 input,
 select,
 textarea {
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 0.35rem 0.5rem;
+  padding: 0.45rem 0.6rem;
   font-size: 0.9rem;
   font-family: inherit;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+input:hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus) {
+  border-color: var(--text-muted);
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 1px solid var(--accent);
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 a {
@@ -112,7 +128,7 @@ a {
 .field textarea {
   display: block;
   width: 100%;
-  margin-top: 0.25rem;
+  margin-top: 0.35rem;
 }
 
 .field-row {
@@ -130,7 +146,20 @@ a {
 .field-row textarea {
   display: block;
   width: 100%;
-  margin-top: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+/* Catch-all for bare `<label className="flex-1">Text<input/></label>` patterns used outside
+   .field/.field-row (e.g. TradeCopierPage's/BrokerConnectionsPage's add-rows) — without this,
+   these labels have zero rule governing the gap between their text and the control, so the two
+   end up touching. Lower specificity than the .field/.field-row rules above, so it only takes
+   effect where those don't already apply. */
+label > input:not([type='checkbox']):not([type='radio']),
+label > select,
+label > textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
 }
 
 .field-checkbox {

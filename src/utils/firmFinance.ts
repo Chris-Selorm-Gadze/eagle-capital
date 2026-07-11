@@ -15,6 +15,7 @@ export interface FirmFinance {
 export function firmFinanceBreakdown(accounts: Account[], payoutsByAccountId: Map<string, Payout[]>): FirmFinance[] {
   const byFirm = new Map<string, { spent: number; earned: number }>()
   for (const a of accounts) {
+    if (!a.firmId) continue // 'live' accounts have no firm — nothing to roll up here
     const entry = byFirm.get(a.firmId) ?? { spent: 0, earned: 0 }
     entry.spent += a.cost ?? 0
     const payouts = a.id !== undefined ? (payoutsByAccountId.get(a.id) ?? []) : []
@@ -37,7 +38,7 @@ const PASSED_STAGES: Account['stage'][] = ['funded', 'pa']
 export function firmPassRate(accounts: Account[]): FirmPassRate[] {
   const byFirm = new Map<string, { passed: number; total: number }>()
   for (const a of accounts) {
-    if (a.stage === 'planned') continue
+    if (a.stage === 'planned' || !a.firmId) continue
     const entry = byFirm.get(a.firmId) ?? { passed: 0, total: 0 }
     entry.total += 1
     if (PASSED_STAGES.includes(a.stage)) entry.passed += 1

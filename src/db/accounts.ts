@@ -7,7 +7,7 @@ export type NewAccountInput = Omit<Account, 'id' | 'balance' | 'highestBalance'>
 export function fromRow(row: Record<string, any>): Account {
   return {
     id: row.id,
-    firmId: row.firm_id,
+    firmId: row.firm_id ?? undefined,
     customFirmName: row.custom_firm_name ?? undefined,
     label: row.label,
     accountNumber: row.account_number ?? undefined,

@@ -8,17 +8,22 @@ import styles from './AccountBalanceChart.module.css'
 
 const TICK_STYLE = { fontSize: 10, fill: 'var(--text-muted)' }
 
-export function AccountBalanceChart({ data }: { data: BalancePoint[] }) {
+export function AccountBalanceChart({ data, currentBalance }: { data: BalancePoint[]; currentBalance: number }) {
   return (
     <div className={`card ${styles.root}`}>
-      <div className={styles.title}>
-        Account balance
-        <span
-          className="info-icon"
-          title="Starting allocation + cumulative trade P&L. Deposits / Withdrawals tracks cumulative payouts received."
-        >
-          i
-        </span>
+      <div className={styles.headerRow}>
+        <div className={styles.title}>
+          Account balance
+          <span
+            className="info-icon"
+            title="Starting allocation + cumulative trade P&L. Deposits / Withdrawals tracks cumulative payouts received."
+          >
+            i
+          </span>
+        </div>
+        {/* Whatever the top-bar account filter currently selects — one account's own balance, or
+            the sum across all accounts when "All accounts" is picked (see DashboardPage.tsx). */}
+        <div className={styles.currentValue}>${currentBalance.toLocaleString()}</div>
       </div>
       <div className={styles.legend}>
         <span className={styles.legendItem}>

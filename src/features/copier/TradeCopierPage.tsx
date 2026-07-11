@@ -1,24 +1,178 @@
 import { useEffect, useState } from 'react'
 import {
-  deltaEngineConfigured,
-  listAccounts, listCopiers, createCopier, enableCopier, disableCopier, deleteCopier,
+  copierConfigured,
+  listAccounts, createCopier, enableCopier, disableCopier, deleteCopier,
   listRiskProfiles, unlockRiskProfile, flattenPositions,
-  type DeltaAccount, type DeltaCopier, type DeltaRiskProfile, type RiskMode,
-} from '../../lib/deltaEngineClient'
+  type DeltaAccount, type CopierGroup, type FollowerStats, type DeltaRiskProfile, type RiskMode,
+} from '../../lib/copierClient'
+import { subscribeCopierGroups } from '../../lib/copierGroupsSocket'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
 import styles from './TradeCopierPage.module.css'
+
+function money(n: number): string {
+  const sign = n < 0 ? '-' : ''
+  return `${sign}$${Math.round(Math.abs(n)).toLocaleString()}`
+}
+
+function pnlClass(n: number): string {
+  if (n > 0) return styles.pnlGood
+  if (n < 0) return styles.pnlBad
+  return styles.pnlNeutral
+}
+
+function copyRateLabel(f: FollowerStats): string {
+  return f.riskMode === 'risk_percent' ? `${f.multiplier}% risk` : `${f.multiplier}×`
+}
 
 function accountLabel(accounts: DeltaAccount[], id: string): string {
   const a = accounts.find((x) => x.id === id)
   return a ? (a.account_label || `${a.platform} · ${a.account_number}`) : id
 }
 
+function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => void }) {
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  async function run(id: string, action: () => Promise<unknown>) {
+    setBusyId(id)
+    try {
+      await action()
+      onChanged()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function handleToggle(f: FollowerStats) {
+    if (!f.isEnabled && !window.confirm(`Enable copying from ${group.master.label} to ${f.label}? This mirrors real orders immediately.`)) return
+    run(f.copierId, () => (f.isEnabled ? disableCopier(f.copierId) : enableCopier(f.copierId)))
+  }
+
+  function handleRemoveFollower(f: FollowerStats) {
+    if (!window.confirm(`Remove ${f.label} from this copy group?`)) return
+    run(f.copierId, () => deleteCopier(f.copierId))
+  }
+
+  function handleFlatten(connectionId: string, label: string) {
+    if (!window.confirm(`Flatten all open positions on ${label}? This closes real positions immediately.`)) return
+    run(connectionId, () => flattenPositions(connectionId))
+  }
+
+  function handleEnableAll() {
+    const toEnable = group.followers.filter((f) => !f.isEnabled)
+    if (toEnable.length === 0) return
+    run('group', () => Promise.all(toEnable.map((f) => enableCopier(f.copierId))))
+  }
+
+  function handleDisableAll() {
+    const toDisable = group.followers.filter((f) => f.isEnabled)
+    if (toDisable.length === 0) return
+    if (!window.confirm(`Disable all ${toDisable.length} active followers copying from ${group.master.label}?`)) return
+    run('group', () => Promise.all(toDisable.map((f) => disableCopier(f.copierId))))
+  }
+
+  function handleDeleteGroup() {
+    if (!window.confirm(`Delete this entire copy group? All ${group.followers.length} follower relations will be removed.`)) return
+    run('group', () => Promise.all(group.followers.map((f) => deleteCopier(f.copierId))))
+  }
+
+  const totalCapital = group.master.balance + group.followers.reduce((s, f) => s + f.balance, 0)
+  const totalDaily = (group.master.dailyPnl ?? 0) + group.followers.reduce((s, f) => s + (f.dailyPnl ?? 0), 0)
+  const totalUnrealized = group.master.unrealizedPnl + group.followers.reduce((s, f) => s + f.unrealizedPnl, 0)
+  const enabledCount = group.followers.filter((f) => f.isEnabled).length
+
+  return (
+    <div className={`card ${styles.group}`}>
+      <div className={styles.groupHeader}>
+        <div className={styles.groupTitle}>
+          <span className={styles.masterBadge}>MASTER</span>
+          <span className={styles.masterLabel}>{group.master.label}</span>
+          <span className={styles.followerCount}>
+            {group.followers.length} follower{group.followers.length === 1 ? '' : 's'} · {enabledCount} copying
+          </span>
+        </div>
+        <div className={styles.groupActions}>
+          <button onClick={handleEnableAll} disabled={busyId === 'group'}>Enable all</button>
+          <button onClick={handleDisableAll} disabled={busyId === 'group'}>Disable all</button>
+          <button onClick={() => handleFlatten(group.master.connectionId, group.master.label)} className="btn-ghost" disabled={busyId === group.master.connectionId}>
+            Flatten master
+          </button>
+          <button onClick={handleDeleteGroup} className="btn-ghost" disabled={busyId === 'group'}>Delete group</button>
+        </div>
+      </div>
+
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Balance</th>
+              <th>Positions</th>
+              <th>Daily P&L</th>
+              <th>Unrealized</th>
+              <th>Copy rate</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className={styles.masterRow}>
+              <td>
+                {group.master.label}
+                <span className={styles.rowMeta}>Master · {group.master.broker}</span>
+              </td>
+              <td>{money(group.master.balance)}</td>
+              <td>{group.master.openPositions}</td>
+              <td className={pnlClass(group.master.dailyPnl ?? 0)}>{group.master.dailyPnl !== null ? money(group.master.dailyPnl) : '—'}</td>
+              <td className={pnlClass(group.master.unrealizedPnl)}>{money(group.master.unrealizedPnl)}</td>
+              <td>—</td>
+              <td>—</td>
+              <td className={styles.rowActions}>
+                <button onClick={() => handleFlatten(group.master.connectionId, group.master.label)} className="btn-ghost" disabled={busyId === group.master.connectionId}>
+                  Flatten
+                </button>
+              </td>
+            </tr>
+            {group.followers.map((f) => (
+              <tr key={f.copierId}>
+                <td>
+                  {f.label}
+                  <span className={styles.rowMeta}>Follower · {f.broker}</span>
+                </td>
+                <td>{money(f.balance)}</td>
+                <td>{f.openPositions}</td>
+                <td className={pnlClass(f.dailyPnl ?? 0)}>{f.dailyPnl !== null ? money(f.dailyPnl) : '—'}</td>
+                <td className={pnlClass(f.unrealizedPnl)}>{money(f.unrealizedPnl)}</td>
+                <td>{copyRateLabel(f)}</td>
+                <td>
+                  <span className={f.isEnabled ? styles.badgeOn : styles.badgeOff}>{f.isEnabled ? 'copying' : 'paused'}</span>
+                </td>
+                <td className={styles.rowActions}>
+                  <button onClick={() => handleToggle(f)} disabled={busyId === f.copierId}>{f.isEnabled ? 'Disable' : 'Enable'}</button>
+                  <button onClick={() => handleFlatten(f.connectionId, f.label)} className="btn-ghost" disabled={busyId === f.copierId || busyId === f.connectionId}>Flatten</button>
+                  <button onClick={() => handleRemoveFollower(f)} className="btn-ghost" disabled={busyId === f.copierId}>Remove</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className={styles.groupFooter}>
+        <span>{group.followers.length} follower account{group.followers.length === 1 ? '' : 's'}</span>
+        <span>Group capital (master + followers): {money(totalCapital)}</span>
+        <span className={pnlClass(totalUnrealized)}>Unrealized: {money(totalUnrealized)}</span>
+        <span className={pnlClass(totalDaily)}>Daily P&L: {money(totalDaily)}</span>
+      </div>
+    </div>
+  )
+}
+
 function TradeCopierWorkspace() {
   const [accounts, setAccounts] = useState<DeltaAccount[]>([])
-  const [copiers, setCopiers] = useState<DeltaCopier[]>([])
+  const [groups, setGroups] = useState<CopierGroup[] | null>(null)
   const [riskProfiles, setRiskProfiles] = useState<DeltaRiskProfile[]>([])
-  const [loading, setLoading] = useState(true)
+  const [accountsLoaded, setAccountsLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [masterId, setMasterId] = useState('')
@@ -27,23 +181,34 @@ function TradeCopierWorkspace() {
   const [riskMode, setRiskMode] = useState<RiskMode>('multiplier')
   const [multiplier, setMultiplier] = useState('1.0')
 
+  // Accounts and risk profiles are cheap, so a plain fetch-on-demand is fine — group data (which
+  // needs a live MetaApi call per account) comes from the copier-groups WebSocket below instead,
+  // so the page never re-fetches that from scratch on every visit.
   async function load() {
-    setLoading(true)
     setError(null)
     try {
-      const [a, c, r] = await Promise.all([listAccounts(), listCopiers(), listRiskProfiles()])
+      const [a, r] = await Promise.all([listAccounts(), listRiskProfiles()])
       setAccounts(a.accounts)
-      setCopiers(c.copiers)
       setRiskProfiles(r.profiles)
-      if (!masterId && a.accounts[0]) setMasterId(a.accounts[0].id)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
-      setLoading(false)
+      setAccountsLoaded(true)
     }
   }
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    const unsubscribe = subscribeCopierGroups(setGroups, (message) => setError(message))
+    return unsubscribe
+  }, [])
+
+  // Separate from load() so re-applying the default master pick can't clobber a selection the
+  // user has already made.
+  useEffect(() => {
+    if (!masterId && accounts[0]) setMasterId(accounts[0].id)
+  }, [accounts, masterId])
 
   async function handleCreateCopier() {
     if (!masterId || !followerId || masterId === followerId) return
@@ -63,30 +228,6 @@ function TradeCopierWorkspace() {
     }
   }
 
-  async function handleToggle(c: DeltaCopier) {
-    if (!c.is_enabled && !window.confirm(`Enable copying from ${accountLabel(accounts, c.master_account_id)} to ${accountLabel(accounts, c.follower_account_id)}? This mirrors real orders immediately.`)) {
-      return
-    }
-    setError(null)
-    try {
-      await (c.is_enabled ? disableCopier(c.id) : enableCopier(c.id))
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-  }
-
-  async function handleDelete(c: DeltaCopier) {
-    if (!window.confirm('Delete this copier relation?')) return
-    setError(null)
-    try {
-      await deleteCopier(c.id)
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-  }
-
   async function handleUnlock(p: DeltaRiskProfile) {
     setError(null)
     try {
@@ -97,59 +238,41 @@ function TradeCopierWorkspace() {
     }
   }
 
-  async function handleFlatten(p: DeltaRiskProfile) {
-    if (!window.confirm(`Flatten all open positions on ${accountLabel(accounts, p.account_id)}? This closes real positions immediately.`)) return
-    setError(null)
-    try {
-      await flattenPositions(p.id)
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-  }
+  if (!accountsLoaded || groups === null) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
 
-  if (loading) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  const linkedAccountIds = new Set(groups.flatMap((g) => [g.master.connectionId, ...g.followers.map((f) => f.connectionId)]))
+  const unlinkedAccounts = accounts.filter((a) => !linkedAccountIds.has(a.id))
+
+  const grandCapital = groups.reduce((s, g) => s + g.master.balance + g.followers.reduce((s2, f) => s2 + f.balance, 0), 0)
+  const grandDaily = groups.reduce((s, g) => s + (g.master.dailyPnl ?? 0) + g.followers.reduce((s2, f) => s2 + (f.dailyPnl ?? 0), 0), 0)
+  const grandFollowers = groups.reduce((s, g) => s + g.followers.length, 0)
 
   return (
     <div>
       {error && <div className={styles.error}>{error}</div>}
 
-      <section className={styles.section}>
-        <h2>Accounts</h2>
-        {accounts.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No accounts on Delta Engine yet.</p>
-        ) : (
-          <div className={`card ${styles.list}`}>
-            {accounts.map((a) => (
-              <div key={a.id} className={styles.row}>
-                <span className={styles.cell}>{a.account_label || `${a.platform} · ${a.account_number}`}</span>
-                <span className={styles.cellMuted}>{a.platform}</span>
-                <span className={styles.cellMuted}>{a.connection_status}</span>
-                <span className={styles.cellMuted}>{a.balance !== null ? `$${a.balance.toLocaleString()}` : '—'}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {groups.length > 0 && (
+        <div className={styles.summaryRow}>
+          <span><strong>{groups.length}</strong> master{groups.length === 1 ? '' : 's'}</span>
+          <span><strong>{grandFollowers}</strong> follower{grandFollowers === 1 ? '' : 's'}</span>
+          <span>Total capital <strong>{money(grandCapital)}</strong></span>
+          <span className={pnlClass(grandDaily)}>Today <strong>{money(grandDaily)}</strong></span>
+        </div>
+      )}
 
       <section className={styles.section}>
-        <h2>Copier relations</h2>
-        {copiers.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No copier relations yet.</p>
+        <h2>Copy trading groups</h2>
+        {groups.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }}>No copy trading groups yet — add one below.</p>
         ) : (
-          <div className={`card ${styles.list}`}>
-            {copiers.map((c) => (
-              <div key={c.id} className={styles.row}>
-                <span className={styles.cell}>
-                  {accountLabel(accounts, c.master_account_id)} → {accountLabel(accounts, c.follower_account_id)}
-                  {c.label ? ` · ${c.label}` : ''}
-                </span>
-                <span className={styles.cellMuted}>{c.risk_mode} × {c.multiplier}</span>
-                <span className={c.is_enabled ? styles.badgeOn : styles.badgeOff}>{c.is_enabled ? 'enabled' : 'disabled'}</span>
-                <button onClick={() => handleToggle(c)}>{c.is_enabled ? 'Disable' : 'Enable'}</button>
-                <button onClick={() => handleDelete(c)} className="btn-ghost">Delete</button>
-              </div>
-            ))}
+          <div className={styles.groupList}>
+            {groups.map((g) => <GroupCard key={g.master.connectionId} group={g} onChanged={load} />)}
+          </div>
+        )}
+
+        {unlinkedAccounts.length > 0 && (
+          <div className={styles.unlinkedNotice}>
+            Not yet in a copy group: {unlinkedAccounts.map((a) => a.account_label || a.account_number).join(', ')}
           </div>
         )}
 
@@ -171,22 +294,20 @@ function TradeCopierWorkspace() {
           <label className="flex-1">Risk mode
             <select value={riskMode} onChange={(e) => setRiskMode(e.target.value as RiskMode)}>
               <option value="multiplier">Multiplier</option>
-              <option value="fixed_lot">Fixed lot</option>
-              <option value="equity_ratio">Equity ratio</option>
               <option value="risk_percent">Risk percent</option>
             </select>
           </label>
-          <label className="flex-1">Multiplier
+          <label className="flex-1">{riskMode === 'risk_percent' ? 'Max risk per trade (%)' : 'Multiplier'}
             <input type="number" step="0.01" value={multiplier} onChange={(e) => setMultiplier(e.target.value)} />
           </label>
-          <button className="btn-primary" onClick={handleCreateCopier} disabled={!masterId || !followerId}>Add copier</button>
+          <button className="btn-primary" onClick={handleCreateCopier} disabled={!masterId || !followerId}>Add follower</button>
         </div>
       </section>
 
       <section className={styles.section}>
         <h2>Risk profiles</h2>
         {riskProfiles.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No risk profiles set on Delta Engine yet.</p>
+          <p style={{ color: 'var(--text-muted)' }}>No risk profiles yet — these appear once a copier relation exists.</p>
         ) : (
           <div className={`card ${styles.list}`}>
             {riskProfiles.map((p) => (
@@ -195,9 +316,7 @@ function TradeCopierWorkspace() {
                 <span className={p.is_locked ? styles.badgeOff : styles.badgeOn}>
                   {p.is_locked ? (p.locked_reason || 'locked') : 'unlocked'}
                 </span>
-                <span className={styles.cellMuted}>{p.daily_trades_count}/{p.max_trades_per_day ?? '—'} trades today</span>
                 {p.is_locked && <button onClick={() => handleUnlock(p)}>Unlock</button>}
-                <button onClick={() => handleFlatten(p)} className="btn-ghost">Flatten positions</button>
               </div>
             ))}
           </div>
@@ -216,9 +335,9 @@ export function TradeCopierPage() {
     <div>
       <h1 className="page-title">Trade Copier</h1>
 
-      {!deltaEngineConfigured && (
+      {!copierConfigured && (
         <p className={styles.configNotice}>
-          Delta Engine isn't configured yet — set VITE_DELTA_API_URL in .env.local for this page to actually work.
+          Broker sync isn't configured yet — set VITE_BROKER_SYNC_API_URL in .env.local for this page to actually work.
         </p>
       )}
 

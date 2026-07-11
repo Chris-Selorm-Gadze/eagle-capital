@@ -12,9 +12,10 @@
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 1.5rem;
-  max-width: 90vw;
+  width: 100%;
+  max-width: min(540px, 90vw);
   max-height: 90vh;
   overflow-y: auto;
 }

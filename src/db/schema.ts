@@ -11,7 +11,8 @@ export const STAGE_OPTIONS: Account['stage'][] = [
   'pa',
   'planned',
   'blown',
-  'inactive'
+  'inactive',
+  'live',
 ]
 
 // Data lives in Supabase (per-user, RLS-scoped) — see src/db/accounts.ts, sessions.ts,

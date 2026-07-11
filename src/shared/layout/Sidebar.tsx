@@ -2,18 +2,19 @@ import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faBars, faGaugeHigh, faPenToSquare, faUserGear, faBookOpen,
-  faBriefcase, faChartLine, faCalendarDays, faTableList, faClone, faPlug,
+  faBriefcase, faChartLine, faCalendarDays, faTableList, faClone, faPlug, faBrain,
   type IconDefinition,
 } from '@fortawesome/free-solid-svg-icons'
 import styles from './Sidebar.module.css'
 
-export type NavKey = 'dashboard' | 'cockpit' | 'tradecopier' | 'tradelog' | 'tradejournal' | 'tradermanagement' | 'playbooks' | 'charting' | 'calendar' | 'brokers'
+export type NavKey = 'dashboard' | 'cockpit' | 'tradecopier' | 'tradelog' | 'tradejournal' | 'tradermanagement' | 'playbooks' | 'charting' | 'calendar' | 'brokers' | 'insights'
 
 const NAV_ITEMS: { key: NavKey; label: string; icon: IconDefinition }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: faGaugeHigh },
   { key: 'tradejournal', label: 'Trade Journal', icon: faPenToSquare },
   { key: 'tradermanagement', label: 'Trader Management', icon: faUserGear },
   { key: 'playbooks', label: 'Playbooks', icon: faBookOpen },
+  { key: 'insights', label: 'AI Insights', icon: faBrain },
   { key: 'cockpit', label: 'Prop Firm Management', icon: faBriefcase },
   { key: 'charting', label: 'Charting', icon: faChartLine },
   { key: 'calendar', label: 'Economic Calendar', icon: faCalendarDays },
@@ -44,6 +45,7 @@ export function Sidebar({ active, onNavigate }: { active: NavKey; onNavigate: (k
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         <FontAwesomeIcon icon={faBars} fixedWidth />
+        {!collapsed && <span className={styles.collapseLabel}>Menu</span>}
       </button>
 
       {NAV_ITEMS.map((item) => (
