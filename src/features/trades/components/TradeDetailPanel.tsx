@@ -141,7 +141,7 @@ export function TradeDetailPanel({
           />
         )}
         {tab === 'tags' && <TradeTagsTab draft={draft} onChange={patch} />}
-        {tab === 'chart' && <TradeChartTab symbol={trade.symbol} />}
+        {tab === 'chart' && <TradeChartTab trade={trade} />}
         {tab === 'notes' && <TradeNotesTab draft={draft} onChange={patch} />}
       </div>
 
