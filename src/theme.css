@@ -32,7 +32,7 @@ body {
   margin: 0;
   background: var(--page-bg);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Fira Code', system-ui, -apple-system, 'Segoe UI', monospace;
 }
 
 button {
@@ -114,6 +114,7 @@ a {
 .page-title {
   margin: 0;
   font-size: 1.3rem;
+  font-family: 'Passion One', sans-serif;
 }
 
 /* Form field utilities — the label+input block and side-by-side field row
