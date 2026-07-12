@@ -16,7 +16,7 @@ export function AccountBalanceChart({ data, currentBalance }: { data: BalancePoi
           Account balance
           <span
             className="info-icon"
-            title="Starting allocation + cumulative trade P&L. Deposits / Withdrawals tracks cumulative payouts received."
+            data-tooltip="Starting allocation + cumulative trade P&L. Deposits / Withdrawals tracks cumulative payouts received."
           >
             i
           </span>

@@ -171,7 +171,9 @@ function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => 
 function TradeCopierWorkspace() {
   const [accounts, setAccounts] = useState<DeltaAccount[]>([])
   const [groups, setGroups] = useState<CopierGroup[] | null>(null)
-  const [riskProfiles, setRiskProfiles] = useState<DeltaRiskProfile[]>([])
+  // null = "not loaded yet", distinct from "loaded, zero rows" — lets the Risk profiles section
+  // show its own loading state without blocking the rest of the page.
+  const [riskProfiles, setRiskProfiles] = useState<DeltaRiskProfile[] | null>(null)
   const [accountsLoaded, setAccountsLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -181,20 +183,36 @@ function TradeCopierWorkspace() {
   const [riskMode, setRiskMode] = useState<RiskMode>('multiplier')
   const [multiplier, setMultiplier] = useState('1.0')
 
-  // Accounts and risk profiles are cheap, so a plain fetch-on-demand is fine — group data (which
-  // needs a live MetaApi call per account) comes from the copier-groups WebSocket below instead,
-  // so the page never re-fetches that from scratch on every visit.
-  async function load() {
+  // Accounts is cheap (plain Supabase queries) — loads first and gates the page shell. Risk
+  // profiles is NOT cheap: the backend makes live CopyFactory API calls (getStopouts +
+  // getSubscriber) per follower on every request, with no caching. Loading it separately means a
+  // slow risk-profiles fetch only blocks that one section instead of the whole page. Group data
+  // (which needs a live MetaApi call per account) comes from the copier-groups WebSocket below,
+  // so the page never re-fetches that from scratch on every visit either.
+  async function loadAccounts() {
     setError(null)
     try {
-      const [a, r] = await Promise.all([listAccounts(), listRiskProfiles()])
+      const a = await listAccounts()
       setAccounts(a.accounts)
-      setRiskProfiles(r.profiles)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setAccountsLoaded(true)
     }
+  }
+
+  async function loadRiskProfiles() {
+    try {
+      const r = await listRiskProfiles()
+      setRiskProfiles(r.profiles)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  function load() {
+    loadAccounts()
+    loadRiskProfiles()
   }
 
   useEffect(() => { load() }, [])
@@ -238,22 +256,24 @@ function TradeCopierWorkspace() {
     }
   }
 
-  if (!accountsLoaded || groups === null) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  if (!accountsLoaded) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
 
-  const linkedAccountIds = new Set(groups.flatMap((g) => [g.master.connectionId, ...g.followers.map((f) => f.connectionId)]))
+  const groupsLoaded = groups !== null
+  const safeGroups = groups ?? []
+  const linkedAccountIds = new Set(safeGroups.flatMap((g) => [g.master.connectionId, ...g.followers.map((f) => f.connectionId)]))
   const unlinkedAccounts = accounts.filter((a) => !linkedAccountIds.has(a.id))
 
-  const grandCapital = groups.reduce((s, g) => s + g.master.balance + g.followers.reduce((s2, f) => s2 + f.balance, 0), 0)
-  const grandDaily = groups.reduce((s, g) => s + (g.master.dailyPnl ?? 0) + g.followers.reduce((s2, f) => s2 + (f.dailyPnl ?? 0), 0), 0)
-  const grandFollowers = groups.reduce((s, g) => s + g.followers.length, 0)
+  const grandCapital = safeGroups.reduce((s, g) => s + g.master.balance + g.followers.reduce((s2, f) => s2 + f.balance, 0), 0)
+  const grandDaily = safeGroups.reduce((s, g) => s + (g.master.dailyPnl ?? 0) + g.followers.reduce((s2, f) => s2 + (f.dailyPnl ?? 0), 0), 0)
+  const grandFollowers = safeGroups.reduce((s, g) => s + g.followers.length, 0)
 
   return (
     <div>
       {error && <div className={styles.error}>{error}</div>}
 
-      {groups.length > 0 && (
+      {groupsLoaded && safeGroups.length > 0 && (
         <div className={styles.summaryRow}>
-          <span><strong>{groups.length}</strong> master{groups.length === 1 ? '' : 's'}</span>
+          <span><strong>{safeGroups.length}</strong> master{safeGroups.length === 1 ? '' : 's'}</span>
           <span><strong>{grandFollowers}</strong> follower{grandFollowers === 1 ? '' : 's'}</span>
           <span>Total capital <strong>{money(grandCapital)}</strong></span>
           <span className={pnlClass(grandDaily)}>Today <strong>{money(grandDaily)}</strong></span>
@@ -262,11 +282,13 @@ function TradeCopierWorkspace() {
 
       <section className={styles.section}>
         <h2>Copy trading groups</h2>
-        {groups.length === 0 ? (
+        {!groupsLoaded ? (
+          <p style={{ color: 'var(--text-muted)' }}>Loading live account data…</p>
+        ) : safeGroups.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>No copy trading groups yet — add one below.</p>
         ) : (
           <div className={styles.groupList}>
-            {groups.map((g) => <GroupCard key={g.master.connectionId} group={g} onChanged={load} />)}
+            {safeGroups.map((g) => <GroupCard key={g.master.connectionId} group={g} onChanged={load} />)}
           </div>
         )}
 
@@ -306,7 +328,9 @@ function TradeCopierWorkspace() {
 
       <section className={styles.section}>
         <h2>Risk profiles</h2>
-        {riskProfiles.length === 0 ? (
+        {riskProfiles === null ? (
+          <p style={{ color: 'var(--text-muted)' }}>Loading risk profiles…</p>
+        ) : riskProfiles.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>No risk profiles yet — these appear once a copier relation exists.</p>
         ) : (
           <div className={`card ${styles.list}`}>

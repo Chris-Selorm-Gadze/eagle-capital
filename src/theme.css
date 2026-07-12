@@ -177,9 +177,13 @@ label > textarea {
   flex: 2;
 }
 
-/* Small circular "i" info-icon with a native title tooltip, used on tile
-   headers and chart legends throughout the dashboard. */
+/* Small circular "i" info-icon, used on tile headers and chart legends throughout the
+   dashboard. Tooltip is a CSS-only construct driven by the data-tooltip attribute (not the
+   native `title` attribute) — a plain `title` tooltip depends on the browser/OS's own hover
+   delay and styling, which is inconsistent and easy to miss; this one is fully under our
+   control and always shows immediately on hover. */
 .info-icon {
+  position: relative;
   cursor: help;
   color: var(--text-muted);
   font-size: 0.65rem;
@@ -192,6 +196,29 @@ label > textarea {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.info-icon:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 240px;
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  z-index: 50;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
 /* KPI row: 3 columns (2 rows for 6 tiles) by default, reflowing down as the

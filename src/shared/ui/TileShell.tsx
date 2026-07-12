@@ -17,7 +17,7 @@ export function TileShell({
       <div className={styles.header}>
         <div className={styles.label}>
           {label}
-          {info && <span title={info} className="info-icon">i</span>}
+          {info && <span data-tooltip={info} className="info-icon">i</span>}
         </div>
         {badge !== undefined && <span className={styles.badge}>{badge}</span>}
       </div>
