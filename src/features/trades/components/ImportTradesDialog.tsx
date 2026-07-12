@@ -5,6 +5,7 @@ import { parseTradeCsv, type ParsedTrade } from '../csvImport'
 import { Modal } from '../../../shared/ui/Modal'
 import styles from './ImportTradesDialog.module.css'
 import { errorMessage } from '../../../utils/errors'
+import { usePostHog } from '@posthog/react'
 
 export function ImportTradesDialog({
   accounts,
@@ -17,6 +18,7 @@ export function ImportTradesDialog({
   onClose: () => void
   onSaved: () => void
 }) {
+  const posthog = usePostHog()
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [fileName, setFileName] = useState('')
   const [parsed, setParsed] = useState<ParsedTrade[] | null>(null)
@@ -49,6 +51,11 @@ export function ImportTradesDialog({
     setImporting(true)
     try {
       const res = await importTrades(userId, accountId, parsed)
+      posthog?.capture('trades_imported', {
+        trades_imported_count: res.imported,
+        trades_skipped_count: res.skipped,
+        file_name: fileName,
+      })
       setResult(res)
       setParsed(null)
       onSaved()

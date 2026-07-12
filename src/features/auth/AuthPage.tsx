@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useAuth } from './AuthContext'
 import { supabaseConfigured } from '../../lib/supabaseClient'
+import { usePostHog } from '@posthog/react'
 import styles from './AuthPage.module.css'
 
 export function AuthPage() {
   const { signUp, signIn } = useAuth()
+  const posthog = usePostHog()
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,7 +23,10 @@ export function AuthPage() {
     if (result.error) {
       setError(result.error)
     } else if (mode === 'signup') {
+      posthog?.capture('signed_up')
       setSuccess('Account created — check your email to confirm, then sign in.')
+    } else {
+      posthog?.capture('signed_in')
     }
   }
 

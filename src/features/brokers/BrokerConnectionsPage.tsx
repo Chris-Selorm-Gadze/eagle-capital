@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { usePostHog } from '@posthog/react'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
 import { ComingSoonSection } from '../../shared/ui/ComingSoonSection'
@@ -222,6 +223,7 @@ function ImportTradovateAccountsDialog({
 
 export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[]; userId: string }) {
   const { user, loading } = useAuth()
+  const posthog = usePostHog()
   const [connections, setConnections] = useState<BrokerConnection[]>([])
   const [fetching, setFetching] = useState(true)
   const [brokerId, setBrokerId] = useState(BROKERS[0].id)
@@ -315,6 +317,7 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
     setError(null)
     try {
       await addBrokerConnection(userId, brokerId, label.trim())
+      posthog?.capture('broker_connection_added', { broker_id: brokerId })
       setLabel('')
       await load()
     } catch (err) {
@@ -337,6 +340,7 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
     setError(null)
     try {
       await triggerSync(connectionId)
+      posthog?.capture('broker_synced', { connection_id: connectionId })
       await load()
     } catch (err) {
       setError(errorMessage(err))

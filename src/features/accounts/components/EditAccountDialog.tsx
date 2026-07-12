@@ -4,6 +4,7 @@ import { updateAccount } from '../../../db/accounts'
 import { Modal } from '../../../shared/ui/Modal'
 import { BREACH_REASONS } from '../breachReasons'
 import { errorMessage } from '../../../utils/errors'
+import { usePostHog } from '@posthog/react'
 import styles from './AccountDialogs.module.css'
 
 export function EditAccountDialog({
@@ -29,6 +30,7 @@ export function EditAccountDialog({
   const [minTradingDays, setMinTradingDays] = useState(account.minTradingDays !== undefined ? String(account.minTradingDays) : '')
   const [cost, setCost] = useState(account.cost !== undefined ? String(account.cost) : '')
 
+  const posthog = usePostHog()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -50,6 +52,16 @@ export function EditAccountDialog({
         minTradingDays: !isLive && minTradingDays ? Number(minTradingDays) : undefined,
         cost: !isLive && cost ? Number(cost) : undefined,
         blownReason: stage === 'blown' ? (blownReason || undefined) : undefined,
+      })
+      if (stage === 'blown') {
+        posthog?.capture('account_blown', {
+          blown_reason: blownReason || undefined,
+          previous_stage: account.stage,
+        })
+      }
+      posthog?.capture('account_edited', {
+        account_stage: stage,
+        stage_changed: stage !== account.stage,
       })
       onSaved()
       onClose()
