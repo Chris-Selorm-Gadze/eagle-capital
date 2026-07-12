@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { usePostHog } from '@posthog/react'
 import type { Playbook, PlaybookGrade } from '../../../types'
 import { addPlaybook, updatePlaybook } from '../../../db/playbooks'
 import { addPlaybookExample } from '../../../db/playbookExamples'
@@ -32,6 +33,7 @@ export function PlaybookFormDialog({
   const [grade, setGrade] = useState<PlaybookGrade | undefined>(playbook?.grade)
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
+  const posthog = usePostHog()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputId = useId()
@@ -72,6 +74,11 @@ export function PlaybookFormDialog({
         await addPlaybookExample(userId, { playbookId, imageUrl })
       }
 
+      posthog?.capture('playbook_saved', {
+        is_edit: !!playbook?.id,
+        playbook_grade: grade,
+        has_images: imageFiles.length > 0,
+      })
       onSaved()
       onClose()
     } catch (err) {

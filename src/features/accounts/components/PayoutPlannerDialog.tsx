@@ -5,6 +5,7 @@ import { todayISO } from '../../../db/sessions'
 import { Modal } from '../../../shared/ui/Modal'
 import styles from './PayoutPlannerDialog.module.css'
 import { errorMessage } from '../../../utils/errors'
+import { usePostHog } from '@posthog/react'
 
 export function PayoutPlannerDialog({
   account,
@@ -19,6 +20,7 @@ export function PayoutPlannerDialog({
   onClose: () => void
   onSaved: () => void
 }) {
+  const posthog = usePostHog()
   const [date, setDate] = useState(todayISO())
   const [requested, setRequested] = useState('')
   const [received, setReceived] = useState('')
@@ -32,6 +34,10 @@ export function PayoutPlannerDialog({
     setSaving(true)
     try {
       await recordPayout(userId, account, date, Number(requested), Number(received))
+      posthog?.capture('payout_recorded', {
+        payout_requested_amount: Number(requested),
+        payout_received_amount: Number(received),
+      })
       setRequested('')
       setReceived('')
       onSaved()

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { usePostHog } from '@posthog/react'
 import { STAGE_OPTIONS, type Account } from '../../../db/schema'
 import { addAccount } from '../../../db/accounts'
 import { addBrokerConnection, linkAccount, deleteBrokerConnection } from '../../../db/brokerConnections'
@@ -36,6 +37,7 @@ export function AddAccountDialog({
   // where the context already implies "prop firm account" and there's no need to ask.
   forceKind?: 'live' | 'prop'
 }) {
+  const posthog = usePostHog()
   const [kind, setKind] = useState<Kind>(forceKind ?? 'unset')
   const [liveCategory, setLiveCategory] = useState<LiveCategory>('unset')
 
@@ -211,6 +213,7 @@ export function AddAccountDialog({
         active,
       })
       await linkAccount(liveConnectionId, accountId)
+      posthog?.capture('account_created', { account_kind: 'live', account_category: 'cfd' })
       onSaved()
       onClose()
     } catch (err) {
@@ -235,6 +238,7 @@ export function AddAccountDialog({
         active,
       })
       await linkSubAccount(userId, futuresConnectionId, accountId, String(selectedFuturesAccount.externalId), selectedFuturesAccount.name)
+      posthog?.capture('account_created', { account_kind: 'live', account_category: 'futures' })
       onSaved()
       onClose()
     } catch (err) {
@@ -262,6 +266,12 @@ export function AddAccountDialog({
         trailingDrawdown,
         minTradingDays: minTradingDays ? Number(minTradingDays) : undefined,
         cost: cost ? Number(cost) : undefined,
+      })
+      posthog?.capture('account_created', {
+        account_kind: 'prop',
+        account_size: sizeNum,
+        account_stage: stage,
+        firm_id: firmId,
       })
       onSaved()
       onClose()

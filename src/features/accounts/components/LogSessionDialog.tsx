@@ -3,6 +3,7 @@ import type { Account } from '../../../db/schema'
 import { logSession, todayISO } from '../../../db/sessions'
 import { Modal } from '../../../shared/ui/Modal'
 import { errorMessage } from '../../../utils/errors'
+import { usePostHog } from '@posthog/react'
 
 export function LogSessionDialog({
   account,
@@ -22,6 +23,7 @@ export function LogSessionDialog({
   const [rulesFollowed, setRulesFollowed] = useState(true)
   const [notes, setNotes] = useState('')
 
+  const posthog = usePostHog()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,6 +39,11 @@ export function LogSessionDialog({
         highestUnrealized: highestUnrealized === '' ? undefined : Number(highestUnrealized),
         rulesFollowed,
         notes: notes || undefined,
+      })
+      posthog?.capture('session_logged', {
+        session_pnl_positive: Number(pnl) >= 0,
+        session_trade_count: Number(trades),
+        rules_followed: rulesFollowed,
       })
       onSaved()
       onClose()

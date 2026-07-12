@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { usePostHog } from '@posthog/react'
 import type { ReportCard, Trade } from '../../types'
 import { saveReportCard } from '../../db/reportCards'
 import { todayISO } from '../../db/sessions'
@@ -88,6 +89,7 @@ export function ReportCardPage({
   onClose?: () => void
   onSaved?: () => void
 }) {
+  const posthog = usePostHog()
   const [card, setCard] = useState<ReportCard>(() => openedCard ?? blankCard(todayISO()))
   const [savedMessage, setSavedMessage] = useState('')
 
@@ -102,6 +104,11 @@ export function ReportCardPage({
 
   async function handleSave() {
     await saveReportCard(userId, card)
+    posthog?.capture('report_card_saved', {
+      report_card_date: card.date,
+      report_card_grade: card.grade,
+      has_five_whys: !!(card.why1 || card.why2),
+    })
     flash('SAVED')
     setCard(blankCard(todayISO()))
     onSaved?.()

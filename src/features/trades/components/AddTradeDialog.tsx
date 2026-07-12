@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Account, Trade } from '../../../db/schema'
 import { addTrade, updateTrade } from '../../../db/trades'
 import { Modal } from '../../../shared/ui/Modal'
+import { usePostHog } from '@posthog/react'
 
 function toLocalInput(date: Date): string {
   const d = new Date(date)
@@ -23,6 +24,7 @@ export function AddTradeDialog({
   onClose: () => void
   onSaved: () => void
 }) {
+  const posthog = usePostHog()
   const [accountId, setAccountId] = useState(trade?.accountId ?? accounts[0]?.id ?? '')
   const [symbol, setSymbol] = useState(trade?.symbol ?? '')
   const [side, setSide] = useState<'long' | 'short'>(trade?.side ?? 'long')
@@ -51,6 +53,11 @@ export function AddTradeDialog({
     }
     if (trade) await updateTrade(trade.id!, input)
     else await addTrade(userId, input)
+    posthog?.capture('trade_added', {
+      trade_symbol: input.symbol,
+      trade_side: input.side,
+      is_edit: !!trade,
+    })
     onSaved()
     onClose()
   }
