@@ -15,7 +15,7 @@ const NAV_ITEMS: { key: NavKey; label: string; icon: IconDefinition }[] = [
   { key: 'tradermanagement', label: 'Trader Management', icon: faUserGear },
   { key: 'playbooks', label: 'Playbooks', icon: faBookOpen },
   { key: 'insights', label: 'AI Insights', icon: faBrain },
-  { key: 'cockpit', label: 'Prop Firm Management', icon: faBriefcase },
+  { key: 'cockpit', label: 'Prop Firm Manager', icon: faBriefcase },
   { key: 'charting', label: 'Charting', icon: faChartLine },
   { key: 'calendar', label: 'Economic Calendar', icon: faCalendarDays },
   { key: 'tradelog', label: 'Trade Log', icon: faTableList },

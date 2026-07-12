@@ -1,4 +1,4 @@
-import type { Trade } from '../../../types'
+import type { Account, Trade } from '../../../types'
 import { tradeOutcome } from '../../../utils/tradeStats'
 import styles from './TradeJournalList.module.css'
 
@@ -23,15 +23,34 @@ const OUTCOME_ACCENT: Record<ReturnType<typeof tradeOutcome>, string> = {
 
 export function TradeJournalList({
   trades,
+  accounts,
+  accountFilter,
+  onAccountFilterChange,
   selectedId,
   onSelect,
 }: {
   trades: Trade[]
+  accounts: Account[]
+  // Independent of the Dashboard's own account filter (top bar) — lets you look at, say, all
+  // accounts on the Dashboard while journaling just one account's trades here, or vice versa.
+  accountFilter: string | 'all'
+  onAccountFilterChange: (value: string | 'all') => void
   selectedId: string | undefined
   onSelect: (id: string) => void
 }) {
   return (
-    <div className={styles.list}>
+    <div>
+      <select
+        className={styles.accountSelect}
+        value={accountFilter}
+        onChange={(e) => onAccountFilterChange(e.target.value === 'all' ? 'all' : e.target.value)}
+      >
+        <option value="all">All accounts</option>
+        {accounts.map((a) => (
+          <option key={a.id} value={a.id}>{a.label}</option>
+        ))}
+      </select>
+      <div className={styles.list}>
       {trades.map((t) => {
         const outcome = tradeOutcome(t.pnl)
         return (
@@ -57,6 +76,7 @@ export function TradeJournalList({
           </div>
         )
       })}
+      </div>
     </div>
   )
 }

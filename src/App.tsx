@@ -103,14 +103,16 @@ export default function App() {
       <div className={styles.body}>
         <Sidebar active={nav} onNavigate={handleNavigate} />
         <div className={styles.content}>
-          <TopBar
-            accounts={accounts}
-            accountFilter={accountFilter}
-            onAccountFilterChange={setAccountFilter}
-            onAddTrade={() => setChoosingAddMethod(true)}
-            onAddAccount={() => setAddingAccount(true)}
-            onSnapshot={nav === 'dashboard' ? handleSnapshot : undefined}
-          />
+          {nav === 'dashboard' && (
+            <TopBar
+              accounts={accounts}
+              accountFilter={accountFilter}
+              onAccountFilterChange={setAccountFilter}
+              onAddTrade={() => setChoosingAddMethod(true)}
+              onAddAccount={() => setAddingAccount(true)}
+              onSnapshot={handleSnapshot}
+            />
+          )}
           <main className={styles.main} ref={mainRef}>
             {nav === 'dashboard' && (
               <DashboardPage
@@ -130,11 +132,12 @@ export default function App() {
                 onChanged={refresh}
               />
             )}
-            {nav === 'tradecopier' && <TradeCopierPage />}
+            {nav === 'tradecopier' && <TradeCopierPage onGoToBrokerConnections={() => navigate('brokers')} />}
             {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
             {nav === 'tradejournal' && (
               <TradeJournalPage
-                trades={filteredTrades}
+                trades={trades}
+                accounts={accounts}
                 userId={userId}
                 onChanged={refresh}
                 initialDateFilter={pendingJournalDate}

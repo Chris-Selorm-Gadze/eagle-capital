@@ -11,6 +11,38 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Card-style grouping for the longer prop-firm form — replaces a bare text divider with a
+   proper bordered section, and gives fields inside noticeably more breathing room than the
+   app-wide default (0.35rem) so a 10-field form doesn't read as cramped. */
+.formSection {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.1rem 1.2rem;
+  margin-top: 1.25rem;
+  background: var(--surface-2);
+}
+
+.formSection:first-child {
+  margin-top: 1rem;
+}
+
+.formSectionTitle {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+/* Applies uniformly, including the row right after the title — that one just gets a slightly
+   larger effective gap (title's own margin-bottom plus this), which reads fine since the title
+   is meant to visually separate itself from the fields below it either way. */
+.formSection :global(.field-row),
+.formSection :global(.field) {
+  margin-top: 1rem;
+}
+
 .kindChoice {
   display: flex;
   flex-direction: column;

@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react'
-import type { Playbook, PlaybookExample, Trade } from '../../types'
+import type { Account, Playbook, PlaybookExample, Trade } from '../../types'
 import { listPlaybooks } from '../../db/playbooks'
 import { listPlaybookExamples } from '../../db/playbookExamples'
 import { TradeJournalList } from './components/TradeJournalList'
 import { TradeDetailPanel } from './components/TradeDetailPanel'
+import { TradeChartPanel } from './components/TradeChartPanel'
 import styles from './TradeJournalPage.module.css'
 
 export function TradeJournalPage({
   trades,
+  accounts,
   userId,
   onChanged,
   initialDateFilter,
 }: {
   trades: Trade[]
+  accounts: Account[]
   userId: string
   onChanged: () => void
   initialDateFilter?: string
@@ -21,9 +24,19 @@ export function TradeJournalPage({
   const [playbookExamples, setPlaybookExamples] = useState<PlaybookExample[]>([])
   const [dateFilter, setDateFilter] = useState<string | undefined>(initialDateFilter)
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
+  // Independent of the Dashboard's own account filter — this page can be scoped to a different
+  // account (or all accounts) without changing what the Dashboard shows, and vice versa.
+  const [accountFilter, setAccountFilter] = useState<string | 'all'>('all')
 
-  const filtered = dateFilter ? trades.filter((t) => t.date === dateFilter) : trades
+  const scopedTrades = accountFilter === 'all' ? trades : trades.filter((t) => t.accountId === accountFilter)
+  const filtered = dateFilter ? scopedTrades.filter((t) => t.date === dateFilter) : scopedTrades
   const ordered = [...filtered].sort((a, b) => (a.date < b.date ? 1 : -1))
+  // Distinct from `ordered.length === 0`: this only covers the true first-run "nothing logged
+  // anywhere yet" case. An account/date filter narrowing the *current* view to zero must never
+  // hide the list pane's dropdown — that dropdown is the only in-page way back to "All accounts",
+  // so hiding it forced people to rely on the browser back button, which just pops the app's nav
+  // history (e.g. back to Dashboard) instead of resetting this page's filter.
+  const hasAnyTrades = trades.length > 0
 
   async function refreshPlaybooks() {
     const [p, e] = await Promise.all([listPlaybooks(), listPlaybookExamples()])
@@ -51,33 +64,56 @@ export function TradeJournalPage({
           {ordered.length > 0 && <span className={styles.count}>{ordered.length} trade{ordered.length === 1 ? '' : 's'}</span>}
         </div>
         {dateFilter && (
-          <div className={styles.dateFilterPill}>
+          <div className={styles.filterPill}>
             <span>Showing trades from {dateFilter}</span>
             <button type="button" className="btn-ghost" onClick={() => setDateFilter(undefined)}>Show all</button>
           </div>
         )}
+        {accountFilter !== 'all' && (
+          <div className={styles.filterPill}>
+            <span>Showing trades for {accounts.find((a) => a.id === accountFilter)?.label ?? 'this account'}</span>
+            <button type="button" className="btn-ghost" onClick={() => setAccountFilter('all')}>Show all accounts</button>
+          </div>
+        )}
       </div>
 
-      {ordered.length === 0 ? (
-        <p className={styles.empty}>
-          {dateFilter
-            ? `No trades logged on ${dateFilter}.`
-            : 'No trades logged yet — log some in the Trade Log to start journaling.'}
-        </p>
+      {!hasAnyTrades ? (
+        <p className={styles.empty}>No trades logged yet — log some in the Trade Log to start journaling.</p>
       ) : (
         <div className={styles.layout}>
-          <TradeJournalList trades={ordered} selectedId={selectedId} onSelect={setSelectedId} />
-          {selected && (
-            <TradeDetailPanel
-              trade={selected}
-              orderedTrades={ordered}
+          <div className={styles.listPane}>
+            <TradeJournalList
+              trades={ordered}
+              accounts={accounts}
+              accountFilter={accountFilter}
+              onAccountFilterChange={setAccountFilter}
+              selectedId={selectedId}
               onSelect={setSelectedId}
-              userId={userId}
-              onChanged={onChanged}
-              playbooks={playbooks}
-              playbookExamples={playbookExamples}
-              onPlaybooksChanged={refreshPlaybooks}
             />
+            {ordered.length === 0 && (
+              <p className={styles.empty}>
+                {dateFilter ? `No trades logged on ${dateFilter}.` : 'No trades logged for this account.'}
+              </p>
+            )}
+          </div>
+          {selected && (
+            <>
+              <div className={styles.detailPane}>
+                <TradeDetailPanel
+                  trade={selected}
+                  orderedTrades={ordered}
+                  onSelect={setSelectedId}
+                  userId={userId}
+                  onChanged={onChanged}
+                  playbooks={playbooks}
+                  playbookExamples={playbookExamples}
+                  onPlaybooksChanged={refreshPlaybooks}
+                />
+              </div>
+              <div className={styles.chartPane}>
+                <TradeChartPanel trade={selected} />
+              </div>
+            </>
           )}
         </div>
       )}

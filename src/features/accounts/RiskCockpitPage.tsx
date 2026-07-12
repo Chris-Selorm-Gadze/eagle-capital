@@ -151,7 +151,7 @@ export function RiskCockpitPage({
           onSaved={onChanged}
         />
       )}
-      {adding && <AddAccountDialog userId={userId} onClose={() => setAdding(false)} onSaved={onChanged} />}
+      {adding && <AddAccountDialog userId={userId} onClose={() => setAdding(false)} onSaved={onChanged} forceKind="prop" />}
     </div>
   )
 }

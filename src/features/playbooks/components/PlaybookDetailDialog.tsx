@@ -4,26 +4,13 @@ import { addPlaybookExample, deletePlaybookExample } from '../../../db/playbookE
 import { uploadPlaybookImage } from '../../../lib/storage'
 import { Modal } from '../../../shared/ui/Modal'
 import { PlaybookStats } from './PlaybookStats'
+import { exportPlaybookPdf, exportPlaybookDocx } from '../exportPlaybook'
 import styles from '../PlaybooksPage.module.css'
 import { errorMessage } from '../../../utils/errors'
 
 function tradeChipLabel(trade: Trade): string {
   const sign = trade.pnl >= 0 ? '+' : '-'
   return `${trade.symbol} · ${trade.date} · ${sign}$${Math.abs(trade.pnl).toLocaleString()}`
-}
-
-function buildShareText(playbook: Playbook, examples: PlaybookExample[], tradeById: Map<string | undefined, Trade | undefined>): string {
-  const lines = [`PLAYBOOK — ${playbook.name}${playbook.grade ? ` (${playbook.grade})` : ''}`]
-  if (playbook.description) lines.push('', playbook.description)
-  if (examples.length > 0) {
-    lines.push('', `EXAMPLES (${examples.length})`)
-    examples.forEach((ex, i) => {
-      const trade = ex.tradeId ? tradeById.get(ex.tradeId) : undefined
-      if (ex.note) lines.push(`${i + 1}. ${ex.note}`)
-      else if (trade) lines.push(`${i + 1}. ${tradeChipLabel(trade)}`)
-    })
-  }
-  return lines.join('\n')
 }
 
 export function PlaybookDetailDialog({
@@ -46,7 +33,7 @@ export function PlaybookDetailDialog({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [shareStatus, setShareStatus] = useState('')
+  const [exporting, setExporting] = useState<'pdf' | 'docx' | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const fileInputId = useId()
 
@@ -54,20 +41,21 @@ export function PlaybookDetailDialog({
   const linkedTrades = [...new Set(examples.map((e) => e.tradeId).filter((id): id is string => !!id))]
     .map((id) => tradeById.get(id))
     .filter((t): t is Trade => !!t)
+  // First-glance view only needs one representative chart, not every uploaded example — the full
+  // set (with delete controls) lives in the scrollable "All examples" list below.
+  const previewExample = examples.find((e) => e.imageUrl)
 
-  async function handleShare() {
-    const text = buildShareText(playbook, examples, tradeById)
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: playbook.name, text })
-      } catch {
-        // user cancelled the share sheet — not an error
-      }
-      return
+  async function handleExport(format: 'pdf' | 'docx') {
+    setError(null)
+    setExporting(format)
+    try {
+      if (format === 'pdf') await exportPlaybookPdf(playbook, examples, tradeById, linkedTrades)
+      else await exportPlaybookDocx(playbook, examples, tradeById, linkedTrades)
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setExporting(null)
     }
-    await navigator.clipboard.writeText(text)
-    setShareStatus('Copied to clipboard')
-    setTimeout(() => setShareStatus(''), 1600)
   }
 
   useEffect(() => {
@@ -122,32 +110,52 @@ export function PlaybookDetailDialog({
     <Modal
       title={playbook.name}
       onClose={onClose}
-      minWidth={480}
+      minWidth={900}
       footer={
         <>
-          {shareStatus && <span style={{ color: 'var(--good)', fontSize: '0.78rem', alignSelf: 'center' }}>{shareStatus}</span>}
-          <button onClick={handleShare}>Share</button>
+          <button onClick={() => handleExport('pdf')} disabled={exporting !== null}>
+            {exporting === 'pdf' ? 'Exporting…' : 'Export PDF'}
+          </button>
+          <button onClick={() => handleExport('docx')} disabled={exporting !== null}>
+            {exporting === 'docx' ? 'Exporting…' : 'Export Word'}
+          </button>
           <button onClick={onClose}>Close</button>
         </>
       }
     >
-      {playbook.description && (
-        <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>{playbook.description}</p>
-      )}
+      {/* Left/right so the setup's own criteria and how it's actually performed are both visible
+          at a glance, without scrolling past the chart examples to reach the win-rate numbers. */}
+      <div className={styles.overview}>
+        <div className={styles.overviewLeft}>
+          {playbook.description && (
+            <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>{playbook.description}</p>
+          )}
+          <div style={{ marginTop: playbook.description ? '1.25rem' : 0, fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1.1rem' }}>
+            Performance
+          </div>
+          <PlaybookStats trades={linkedTrades} />
+        </div>
 
-      <div style={{ marginTop: '1.25rem', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-        Performance
+        <div className={styles.overviewRight}>
+          <div style={{ fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1.1rem' }}>
+            Example
+          </div>
+          {previewExample ? (
+            <img src={previewExample.imageUrl} alt="Example chart" className={styles.cardExampleImage} />
+          ) : (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No example images yet.</p>
+          )}
+        </div>
       </div>
-      <PlaybookStats trades={linkedTrades} />
 
-      <div style={{ marginTop: '1.25rem', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem' }}>
-        Examples
+      <div style={{ marginTop: '1.25rem', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1.1rem' }}>
+        All examples {examples.length > 0 ? `(${examples.length})` : ''}
       </div>
 
       {examples.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.5rem' }}>No examples yet.</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No examples yet.</p>
       ) : (
-        <div className={styles.exampleList}>
+        <div className={`${styles.exampleList} ${styles.exampleListScroll}`}>
           {examples.map((ex) => {
             const trade = ex.tradeId ? tradeById.get(ex.tradeId) : undefined
             return (
@@ -164,11 +172,11 @@ export function PlaybookDetailDialog({
         </div>
       )}
 
-      <div style={{ marginTop: '1.25rem', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem' }}>
+      <div style={{ marginTop: '1.25rem', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1.1rem' }}>
         Add example
       </div>
 
-      <div className="field" style={{ marginTop: '0.75rem' }}>
+      <div className="field">
         <span style={{ display: 'block', marginBottom: '0.4rem' }}>
           Link logged trades{selectedTradeIds.length > 0 ? ` (${selectedTradeIds.length} selected)` : ''}
         </span>

@@ -6,9 +6,11 @@ import { Modal } from '../../shared/ui/Modal'
 import { supabaseConfigured } from '../../lib/supabaseClient'
 import {
   brokerSyncConfigured, submitTradovateCredentials, submitMetaApiCredentials, triggerSync,
-  getDeploymentState, undeployConnection, deployConnection,
+  getDeploymentState, undeployConnection, deployConnection, type TradovateFetchedAccount,
 } from '../../lib/brokerSyncClient'
 import { listBrokerConnections, addBrokerConnection, linkAccount, deleteBrokerConnection, type BrokerConnection } from '../../db/brokerConnections'
+import { listSubAccounts, linkSubAccount, type BrokerConnectionAccount } from '../../db/brokerConnectionAccounts'
+import { addAccount } from '../../db/accounts'
 import { errorMessage } from '../../utils/errors'
 import { BROKERS } from './brokerCatalog'
 import { MetaApiCredentialFields } from './MetaApiCredentialFields'
@@ -35,8 +37,6 @@ function relativeTime(iso: string): string {
   if (hours < 24) return `${hours}h ago`
   return new Date(iso).toLocaleDateString()
 }
-
-const SYNC_ENABLED_BROKERS = new Set(['tradovate', 'mt5'])
 
 function TradovateCredentialFields({ name, setName, password, setPassword, deviceId, setDeviceId }: {
   name: string; setName: (v: string) => void
@@ -65,7 +65,13 @@ function TradovateCredentialFields({ name, setName, password, setPassword, devic
   )
 }
 
-function CredentialDialog({ connection, onClose, onSaved }: { connection: BrokerConnection; onClose: () => void; onSaved: () => void }) {
+function CredentialDialog({ connection, onClose, onSaved }: {
+  connection: BrokerConnection
+  onClose: () => void
+  // Tradovate returns the real list of accounts under that login on success — the caller opens an
+  // import picker with them. MT5 never passes anything (one login is one account, already known).
+  onSaved: (fetchedAccounts?: TradovateFetchedAccount[]) => void
+}) {
   const isMetaApi = connection.brokerId === 'mt5'
   const [name, setName] = useState('')
   const [login, setLogin] = useState('')
@@ -81,14 +87,21 @@ function CredentialDialog({ connection, onClose, onSaved }: { connection: Broker
     setSubmitting(true)
     setError(null)
     try {
-      const result = isMetaApi
-        ? await submitMetaApiCredentials(connection.id, { login, password, server })
-        : await submitTradovateCredentials(connection.id, { name, password, deviceId })
-      if (result.status !== 'connected') {
-        setError(result.error ?? 'Could not verify these credentials.')
-        return
+      if (isMetaApi) {
+        const result = await submitMetaApiCredentials(connection.id, { login, password, server })
+        if (result.status !== 'connected') {
+          setError(result.error ?? 'Could not verify these credentials.')
+          return
+        }
+        onSaved()
+      } else {
+        const result = await submitTradovateCredentials(connection.id, { name, password, deviceId })
+        if (result.status !== 'connected') {
+          setError(result.error ?? 'Could not verify these credentials.')
+          return
+        }
+        onSaved(result.accounts ?? [])
       }
-      onSaved()
       onClose()
     } catch (err) {
       setError(errorMessage(err))
@@ -120,6 +133,93 @@ function CredentialDialog({ connection, onClose, onSaved }: { connection: Broker
   )
 }
 
+/** Shown right after a Tradovate login verifies — picks which of the real fetched accounts to
+ * import. Each selected one becomes a new EagleCapital account (stage 'live'), linked via
+ * broker_connection_accounts rather than broker_connections.account_id, since one login can have
+ * several. Already-imported accounts (matched by externalId) are filtered out so re-verifying the
+ * same login later only offers genuinely new ones. */
+function ImportTradovateAccountsDialog({
+  connectionId, userId, fetchedAccounts, alreadyLinkedExternalIds, onClose, onSaved,
+}: {
+  connectionId: string
+  userId: string
+  fetchedAccounts: TradovateFetchedAccount[]
+  alreadyLinkedExternalIds: Set<string>
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const importable = fetchedAccounts.filter((a) => !alreadyLinkedExternalIds.has(String(a.externalId)))
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function toggle(externalId: number) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(externalId)) next.delete(externalId)
+      else next.add(externalId)
+      return next
+    })
+  }
+
+  async function handleImport() {
+    setSaving(true)
+    setError(null)
+    try {
+      for (const acc of importable.filter((a) => selected.has(a.externalId))) {
+        const balance = acc.balance ?? 0
+        const accountId = await addAccount(userId, {
+          label: acc.name,
+          size: balance,
+          balance,
+          highestBalance: balance,
+          stage: 'live',
+          active: true,
+        })
+        await linkSubAccount(userId, connectionId, accountId, String(acc.externalId), acc.name)
+      }
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      title="Import Tradovate accounts"
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} className="btn-ghost">Close</button>
+          <button onClick={handleImport} className="btn-primary" disabled={saving || selected.size === 0}>
+            {saving ? 'Importing…' : `Import ${selected.size || ''} account${selected.size === 1 ? '' : 's'}`}
+          </button>
+        </>
+      }
+    >
+      {importable.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)' }}>All accounts on this login are already imported.</p>
+      ) : (
+        <div className={styles.subAccountPicker}>
+          {importable.map((a) => (
+            <label key={a.externalId} className={styles.subAccountPickerRow}>
+              <input type="checkbox" checked={selected.has(a.externalId)} onChange={() => toggle(a.externalId)} />
+              <span className={styles.subAccountPickerName}>{a.name}</span>
+              <span className={styles.syncMeta}>
+                {a.accountType}{a.balance !== null ? ` · $${a.balance.toLocaleString()}` : ''}{!a.active ? ' · inactive' : ''}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+      {error && <div style={{ color: 'var(--critical)', marginTop: '0.75rem' }}>{error}</div>}
+    </Modal>
+  )
+}
+
 export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[]; userId: string }) {
   const { user, loading } = useAuth()
   const [connections, setConnections] = useState<BrokerConnection[]>([])
@@ -131,6 +231,8 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [deploymentStates, setDeploymentStates] = useState<Record<string, string>>({})
   const [deployBusyId, setDeployBusyId] = useState<string | null>(null)
+  const [subAccountsByConnection, setSubAccountsByConnection] = useState<Record<string, BrokerConnectionAccount[]>>({})
+  const [importAccountsTarget, setImportAccountsTarget] = useState<{ connectionId: string; accounts: TradovateFetchedAccount[] } | null>(null)
 
   async function load() {
     setFetching(true)
@@ -148,6 +250,17 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
           const result = states[i]
           if (result) next[c.id] = result.state
         })
+        return next
+      })
+
+      // Tradovate accounts link via broker_connection_accounts (one login, several accounts) —
+      // fetched per connection so each row can show its own imported sub-accounts and their
+      // individual sync status.
+      const tradovateConnections = cs.filter((c) => c.brokerId === 'tradovate')
+      const subAccountLists = await Promise.all(tradovateConnections.map((c) => listSubAccounts(c.id).catch(() => [])))
+      setSubAccountsByConnection(() => {
+        const next: Record<string, BrokerConnectionAccount[]> = {}
+        tradovateConnections.forEach((c, i) => { next[c.id] = subAccountLists[i] })
         return next
       })
     } catch (err) {
@@ -184,6 +297,16 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
       setError(errorMessage(err))
     } finally {
       setDeployBusyId(null)
+    }
+  }
+
+  // MT5 (no accounts passed) is already fully wired the moment credentials verify — just refresh.
+  // Tradovate returns the real account list; open the import picker so the user chooses which of
+  // them become EagleCapital accounts, rather than guessing which one this connection means.
+  function handleCredentialSaved(connectionId: string, fetchedAccounts?: TradovateFetchedAccount[]) {
+    load()
+    if (fetchedAccounts && fetchedAccounts.length > 0) {
+      setImportAccountsTarget({ connectionId, accounts: fetchedAccounts })
     }
   }
 
@@ -291,7 +414,7 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
               <span className={styles.label}>{c.label}</span>
               <span className={`${styles.badge} ${BADGE_CLASS[c.status]}`}>{c.status}</span>
 
-              {SYNC_ENABLED_BROKERS.has(c.brokerId) && (
+              {c.brokerId === 'mt5' && (
                 <div className={styles.linkRow}>
                   <select value={c.accountId ?? ''} onChange={(e) => handleLinkAccount(c.id, e.target.value)}>
                     <option value="">— link to an account —</option>
@@ -315,7 +438,7 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
                     </>
                   )}
 
-                  {c.brokerId === 'mt5' && c.status === 'connected' && (() => {
+                  {c.status === 'connected' && (() => {
                     const state = deploymentStates[c.id]
                     const busy = deployBusyId === c.id
                     if (state === 'UNDEPLOYED' || state === 'UNDEPLOYING') {
@@ -336,6 +459,49 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
                 </div>
               )}
 
+              {/* Tradovate skips the "link an existing account first" step entirely — one login can
+                  expose several real accounts, discovered only after credentials verify, so linking
+                  happens afterward via the import picker instead of a pre-existing dropdown. */}
+              {c.brokerId === 'tradovate' && (() => {
+                const subAccounts = subAccountsByConnection[c.id] ?? []
+                return (
+                  <div className={styles.tradovateBlock}>
+                    <div className={styles.linkRow}>
+                      <button onClick={() => setCredentialTarget(c)} disabled={!brokerSyncConfigured}>
+                        {c.status === 'connected' ? 'Import more accounts' : 'Connect credentials'}
+                      </button>
+
+                      {c.status === 'connected' && (
+                        <>
+                          <span className={styles.syncMeta}>
+                            {c.lastSyncedAt ? `Synced ${relativeTime(c.lastSyncedAt)}` : 'Not synced yet'}
+                          </span>
+                          <button onClick={() => handleSync(c.id)} disabled={syncingId === c.id || !brokerSyncConfigured || subAccounts.length === 0}>
+                            {syncingId === c.id ? 'Syncing…' : 'Sync now'}
+                          </button>
+                        </>
+                      )}
+
+                      {c.lastError && <span className={styles.syncError} title={c.lastError}>⚠ sync error</span>}
+                    </div>
+
+                    {subAccounts.length > 0 && (
+                      <div className={styles.subAccountList}>
+                        {subAccounts.map((s) => (
+                          <div key={s.id} className={styles.subAccountRow}>
+                            <span>{s.externalLabel ?? s.externalAccountId}</span>
+                            <span className={styles.syncMeta}>
+                              {s.lastSyncedAt ? `Synced ${relativeTime(s.lastSyncedAt)}` : 'Not synced yet'}
+                            </span>
+                            {s.lastError && <span className={styles.syncError} title={s.lastError}>⚠</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
               <button onClick={() => handleDelete(c.id)} className="btn-ghost">Delete</button>
             </div>
           ))}
@@ -345,14 +511,29 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
       {!connections.some((c) => c.status === 'connected') && (
         <div style={{ marginTop: '1.5rem' }}>
           <ComingSoonSection>
-            Add a broker connection above, link it to an account, and connect credentials to start
-            syncing real balance and trade history automatically.
+            Add a broker connection above and connect credentials to start syncing real balance and
+            trade history automatically.
           </ComingSoonSection>
         </div>
       )}
 
       {credentialTarget && (
-        <CredentialDialog connection={credentialTarget} onClose={() => setCredentialTarget(null)} onSaved={load} />
+        <CredentialDialog
+          connection={credentialTarget}
+          onClose={() => setCredentialTarget(null)}
+          onSaved={(fetchedAccounts) => handleCredentialSaved(credentialTarget.id, fetchedAccounts)}
+        />
+      )}
+
+      {importAccountsTarget && (
+        <ImportTradovateAccountsDialog
+          connectionId={importAccountsTarget.connectionId}
+          userId={userId}
+          fetchedAccounts={importAccountsTarget.accounts}
+          alreadyLinkedExternalIds={new Set((subAccountsByConnection[importAccountsTarget.connectionId] ?? []).map((s) => s.externalAccountId))}
+          onClose={() => setImportAccountsTarget(null)}
+          onSaved={load}
+        />
       )}
     </div>
   )

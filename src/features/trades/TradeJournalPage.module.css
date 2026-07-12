@@ -18,7 +18,7 @@
   color: var(--text-muted);
 }
 
-.dateFilterPill {
+.filterPill {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -30,16 +30,55 @@
   padding: 0.3rem 0.4rem 0.3rem 0.9rem;
 }
 
+/* 3-pane: trade list | stats/strategy/tags/notes tabs | chart. The chart stays in its own pane
+   rather than being a 5th tab, so it's visible no matter which tab is active in the middle —
+   comparing a trade's numbers against its price action doesn't require switching away from either. */
 .layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 320px minmax(360px, 1fr) minmax(420px, 1.3fr);
+  grid-template-areas: "list detail chart";
   gap: 1.25rem;
   align-items: start;
 }
+
+@media (max-width: 1300px) {
+  .layout {
+    grid-template-columns: 320px 1fr;
+    grid-template-areas:
+      "list detail"
+      "list chart";
+  }
+}
+
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "list"
+      "detail"
+      "chart";
   }
+}
+
+.listPane {
+  grid-area: list;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detailPane {
+  grid-area: detail;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chartPane {
+  grid-area: chart;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .empty {

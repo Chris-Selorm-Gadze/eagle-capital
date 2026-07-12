@@ -2,7 +2,7 @@
   border: 1px solid var(--border);
   border-left: 3px solid;
   border-radius: 8px;
-  padding: 1rem;
+  padding: 1.25rem;
   background: var(--surface);
 }
 
@@ -98,6 +98,16 @@
 .buttonsRow {
   margin-top: 0.85rem;
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+}
+
+.buttonsRow button {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.4rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

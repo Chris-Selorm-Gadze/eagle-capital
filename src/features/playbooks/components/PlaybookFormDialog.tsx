@@ -85,7 +85,7 @@ export function PlaybookFormDialog({
     <Modal
       title={playbook ? 'Edit playbook' : 'New playbook'}
       onClose={onClose}
-      minWidth={420}
+      minWidth={860}
       footer={
         <>
           <button onClick={onClose}>Cancel</button>

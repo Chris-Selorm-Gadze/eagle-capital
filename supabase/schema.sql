@@ -6,8 +6,10 @@
 -- This project is shared with Delta Engine (github.com/richmondazadze/delta_engine) for auth —
 -- one Supabase project, one login. Delta Engine's own migration 001_create_users.sql already
 -- creates a `tc_users` table + `handle_new_user()`/`on_auth_user_created` trigger to auto-provision
--- a profile row on signup, so EagleCapital doesn't need its own `profiles` table/trigger here —
--- only the broker_connections table below is EagleCapital-specific.
+-- a profile row on signup — that table is Delta Engine's own, not shared here. EagleCapital's
+-- display-name/username (see eaglecapital_profiles near the bottom of this file) is deliberately
+-- a separate, app-scoped identity rather than reading/writing tc_users, since this file can't see
+-- (or safely migrate) a table owned by another repo.
 
 create table if not exists public.broker_connections (
   id uuid primary key default gen_random_uuid(),
@@ -303,3 +305,45 @@ create table if not exists public.ai_insights (
 alter table public.ai_insights enable row level security;
 drop policy if exists "own ai insights" on public.ai_insights;
 create policy "own ai insights" on public.ai_insights for all using (auth.uid() = user_id);
+
+-- Editable display username shown in the top nav (avatar + name), auto-generated from the
+-- email's local part on first login and editable afterward. App-scoped on purpose — see the note
+-- at the top of this file on why this doesn't read/write Delta Engine's tc_users.
+create table if not exists public.eaglecapital_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  username text not null unique,
+  created_at timestamptz default now()
+);
+alter table public.eaglecapital_profiles enable row level security;
+-- Readable by any signed-in user (not just the owner) so the client can check "is this username
+-- taken" before saving — usernames are a public-ish display handle, not sensitive data.
+drop policy if exists "read profiles" on public.eaglecapital_profiles;
+create policy "read profiles" on public.eaglecapital_profiles for select using (auth.role() = 'authenticated');
+drop policy if exists "insert own profile" on public.eaglecapital_profiles;
+create policy "insert own profile" on public.eaglecapital_profiles for insert with check (auth.uid() = user_id);
+drop policy if exists "update own profile" on public.eaglecapital_profiles;
+create policy "update own profile" on public.eaglecapital_profiles for update using (auth.uid() = user_id);
+
+-- Splits "one login/session" (broker_connections, unchanged above) from "one tradeable account
+-- under that session". MT4/5 has exactly one account per login, so those connections keep using
+-- the direct metaapi_account_id/broker_server/account_login columns added earlier in this file —
+-- one row here would just duplicate that. Futures brokers (Tradovate, Topstep, Rithmic) don't fit
+-- that shape: you authenticate once and the broker hands back a *list* of accounts under that same
+-- login, so one connection needs to fan out to many rows here. Asset class itself isn't stored —
+-- it's derived from broker_connections.broker_id via BROKERS in brokerCatalog.ts, so there's one
+-- source of truth instead of a column that can drift out of sync with the catalog.
+create table if not exists public.broker_connection_accounts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  connection_id uuid references public.broker_connections(id) on delete cascade not null,
+  account_id uuid references public.accounts(id) on delete set null,
+  external_account_id text not null,  -- the broker's own account id/name, e.g. Tradovate's numeric id
+  external_label text,                -- e.g. "APEX-12345-01", as the broker itself names it
+  last_synced_at timestamptz,
+  last_error text,
+  created_at timestamptz default now(),
+  unique (connection_id, external_account_id)
+);
+alter table public.broker_connection_accounts enable row level security;
+drop policy if exists "own broker connection accounts" on public.broker_connection_accounts;
+create policy "own broker connection accounts" on public.broker_connection_accounts for all using (auth.uid() = user_id);

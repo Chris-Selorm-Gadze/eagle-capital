@@ -94,6 +94,28 @@
 .gradeB { background: rgba(250, 178, 25, 0.15); color: var(--warning); }
 .gradeC { background: rgba(208, 59, 59, 0.15); color: var(--critical); }
 
+/* Description + stats on the left, example image on the right (grid card's own first-glance
+   split — see PlaybookDetailDialog's .overview for the equivalent in the detail popup). */
+.cardBody {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.cardBodyLeft, .cardBodyRight {
+  min-width: 0;
+}
+.cardBodyLeft {
+  flex: 3;
+}
+.cardBodyRight {
+  flex: 2;
+}
+@media (max-width: 480px) {
+  .cardBody {
+    flex-direction: column;
+  }
+}
+
 .cardDesc {
   margin-top: 0.5rem;
   font-size: 0.82rem;
@@ -197,12 +219,35 @@
   flex-shrink: 0;
 }
 
+/* Description + stats on the left, chart examples on the right (used in the detail dialog) */
+.overview {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+.overviewLeft, .overviewRight {
+  min-width: 0;
+}
+@media (max-width: 560px) {
+  .overview {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Example list (used in the detail dialog) */
 .exampleList {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   margin-top: 0.75rem;
+}
+/* Caps the full example list's height instead of letting it stretch the dialog — a playbook
+   with many uploaded examples would otherwise push "Add example" far down the page. */
+.exampleListScroll {
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 0.4rem;
 }
 .example {
   border: 1px solid var(--border);

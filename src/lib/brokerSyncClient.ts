@@ -20,6 +20,17 @@ export interface TradovateCredentials {
   deviceId: string
 }
 
+/** One real account fetched from Tradovate the moment credentials verify — unlike MT5's single
+ * account per login, one Tradovate login can expose several of these; the frontend shows all of
+ * them and lets the user pick which to import (see ImportTradovateAccountsDialog). */
+export interface TradovateFetchedAccount {
+  externalId: number
+  name: string
+  accountType: string
+  active: boolean
+  balance: number | null
+}
+
 export interface MetaApiCredentials {
   login: string
   password: string // investor (read-only), or trading password if used as a copier follower
@@ -53,7 +64,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T
 }
 
-export function submitTradovateCredentials(connectionId: string, creds: TradovateCredentials): Promise<{ status: string; error?: string }> {
+export function submitTradovateCredentials(connectionId: string, creds: TradovateCredentials): Promise<{ status: string; error?: string; accounts?: TradovateFetchedAccount[] }> {
   return request(`/connections/${connectionId}/credentials`, { method: 'POST', body: JSON.stringify(creds) })
 }
 

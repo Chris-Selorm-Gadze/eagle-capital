@@ -88,7 +88,7 @@ export function ImportTradesDialog({
       </label>
 
       <label className="field">
-        CSV file (MT4/5-style broker export)
+        CSV file (trade-history export from MT4/MT5 or a similarly-formatted broker/platform)
         <input type="file" accept=".csv" onChange={onFile} />
       </label>
 

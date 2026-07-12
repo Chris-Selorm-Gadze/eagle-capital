@@ -145,7 +145,7 @@ export function EditAccountDialog({
 
       <label className="field-checkbox" style={{ marginTop: '1.5rem' }}>
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-        Active (shown on the Risk Cockpit)
+        Show in main portfolio (uncheck to file under Inactive accounts instead)
       </label>
 
       {error && <div style={{ color: 'var(--critical)', marginTop: '1rem' }}>{error}</div>}

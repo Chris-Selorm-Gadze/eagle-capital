@@ -168,7 +168,7 @@ function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => 
   )
 }
 
-function TradeCopierWorkspace() {
+function TradeCopierWorkspace({ onGoToBrokerConnections }: { onGoToBrokerConnections: () => void }) {
   const [accounts, setAccounts] = useState<DeltaAccount[]>([])
   const [groups, setGroups] = useState<CopierGroup[] | null>(null)
   // null = "not loaded yet", distinct from "loaded, zero rows" — lets the Risk profiles section
@@ -281,7 +281,10 @@ function TradeCopierWorkspace() {
       )}
 
       <section className={styles.section}>
-        <h2>Copy trading groups</h2>
+        <div className={styles.sectionHeader}>
+          <h2>Copy trading groups</h2>
+          <button onClick={onGoToBrokerConnections} className="btn-primary">+ Connect an account to copy</button>
+        </div>
         {!groupsLoaded ? (
           <p style={{ color: 'var(--text-muted)' }}>Loading live account data…</p>
         ) : safeGroups.length === 0 ? (
@@ -350,7 +353,7 @@ function TradeCopierWorkspace() {
   )
 }
 
-export function TradeCopierPage() {
+export function TradeCopierPage({ onGoToBrokerConnections }: { onGoToBrokerConnections: () => void }) {
   const { user, loading } = useAuth()
 
   if (loading) return null
@@ -371,7 +374,7 @@ export function TradeCopierPage() {
           <AuthPage />
         </>
       ) : (
-        <TradeCopierWorkspace />
+        <TradeCopierWorkspace onGoToBrokerConnections={onGoToBrokerConnections} />
       )}
     </div>
   )

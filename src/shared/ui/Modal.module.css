@@ -15,9 +15,14 @@
   border-radius: 10px;
   padding: 1.5rem;
   width: 100%;
-  max-width: min(540px, 90vw);
+  max-width: min(600px, 90vw);
   max-height: 90vh;
   overflow-y: auto;
+  /* Reserves the scrollbar's track unconditionally. Without this, any dialog whose content
+     height hovers right around the 90vh cap flips the scrollbar on/off from a near-invisible
+     change (e.g. a focus ring appearing on a toggled checkbox), and the panel's inner width
+     jumps by the scrollbar's width each time — the "jitter" this fixes. */
+  scrollbar-gutter: stable;
 }
 
 .title {

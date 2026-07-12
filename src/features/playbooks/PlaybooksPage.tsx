@@ -90,42 +90,51 @@ export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: str
                   <span className={styles.cardTitle}>{p.name}</span>
                   {p.grade && <span className={`${styles.gradeBadge} ${GRADE_CLASS[p.grade]}`}>{p.grade}</span>}
                 </div>
-                {p.description && <p className={styles.cardDesc}>{p.description}</p>}
+                {/* Description + stats on the left, one example image on the right — same
+                    first-glance split as the detail dialog, so opening the card isn't required
+                    just to see whether a setup has a chart example. */}
+                <div className={styles.cardBody}>
+                  <div className={styles.cardBodyLeft}>
+                    {p.description && <p className={styles.cardDesc}>{p.description}</p>}
 
-                {stats.tradeCount > 0 ? (
-                  <div className={styles.metricsRow}>
-                    <div className={styles.metric}>
-                      <div className={styles.metricLabel}>Win rate</div>
-                      <div className={`${styles.metricValue} ${stats.winRatePct! >= 50 ? styles.metricGood : styles.metricBad}`}>
-                        {stats.winRatePct!.toFixed(0)}%
+                    {stats.tradeCount > 0 ? (
+                      <div className={styles.metricsRow}>
+                        <div className={styles.metric}>
+                          <div className={styles.metricLabel}>Win rate</div>
+                          <div className={`${styles.metricValue} ${stats.winRatePct! >= 50 ? styles.metricGood : styles.metricBad}`}>
+                            {stats.winRatePct!.toFixed(0)}%
+                          </div>
+                        </div>
+                        <div className={styles.metric}>
+                          <div className={styles.metricLabel}>Net P&amp;L</div>
+                          <div className={`${styles.metricValue} ${stats.netPnl! >= 0 ? styles.metricGood : styles.metricBad}`}>
+                            {fmtPnl(stats.netPnl!)}
+                          </div>
+                        </div>
+                        <div className={styles.metric}>
+                          <div className={styles.metricLabel}>R range</div>
+                          <div className={styles.metricValue}>
+                            {stats.minR !== null && stats.maxR !== null ? `${fmtR(stats.minR)} / ${fmtR(stats.maxR)}` : '—'}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className={styles.metric}>
-                      <div className={styles.metricLabel}>Net P&amp;L</div>
-                      <div className={`${styles.metricValue} ${stats.netPnl! >= 0 ? styles.metricGood : styles.metricBad}`}>
-                        {fmtPnl(stats.netPnl!)}
-                      </div>
-                    </div>
-                    <div className={styles.metric}>
-                      <div className={styles.metricLabel}>R range</div>
-                      <div className={styles.metricValue}>
-                        {stats.minR !== null && stats.maxR !== null ? `${fmtR(stats.minR)} / ${fmtR(stats.maxR)}` : '—'}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className={styles.metricEmpty}>Link trades to see performance metrics here.</p>
-                )}
-
-                {previewExample && (
-                  <div className={styles.cardExample}>
-                    {previewExample.imageUrl ? (
-                      <img src={previewExample.imageUrl} alt="Example" className={styles.cardExampleImage} />
                     ) : (
-                      <p className={styles.cardExampleNote}>{previewExample.note}</p>
+                      <p className={styles.metricEmpty}>Link trades to see performance metrics here.</p>
                     )}
                   </div>
-                )}
+
+                  {previewExample && (
+                    <div className={styles.cardBodyRight}>
+                      <div className={styles.cardExample}>
+                        {previewExample.imageUrl ? (
+                          <img src={previewExample.imageUrl} alt="Example" className={styles.cardExampleImage} />
+                        ) : (
+                          <p className={styles.cardExampleNote}>{previewExample.note}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className={styles.cardFooter}>
                   <span>{playbookExamples.length} example{playbookExamples.length === 1 ? '' : 's'}</span>

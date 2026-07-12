@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
-  faChevronLeft, faChevronRight, faChartLine, faBookOpen, faTag, faChartArea, faPenToSquare,
+  faChevronLeft, faChevronRight, faChartLine, faBookOpen, faTag, faPenToSquare,
   type IconDefinition,
 } from '@fortawesome/free-solid-svg-icons'
 import type { Playbook, PlaybookExample, Trade } from '../../../types'
@@ -12,18 +12,18 @@ import { errorMessage } from '../../../utils/errors'
 import { TradeStatsTab } from './tabs/TradeStatsTab'
 import { TradeStrategyTab } from './tabs/TradeStrategyTab'
 import { TradeTagsTab } from './tabs/TradeTagsTab'
-import { TradeChartTab } from './tabs/TradeChartTab'
 import { TradeNotesTab } from './tabs/TradeNotesTab'
 import styles from './TradeDetailPanel.module.css'
 
-type Tab = 'stats' | 'strategy' | 'tags' | 'chart' | 'notes'
+// Chart is no longer a tab here — it's always visible in its own pane (see TradeChartPanel),
+// so this panel only needs to switch between these four.
+type Tab = 'stats' | 'notes' | 'strategy' | 'tags'
 
 const TABS: { key: Tab; label: string; icon: IconDefinition }[] = [
   { key: 'stats', label: 'Stats', icon: faChartLine },
+  { key: 'notes', label: 'Notes', icon: faPenToSquare },
   { key: 'strategy', label: 'Strategy', icon: faBookOpen },
   { key: 'tags', label: 'Tags', icon: faTag },
-  { key: 'chart', label: 'Chart', icon: faChartArea },
-  { key: 'notes', label: 'Notes', icon: faPenToSquare },
 ]
 
 const OUTCOME_BADGE_CLASS: Record<ReturnType<typeof tradeOutcome>, string> = {
@@ -141,7 +141,6 @@ export function TradeDetailPanel({
           />
         )}
         {tab === 'tags' && <TradeTagsTab draft={draft} onChange={patch} />}
-        {tab === 'chart' && <TradeChartTab trade={trade} />}
         {tab === 'notes' && <TradeNotesTab draft={draft} onChange={patch} />}
       </div>
 

@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createChart, CandlestickSeries, createSeriesMarkers, LineStyle, TickMarkType, type IChartApi, type UTCTimestamp } from 'lightweight-charts'
 import type { Trade } from '../../../../types'
 import { fetchIntradayCandles, fetchDailyCandles, fmpConfigured, type Candle, type IntradayInterval } from '../../../../lib/fmpClient'
-import { getFmpSymbol, setFmpSymbolAlias } from '../../symbolAliasMap'
+import { getFmpSymbol } from '../../symbolAliasMap'
 import { utcMsToZonedDateStr } from '../../../../utils/timezone'
-import { TradingViewWidget } from '../../../charting/components/TradingViewWidget'
 import styles from '../TradeDetailPanel.module.css'
 
 // lightweight-charts renders its time axis/crosshair in UTC by default (all our candle times
@@ -38,8 +37,6 @@ export function TradeChartTab({ trade }: { trade: Trade }) {
   const chartRef = useRef<IChartApi | null>(null)
   const [candles, setCandles] = useState<Candle[] | null>(null)
   const [loading, setLoading] = useState(true)
-  const [aliasInput, setAliasInput] = useState('')
-  const [retryToken, setRetryToken] = useState(0)
   const [barInterval, setBarInterval] = useState<IntradayInterval | 'daily' | null>(null)
   const [outOfRange, setOutOfRange] = useState(false)
 
@@ -86,7 +83,7 @@ export function TradeChartTab({ trade }: { trade: Trade }) {
     })
 
     return () => { cancelled = true }
-  }, [trade.id, trade.entryTime, trade.exitTime, fmpSymbol, retryToken])
+  }, [trade.id, trade.entryTime, trade.exitTime, fmpSymbol])
 
   useEffect(() => {
     if (!containerRef.current || !candles || candles.length === 0) return
@@ -150,13 +147,6 @@ export function TradeChartTab({ trade }: { trade: Trade }) {
     }
   }, [candles, trade])
 
-  function handleAliasSave() {
-    if (!aliasInput.trim()) return
-    setFmpSymbolAlias(trade.symbol, aliasInput.trim().toUpperCase())
-    setAliasInput('')
-    setRetryToken((v) => v + 1)
-  }
-
   if (!fmpConfigured) {
     return <p className={styles.hint}>Set VITE_FMP_API_KEY in .env.local to enable the price chart.</p>
   }
@@ -166,25 +156,7 @@ export function TradeChartTab({ trade }: { trade: Trade }) {
   }
 
   if (!candles || candles.length === 0) {
-    return (
-      <div>
-        <p className={styles.hint}>
-          No free chart data available for <strong>{fmpSymbol}</strong> via FMP — broker-style
-          symbols (indices, metals) are often gated to their paid plans. If you know the right
-          ticker (e.g. <code>^DJI</code> for the Dow, <code>^GSPC</code> for the S&amp;P 500,
-          <code> EURUSD</code> for forex), map it here — it'll be remembered for every future
-          "{trade.symbol}" trade.
-        </p>
-        <div className="field-row" style={{ marginBottom: '1rem' }}>
-          <input value={aliasInput} onChange={(e) => setAliasInput(e.target.value)} placeholder="e.g. ^GSPC" />
-          <button type="button" className="btn-primary" onClick={handleAliasSave}>Save &amp; retry</button>
-        </div>
-        <p className={styles.hint}>Or view a live (non-overlay) chart instead:</p>
-        <div style={{ height: '420px' }}>
-          <TradingViewWidget symbol={trade.symbol} />
-        </div>
-      </div>
-    )
+    return <p className={styles.hint}>Chart not available for this trade.</p>
   }
 
   return (
@@ -200,7 +172,7 @@ export function TradeChartTab({ trade }: { trade: Trade }) {
           far back on FMP's free tier, or if the trade's stored time is off.
         </p>
       )}
-      <div ref={containerRef} style={{ height: '460px', width: '100%' }} />
+      <div ref={containerRef} style={{ height: '640px', width: '100%' }} />
     </div>
   )
 }

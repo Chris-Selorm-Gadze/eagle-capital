@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchEconomicCalendar, type EconomicEvent } from '../../lib/economicCalendarClient'
-import { currencyFlag, currencyLabel } from './currencyMeta'
+import { currencyFlag, currencyLabel, CURRENCY_META } from './currencyMeta'
 import { errorMessage } from '../../utils/errors'
 import styles from './EconomicCalendarPage.module.css'
 
@@ -12,6 +12,12 @@ const IMPACT_CLASS: Record<string, string> = {
   Medium: styles.impactMedium,
   Low: styles.impactLow,
 }
+
+// Currency code doubles as the "country" and, for anyone trading that currency's pairs, the
+// "instrument" axis too — e.g. filtering to just USD surfaces every release that can move
+// EURUSD/USDJPY/etc. Known codes sort in this order first; anything the feed sends that isn't in
+// our metadata map (see currencyMeta.ts) still shows up, just after the known ones.
+const KNOWN_CURRENCY_ORDER = Object.keys(CURRENCY_META)
 
 function dayKey(iso: string): string {
   return new Date(iso).toDateString()
@@ -29,8 +35,11 @@ export function EconomicCalendarPage() {
   const [events, setEvents] = useState<EconomicEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [usOnly, setUsOnly] = useState(true)
   const [activeImpacts, setActiveImpacts] = useState<Set<ImpactLevel>>(new Set(IMPACT_LEVELS))
+  // Countries/instruments explicitly turned off — empty means "show every country", so newly
+  // arriving currency codes (from a future feed change) show up by default instead of being
+  // silently hidden until the user opts in.
+  const [excludedCountries, setExcludedCountries] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchEconomicCalendar()
@@ -38,6 +47,18 @@ export function EconomicCalendarPage() {
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false))
   }, [])
+
+  const countries = useMemo(() => {
+    const present = new Set(events.map((e) => e.country))
+    return [...present].sort((a, b) => {
+      const ai = KNOWN_CURRENCY_ORDER.indexOf(a)
+      const bi = KNOWN_CURRENCY_ORDER.indexOf(b)
+      if (ai === -1 && bi === -1) return a.localeCompare(b)
+      if (ai === -1) return 1
+      if (bi === -1) return -1
+      return ai - bi
+    })
+  }, [events])
 
   function toggleImpact(level: ImpactLevel) {
     setActiveImpacts((prev) => {
@@ -48,12 +69,21 @@ export function EconomicCalendarPage() {
     })
   }
 
+  function toggleCountry(code: string) {
+    setExcludedCountries((prev) => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  }
+
   const filtered = useMemo(() => {
     return events
-      .filter((e) => !usOnly || e.country === 'USD')
       .filter((e) => activeImpacts.has(e.impact as ImpactLevel) || !IMPACT_LEVELS.includes(e.impact as ImpactLevel))
+      .filter((e) => !excludedCountries.has(e.country))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-  }, [events, usOnly, activeImpacts])
+  }, [events, activeImpacts, excludedCountries])
 
   const groups = useMemo(() => {
     const map = new Map<string, EconomicEvent[]>()
@@ -69,22 +99,8 @@ export function EconomicCalendarPage() {
   return (
     <div>
       <h1 className="page-title" style={{ marginBottom: '0.4rem' }}>Economic Calendar</h1>
-      <p className={styles.hint}>
-        This week's releases, fetched as real structured data (not an embed) so it can be filtered
-        and themed. One limitation of this free feed: it never carries the actual printed value,
-        only the forecast and previous — flag it against your Trade Journal manually if a release
-        moved your trade.
-      </p>
 
       <div className={styles.toolbar}>
-        <button
-          type="button"
-          className={`${styles.filterChip} ${usOnly ? styles.filterChipActive : ''}`}
-          onClick={() => setUsOnly((v) => !v)}
-        >
-          🇺🇸 US only
-        </button>
-        <div className={styles.chipDivider} />
         {IMPACT_LEVELS.map((level) => (
           <button
             key={level}
@@ -95,6 +111,22 @@ export function EconomicCalendarPage() {
             {level}
           </button>
         ))}
+        {countries.length > 0 && (
+          <>
+            <div className={styles.chipDivider} />
+            {countries.map((code) => (
+              <button
+                key={code}
+                type="button"
+                className={`${styles.filterChip} ${excludedCountries.has(code) ? '' : styles.filterChipActive}`}
+                onClick={() => toggleCountry(code)}
+                title={currencyLabel(code)}
+              >
+                {currencyFlag(code)} {code}
+              </button>
+            ))}
+          </>
+        )}
       </div>
 
       <div className="card">
