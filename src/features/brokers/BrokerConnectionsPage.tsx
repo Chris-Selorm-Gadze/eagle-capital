@@ -4,7 +4,10 @@ import { AuthPage } from '../auth/AuthPage'
 import { ComingSoonSection } from '../../shared/ui/ComingSoonSection'
 import { Modal } from '../../shared/ui/Modal'
 import { supabaseConfigured } from '../../lib/supabaseClient'
-import { brokerSyncConfigured, submitTradovateCredentials, submitMetaApiCredentials, triggerSync } from '../../lib/brokerSyncClient'
+import {
+  brokerSyncConfigured, submitTradovateCredentials, submitMetaApiCredentials, triggerSync,
+  getDeploymentState, undeployConnection, deployConnection,
+} from '../../lib/brokerSyncClient'
 import { listBrokerConnections, addBrokerConnection, linkAccount, deleteBrokerConnection, type BrokerConnection } from '../../db/brokerConnections'
 import { errorMessage } from '../../utils/errors'
 import { BROKERS } from './brokerCatalog'
@@ -126,11 +129,27 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
   const [error, setError] = useState<string | null>(null)
   const [credentialTarget, setCredentialTarget] = useState<BrokerConnection | null>(null)
   const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [deploymentStates, setDeploymentStates] = useState<Record<string, string>>({})
+  const [deployBusyId, setDeployBusyId] = useState<string | null>(null)
 
   async function load() {
     setFetching(true)
     try {
-      setConnections(await listBrokerConnections())
+      const cs = await listBrokerConnections()
+      setConnections(cs)
+      // Deployment state is a cheap metadata read (not a live RPC connection) — fetched per
+      // connected MT5 connection so the Pause/Resume button reflects real MetaApi state, since
+      // this is exactly the billing lever it controls (see brokerSyncClient.ts).
+      const mt5Connected = cs.filter((c) => c.brokerId === 'mt5' && c.status === 'connected')
+      const states = await Promise.all(mt5Connected.map((c) => getDeploymentState(c.id).catch(() => null)))
+      setDeploymentStates((prev) => {
+        const next = { ...prev }
+        mt5Connected.forEach((c, i) => {
+          const result = states[i]
+          if (result) next[c.id] = result.state
+        })
+        return next
+      })
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -141,6 +160,32 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
   useEffect(() => {
     if (user) load()
   }, [user])
+
+  async function handleUndeploy(connectionId: string) {
+    setDeployBusyId(connectionId)
+    setError(null)
+    try {
+      const { state } = await undeployConnection(connectionId)
+      setDeploymentStates((prev) => ({ ...prev, [connectionId]: state }))
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setDeployBusyId(null)
+    }
+  }
+
+  async function handleDeploy(connectionId: string) {
+    setDeployBusyId(connectionId)
+    setError(null)
+    try {
+      const { state } = await deployConnection(connectionId)
+      setDeploymentStates((prev) => ({ ...prev, [connectionId]: state }))
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setDeployBusyId(null)
+    }
+  }
 
   async function addConnection() {
     if (!label.trim()) return
@@ -269,6 +314,23 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
                       </button>
                     </>
                   )}
+
+                  {c.brokerId === 'mt5' && c.status === 'connected' && (() => {
+                    const state = deploymentStates[c.id]
+                    const busy = deployBusyId === c.id
+                    if (state === 'UNDEPLOYED' || state === 'UNDEPLOYING') {
+                      return (
+                        <button onClick={() => handleDeploy(c.id)} disabled={busy || state === 'UNDEPLOYING' || !brokerSyncConfigured} title="Redeploys the cloud terminal before use">
+                          {busy || state === 'UNDEPLOYING' ? 'Resuming…' : 'Resume'}
+                        </button>
+                      )
+                    }
+                    return (
+                      <button onClick={() => handleUndeploy(c.id)} disabled={busy || state === 'DEPLOYING' || !brokerSyncConfigured} title="Stops MetaApi hosting cost until resumed">
+                        {busy || state === 'DEPLOYING' ? 'Pausing…' : 'Pause'}
+                      </button>
+                    )
+                  })()}
 
                   {c.lastError && <span className={styles.syncError} title={c.lastError}>⚠ sync error</span>}
                 </div>

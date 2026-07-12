@@ -64,3 +64,18 @@ export function submitMetaApiCredentials(connectionId: string, creds: MetaApiCre
 export function triggerSync(connectionId: string): Promise<{ imported: number; skipped: number }> {
   return request(`/connections/${connectionId}/sync`, { method: 'POST' })
 }
+
+// MetaApi bills deployed (and especially CopyFactory-enabled) accounts as a flat recurring cost
+// for however long they stay deployed, not per API call — undeploying when not actively testing
+// stops that cost, redeploying brings the cloud terminal back before use.
+export function getDeploymentState(connectionId: string): Promise<{ state: string }> {
+  return request(`/connections/${connectionId}/deployment-state`)
+}
+
+export function undeployConnection(connectionId: string): Promise<{ state: string }> {
+  return request(`/connections/${connectionId}/undeploy`, { method: 'POST' })
+}
+
+export function deployConnection(connectionId: string): Promise<{ state: string }> {
+  return request(`/connections/${connectionId}/deploy`, { method: 'POST' })
+}
