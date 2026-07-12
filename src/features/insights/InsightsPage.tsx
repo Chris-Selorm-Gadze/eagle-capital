@@ -228,8 +228,7 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
       <h1 className="page-title" style={{ marginBottom: '0.4rem' }}>AI Insights</h1>
       <p className={styles.hint}>
         On-demand coaching digest generated from your own trades, report cards, and playbooks —
-        never automatic, since each generation calls Claude's API. Nothing is analyzed until you
-        click Generate.
+        never automatic. Nothing is analyzed until you click Generate.
       </p>
 
       <div className={`card ${styles.resultCard}`}>
