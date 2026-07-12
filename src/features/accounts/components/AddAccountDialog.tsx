@@ -28,6 +28,7 @@ export function AddAccountDialog({
   onClose,
   onSaved,
   forceKind,
+  forceLiveCategory,
 }: {
   userId: string
   onClose: () => void
@@ -35,9 +36,13 @@ export function AddAccountDialog({
   // Skips the live-vs-prop-firm choice screen entirely — e.g. opened from Prop Firm Management,
   // where the context already implies "prop firm account" and there's no need to ask.
   forceKind?: 'live' | 'prop'
+  // Skips the futures-vs-CFD choice screen too, straight to that category's credential form —
+  // e.g. opened from the Trade Copier page, where only CFD/MT5 accounts can actually participate
+  // (CopyFactory-based copying has no futures-broker equivalent), so asking would be pointless.
+  forceLiveCategory?: 'futures' | 'cfd'
 }) {
   const [kind, setKind] = useState<Kind>(forceKind ?? 'unset')
-  const [liveCategory, setLiveCategory] = useState<LiveCategory>('unset')
+  const [liveCategory, setLiveCategory] = useState<LiveCategory>(forceLiveCategory ?? 'unset')
 
   const [firmId, setFirmId] = useState<string>(PROP_FIRMS[0].id)
   const [customFirmName, setCustomFirmName] = useState('')
@@ -278,7 +283,11 @@ export function AddAccountDialog({
     ? <button onClick={handleAbandon} className="btn-ghost">Cancel</button>
     : <button onClick={backToKindChoice} className="btn-ghost">Back</button>
 
-  const categoryBackButton = <button onClick={backToCategoryChoice} className="btn-ghost">Back</button>
+  // Same idea as backButton above — if the category was forced, there's no choice screen to
+  // return to, so "Back" just cancels instead of resetting into a screen that was never shown.
+  const categoryBackButton = forceLiveCategory
+    ? <button onClick={handleAbandon} className="btn-ghost">Cancel</button>
+    : <button onClick={backToCategoryChoice} className="btn-ghost">Back</button>
 
   let footer: ReactNode
   if (kind === 'unset') {

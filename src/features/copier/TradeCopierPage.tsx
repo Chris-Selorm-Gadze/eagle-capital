@@ -8,6 +8,7 @@ import {
 import { subscribeCopierGroups } from '../../lib/copierGroupsSocket'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
+import { AddAccountDialog } from '../accounts/components/AddAccountDialog'
 import styles from './TradeCopierPage.module.css'
 
 function money(n: number): string {
@@ -168,7 +169,7 @@ function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => 
   )
 }
 
-function TradeCopierWorkspace({ onGoToBrokerConnections }: { onGoToBrokerConnections: () => void }) {
+function TradeCopierWorkspace({ userId }: { userId: string }) {
   const [accounts, setAccounts] = useState<DeltaAccount[]>([])
   const [groups, setGroups] = useState<CopierGroup[] | null>(null)
   // null = "not loaded yet", distinct from "loaded, zero rows" — lets the Risk profiles section
@@ -176,6 +177,7 @@ function TradeCopierWorkspace({ onGoToBrokerConnections }: { onGoToBrokerConnect
   const [riskProfiles, setRiskProfiles] = useState<DeltaRiskProfile[] | null>(null)
   const [accountsLoaded, setAccountsLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [addingAccount, setAddingAccount] = useState(false)
 
   const [masterId, setMasterId] = useState('')
   const [followerId, setFollowerId] = useState('')
@@ -283,7 +285,7 @@ function TradeCopierWorkspace({ onGoToBrokerConnections }: { onGoToBrokerConnect
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <h2>Copy trading groups</h2>
-          <button onClick={onGoToBrokerConnections} className="btn-primary">+ Connect an account to copy</button>
+          <button onClick={() => setAddingAccount(true)} className="btn-primary">+ Connect an account to copy</button>
         </div>
         {!groupsLoaded ? (
           <p style={{ color: 'var(--text-muted)' }}>Loading live account data…</p>
@@ -349,11 +351,21 @@ function TradeCopierWorkspace({ onGoToBrokerConnections }: { onGoToBrokerConnect
           </div>
         )}
       </section>
+
+      {addingAccount && (
+        <AddAccountDialog
+          userId={userId}
+          forceKind="live"
+          forceLiveCategory="cfd"
+          onClose={() => setAddingAccount(false)}
+          onSaved={() => { setAddingAccount(false); load() }}
+        />
+      )}
     </div>
   )
 }
 
-export function TradeCopierPage({ onGoToBrokerConnections }: { onGoToBrokerConnections: () => void }) {
+export function TradeCopierPage() {
   const { user, loading } = useAuth()
 
   if (loading) return null
@@ -374,7 +386,7 @@ export function TradeCopierPage({ onGoToBrokerConnections }: { onGoToBrokerConne
           <AuthPage />
         </>
       ) : (
-        <TradeCopierWorkspace onGoToBrokerConnections={onGoToBrokerConnections} />
+        <TradeCopierWorkspace userId={user.id} />
       )}
     </div>
   )

@@ -141,7 +141,7 @@ export default function App() {
                 onChanged={refresh}
               />
             )}
-            {nav === 'tradecopier' && <TradeCopierPage onGoToBrokerConnections={() => navigate('brokers')} />}
+            {nav === 'tradecopier' && <TradeCopierPage />}
             {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
             {nav === 'tradejournal' && (
               <TradeJournalPage
