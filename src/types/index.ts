@@ -104,17 +104,9 @@ export interface ReportCard {
   largestLoss?: string
   maxConsecutiveLosses?: number
 
-  // 10-item execution checklist — rule1-4 are "Core", rule5-10 are "Rule"
-  rule1?: boolean
-  rule2?: boolean
-  rule3?: boolean
-  rule4?: boolean
-  rule5?: boolean
-  rule6?: boolean
-  rule7?: boolean
-  rule8?: boolean
-  rule9?: boolean
-  rule10?: boolean
+  // Execution checklist — keyed by the user's own TradingRule.id, not a fixed generic list, so
+  // it's personalized to whatever rules each user has actually created in Trader Management.
+  ruleChecks?: Record<string, boolean>
 
   grade?: ReportCardGrade
   fitState?: string

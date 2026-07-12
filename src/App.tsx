@@ -22,6 +22,7 @@ import { EconomicCalendarPage } from './features/calendar/EconomicCalendarPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { TradeLogPage } from './features/trades/TradeLogPage'
 import { BrokerConnectionsPage } from './features/brokers/BrokerConnectionsPage'
+import { posthog } from './lib/posthog'
 import styles from './App.module.css'
 
 export default function App() {
@@ -55,6 +56,14 @@ export default function App() {
     if (window.location.pathname !== path) {
       window.history.pushState({ nav }, '', path)
     }
+  }, [nav])
+
+  // Captured manually rather than relying on PostHog's autocapture history-detection — this app
+  // hand-rolls pushState/replaceState (no router library), so calling capture directly here,
+  // right where nav changes are already handled, is more reliable than trusting the SDK to infer
+  // route changes from history events it didn't originate.
+  useEffect(() => {
+    posthog.capture('$pageview')
   }, [nav])
 
   useEffect(() => {
@@ -145,7 +154,7 @@ export default function App() {
             )}
             {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
             {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
-            {nav === 'insights' && <InsightsPage trades={trades} userId={userId} />}
+            {nav === 'insights' && <InsightsPage trades={trades} accounts={accounts} userId={userId} />}
             {nav === 'charting' && <ChartingPage trades={trades} />}
             {nav === 'calendar' && <EconomicCalendarPage />}
             {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}

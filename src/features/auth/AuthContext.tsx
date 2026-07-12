@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabaseClient'
+import { posthog } from '../../lib/posthog'
 
 interface AuthContextValue {
   user: User | null
@@ -27,6 +28,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     return () => listener.subscription.unsubscribe()
   }, [])
+
+  // Ties usage analytics to the signed-in user (not just an anonymous browser id) without
+  // exposing anything beyond their user id — no email/name passed to identify().
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (userId) posthog.identify(userId)
+    else posthog.reset()
+  }, [session?.user?.id])
 
   async function signUp(email: string, password: string) {
     const { error } = await supabase.auth.signUp({ email, password })

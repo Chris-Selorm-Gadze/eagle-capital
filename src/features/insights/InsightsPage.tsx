@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faCircleExclamation, faStar, faLightbulb, faTrash,
   faTriangleExclamation, faCircleCheck, faArrowRight, type IconDefinition,
 } from '@fortawesome/free-solid-svg-icons'
-import type { Trade } from '../../types'
+import type { Account, Trade } from '../../types'
 import { listReportCards } from '../../db/reportCards'
 import { listPlaybooks } from '../../db/playbooks'
 import { listPlaybookExamples } from '../../db/playbookExamples'
+import { listTradingRules } from '../../db/tradingRules'
 import { listAiInsights, saveAiInsight, deleteAiInsight, type AiInsight } from '../../db/aiInsights'
 import { generateTradingInsights } from '../../lib/tradingInsightsClient'
 import { buildInsightsPayload, rangeForPreset, type InsightsRangePreset } from './buildInsightsPayload'
+import { detectTradePatterns } from '../../utils/tradePatterns'
 import { errorMessage } from '../../utils/errors'
 import { todayISO } from '../../db/sessions'
 import styles from './InsightsPage.module.css'
@@ -38,7 +40,12 @@ function FindingList({ items, kind }: { items: AiInsight['response']['painPoints
           <div className={styles.findingBody}>
             <div className={styles.findingTitle}>{f.title}</div>
             <div className={styles.findingDesc}>{f.description}</div>
-            <div className={styles.findingEvidence}><span className={styles.findingEvidenceLabel}>Evidence</span> {f.evidence}</div>
+            {/* Collapsed by default — the title+description is the actual insight; evidence is
+                there to back it up if asked, not something that needs to be read every time. */}
+            <details className={styles.evidenceDetails}>
+              <summary>Evidence</summary>
+              <p className={styles.findingEvidence}>{f.evidence}</p>
+            </details>
           </div>
         </div>
       ))}
@@ -46,28 +53,47 @@ function FindingList({ items, kind }: { items: AiInsight['response']['painPoints
   )
 }
 
+type FindingKind = 'painPoints' | 'strengths' | 'recommendations'
+
+const FINDING_TABS: { key: FindingKind; label: string; kind: 'bad' | 'good' | 'action' }[] = [
+  { key: 'painPoints', label: 'Pain Points', kind: 'bad' },
+  { key: 'strengths', label: 'Strengths', kind: 'good' },
+  { key: 'recommendations', label: 'Recommendations', kind: 'action' },
+]
+
 function InsightResultView({ insight }: { insight: AiInsight }) {
+  const availableTabs = FINDING_TABS.filter((t) => insight.response[t.key].length > 0)
+  // One category visible at a time instead of all three stacked — the same information, just
+  // not all displayed as one long scroll of text.
+  const [activeTab, setActiveTab] = useState<FindingKind>(availableTabs[0]?.key ?? 'painPoints')
+
+  useEffect(() => {
+    setActiveTab(availableTabs[0]?.key ?? 'painPoints')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insight.id])
+
+  const active = FINDING_TABS.find((t) => t.key === activeTab)
+
   return (
     <div>
       <div className={styles.summaryCard}>{insight.response.summary}</div>
 
-      {insight.response.painPoints.length > 0 && (
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>Pain Points</div>
-          <FindingList items={insight.response.painPoints} kind="bad" />
-        </div>
-      )}
-      {insight.response.strengths.length > 0 && (
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>Strengths</div>
-          <FindingList items={insight.response.strengths} kind="good" />
-        </div>
-      )}
-      {insight.response.recommendations.length > 0 && (
-        <div className={styles.group}>
-          <div className={styles.groupTitle}>Recommendations</div>
-          <FindingList items={insight.response.recommendations} kind="action" />
-        </div>
+      {availableTabs.length > 0 && active && (
+        <>
+          <div className={styles.findingTabs}>
+            {availableTabs.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className={`${styles.findingTab} ${activeTab === t.key ? styles.findingTabActive : ''}`}
+                onClick={() => setActiveTab(t.key)}
+              >
+                {t.label} <span className={styles.findingTabCount}>{insight.response[t.key].length}</span>
+              </button>
+            ))}
+          </div>
+          <FindingList items={insight.response[active.key]} kind={active.kind} />
+        </>
       )}
 
       <p className={styles.meta}>
@@ -79,10 +105,63 @@ function InsightResultView({ insight }: { insight: AiInsight }) {
   )
 }
 
-export function InsightsPage({ trades, userId }: { trades: Trade[]; userId: string }) {
+/** Free, instant, deterministic — computed straight from the trade log, no Claude call and no
+ * button press. Distinct from the AI digest below: those are one-off, paid, and narrative;
+ * these are objective signals (quick re-entry after a loss, an unusually busy day, size climbing
+ * through a losing streak) that stay current as soon as a new trade is logged. */
+function DetectedPatternsSection({ trades, accounts }: { trades: Trade[]; accounts: Account[] }) {
+  const patterns = useMemo(() => detectTradePatterns(trades), [trades])
+  const total = patterns.revengeTrades.length + patterns.overtradingDays.length + patterns.sizeEscalations.length
+  const accountLabel = (accountId: string) => accounts.find((a) => a.id === accountId)?.label ?? 'this account'
+
+  return (
+    <div className={styles.group}>
+      <div className={styles.groupTitle}>Detected Patterns{total > 0 ? ` (${total})` : ''}</div>
+      {total === 0 ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          No revenge-trading, overtrading, or size-escalation patterns detected in your logged trades yet.
+        </p>
+      ) : (
+        <div className={styles.compactFindingList}>
+          {patterns.revengeTrades.map((f, i) => (
+            <div key={`revenge-${i}`} className={styles.compactFinding}>
+              <FontAwesomeIcon icon={faTriangleExclamation} className={styles.compactFindingIcon} />
+              <span>
+                <strong>Quick re-entry after a loss</strong> — on {accountLabel(f.accountId)}, {f.tradeSymbol} opened just{' '}
+                {f.gapMinutes} min after a ${Math.abs(f.priorLoss).toLocaleString()} loss on {f.priorTradeSymbol}
+                {f.sizeIncreasePct !== null && f.sizeIncreasePct > 0 ? ` (${f.sizeIncreasePct}% bigger than average)` : ''}.
+              </span>
+            </div>
+          ))}
+          {patterns.overtradingDays.map((f, i) => (
+            <div key={`overtrading-${i}`} className={styles.compactFinding}>
+              <FontAwesomeIcon icon={faTriangleExclamation} className={styles.compactFindingIcon} />
+              <span>
+                <strong>Unusually busy day</strong> — on {accountLabel(f.accountId)}, {f.date} had {f.tradeCount} trades
+                {' '}({f.ratio}x your {f.averageDailyTradeCount}/day average).
+              </span>
+            </div>
+          ))}
+          {patterns.sizeEscalations.map((f, i) => (
+            <div key={`escalation-${i}`} className={styles.compactFinding}>
+              <FontAwesomeIcon icon={faTriangleExclamation} className={styles.compactFindingIcon} />
+              <span>
+                <strong>Size climbing through a losing streak</strong> — on {accountLabel(f.accountId)}, {f.streakLength} losses
+                {' '}in a row on {f.symbol}, size grew from {f.startQty} to {f.endQty} ({f.increasePct}% more).
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; accounts: Account[]; userId: string }) {
   const [reportCards, setReportCards] = useState<Awaited<ReturnType<typeof listReportCards>>>([])
   const [playbooks, setPlaybooks] = useState<Awaited<ReturnType<typeof listPlaybooks>>>([])
   const [playbookExamples, setPlaybookExamples] = useState<Awaited<ReturnType<typeof listPlaybookExamples>>>([])
+  const [rules, setRules] = useState<Awaited<ReturnType<typeof listTradingRules>>>([])
   const [history, setHistory] = useState<AiInsight[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -92,12 +171,13 @@ export function InsightsPage({ trades, userId }: { trades: Trade[]; userId: stri
   const [error, setError] = useState<string | null>(null)
 
   async function loadAll() {
-    const [cards, pbs, examples, insights] = await Promise.all([
-      listReportCards(), listPlaybooks(), listPlaybookExamples(), listAiInsights(),
+    const [cards, pbs, examples, userRules, insights] = await Promise.all([
+      listReportCards(), listPlaybooks(), listPlaybookExamples(), listTradingRules(), listAiInsights(),
     ])
     setReportCards(cards)
     setPlaybooks(pbs)
     setPlaybookExamples(examples)
+    setRules(userRules)
     setHistory(insights)
     if (!current && insights[0]) setCurrent(insights[0])
   }
@@ -115,7 +195,7 @@ export function InsightsPage({ trades, userId }: { trades: Trade[]; userId: stri
     setError(null)
     setGenerating(true)
     try {
-      const payload = buildInsightsPayload(trades, reportCards, playbooks, playbookExamples, range)
+      const payload = buildInsightsPayload(trades, reportCards, playbooks, playbookExamples, rules, range)
       const { model, insights } = await generateTradingInsights(payload)
       const insight: AiInsight = {
         rangeStart: range.start, rangeEnd: range.end, rangePreset,
@@ -152,6 +232,10 @@ export function InsightsPage({ trades, userId }: { trades: Trade[]; userId: stri
         click Generate.
       </p>
 
+      <div className={`card ${styles.resultCard}`}>
+        <DetectedPatternsSection trades={trades} accounts={accounts} />
+      </div>
+
       <div className={styles.toolbar}>
         {RANGE_OPTIONS.map((opt) => (
           <button
@@ -165,15 +249,14 @@ export function InsightsPage({ trades, userId }: { trades: Trade[]; userId: stri
         ))}
       </div>
 
-      <p className={styles.preview}>
-        Will analyze {previewTradeCount} trade{previewTradeCount === 1 ? '' : 's'} and {previewCardCount} report card
-        {previewCardCount === 1 ? '' : 's'} from {range.start} – {range.end}.
-      </p>
-
       <div className={styles.generateRow}>
         <button type="button" className="btn-primary" onClick={handleGenerate} disabled={generating || previewTradeCount === 0}>
           <FontAwesomeIcon icon={faLightbulb} /> {generating ? 'Analyzing…' : 'Generate Insights'}
         </button>
+        <span className={styles.preview}>
+          {previewTradeCount} trade{previewTradeCount === 1 ? '' : 's'} · {previewCardCount} report card{previewCardCount === 1 ? '' : 's'}
+          {' '}· {range.start} – {range.end}
+        </span>
         {error && <span className={styles.error}><FontAwesomeIcon icon={faCircleExclamation} /> {error}</span>}
       </div>
 

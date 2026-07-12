@@ -229,6 +229,15 @@ create table if not exists public.report_cards (
 );
 alter table public.report_cards add column if not exists trade_ids uuid[];
 alter table public.report_cards add column if not exists image_urls text[];
+
+-- Replaces the fixed rule_1..rule_10 checklist (generic text hardcoded in the app, same for every
+-- user) with a map keyed by the user's own trading_rules.id — {"<rule-id>": true/false}. The old
+-- rule_1..rule_10 columns are left in place (not dropped) so already-saved entries keep their
+-- historical data at the database level; the app just no longer reads/writes them, since that
+-- data has no way to map onto a user's own rules (the old checklist wasn't tied to any rule
+-- identity, just fixed positions).
+alter table public.report_cards add column if not exists rule_checks jsonb not null default '{}'::jsonb;
+
 alter table public.report_cards enable row level security;
 drop policy if exists "own report cards" on public.report_cards;
 create policy "own report cards" on public.report_cards for all using (auth.uid() = user_id);

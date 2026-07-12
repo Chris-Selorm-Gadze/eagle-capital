@@ -1,4 +1,4 @@
-import type { Playbook, PlaybookExample, ReportCard, Trade } from '../../types'
+import type { Playbook, PlaybookExample, ReportCard, Trade, TradingRule } from '../../types'
 import {
   netPnl, winRate, profitFactor, outcomeCounts, avgWin, avgLoss, dayWinRate,
   avgTradeDurationMinutes, avgWinDurationMinutes, avgLossDurationMinutes, longPct, bestTrade, worstTrade,
@@ -6,7 +6,6 @@ import {
 import { dailyPnlSeries, weekdayStats } from '../../utils/tradeAggregates'
 import { realizedRMultiple } from '../../utils/tradeRisk'
 import { playbookLinkedTrades, computePlaybookStats } from '../playbooks/playbookStats'
-import { REPORT_CARD_RULES } from '../reportcard/ruleDefinitions'
 
 export type InsightsRangePreset = 'last_30' | 'last_60' | 'last_90' | 'all_time'
 
@@ -76,6 +75,7 @@ export function buildInsightsPayload(
   reportCards: ReportCard[],
   playbooks: Playbook[],
   playbookExamples: PlaybookExample[],
+  rules: TradingRule[],
   range: InsightsRange,
 ): InsightsPayload {
   const rangeTrades = trades.filter((t) => t.date >= range.start && t.date <= range.end)
@@ -126,14 +126,14 @@ export function buildInsightsPayload(
   // --- rule adherence vs. outcome ---
   const poorDays = rangeCards.filter((c) => c.grade === 'R' || c.grade === 'C')
   const goodDays = rangeCards.filter((c) => c.grade === 'A' || c.grade === 'B')
-  const missRate = (cards: ReportCard[], key: (typeof REPORT_CARD_RULES)[number]['key']): number | null => {
-    const answered = cards.filter((c) => c[key] !== undefined)
+  const missRate = (cards: ReportCard[], ruleId: string): number | null => {
+    const answered = cards.filter((c) => c.ruleChecks?.[ruleId] !== undefined)
     if (answered.length === 0) return null
-    return (answered.filter((c) => c[key] === false).length / answered.length) * 100
+    return (answered.filter((c) => c.ruleChecks![ruleId] === false).length / answered.length) * 100
   }
-  const ruleAdherence = REPORT_CARD_RULES.map((r) => ({
-    rule: r.text, core: r.core,
-    missRatePoorPct: missRate(poorDays, r.key), missRateGoodPct: missRate(goodDays, r.key),
+  const ruleAdherence = rules.map((r) => ({
+    rule: r.text, core: r.isCore ?? false,
+    missRatePoorPct: missRate(poorDays, r.id!), missRateGoodPct: missRate(goodDays, r.id!),
     poorDayCount: poorDays.length, goodDayCount: goodDays.length,
   }))
 

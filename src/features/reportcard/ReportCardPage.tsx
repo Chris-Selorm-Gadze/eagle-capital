@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import type { ReportCard, Trade } from '../../types'
+import { useEffect, useState } from 'react'
+import type { ReportCard, Trade, TradingRule } from '../../types'
 import { saveReportCard } from '../../db/reportCards'
+import { listTradingRules } from '../../db/tradingRules'
 import { todayISO } from '../../db/sessions'
 import { ScoreboardSection } from './components/ScoreboardSection'
 import { ExecutionChecklist } from './components/ExecutionChecklist'
@@ -31,9 +32,10 @@ function blankCard(date: string): ReportCard {
   return { date, dayOfWeek: dayOfWeekFor(date) }
 }
 
-function toText(card: ReportCard, trades: Trade[]): string {
-  const rules = [card.rule1, card.rule2, card.rule3, card.rule4, card.rule5, card.rule6, card.rule7, card.rule8, card.rule9, card.rule10]
-  const followed = rules.filter(Boolean).length
+function toText(card: ReportCard, trades: Trade[], rules: TradingRule[]): string {
+  const checks = card.ruleChecks ?? {}
+  const answered = rules.filter((r) => checks[r.id!] !== undefined)
+  const followed = answered.filter((r) => checks[r.id!]).length
   const tradeById = new Map(trades.map((t) => [t.id, t]))
   const linkedTrades = (card.tradeIds ?? []).map((id) => tradeById.get(id)).filter((t): t is Trade => !!t)
   return [
@@ -47,7 +49,7 @@ function toText(card: ReportCard, trades: Trade[]): string {
     `Trades ${card.tradesTaken ?? ''} | W ${card.wins ?? ''} | L ${card.losses ?? ''} | Net ${card.netPnl ?? ''}`,
     `Largest win ${card.largestWin ?? ''} | Largest loss ${card.largestLoss ?? ''} | Max loss streak ${card.maxConsecutiveLosses ?? ''}`,
     ``,
-    `EXECUTION SCORE: ${followed}/10 rules followed`,
+    `EXECUTION SCORE: ${followed}/${rules.length} rules followed`,
     `GRADE: ${card.grade ?? '—'}`,
     `Fit state? ${card.fitState ?? ''}`,
     `Plan or feelings? ${card.planOrFeelings ?? ''}`,
@@ -90,6 +92,11 @@ export function ReportCardPage({
 }) {
   const [card, setCard] = useState<ReportCard>(() => openedCard ?? blankCard(todayISO()))
   const [savedMessage, setSavedMessage] = useState('')
+  const [rules, setRules] = useState<TradingRule[]>([])
+
+  useEffect(() => {
+    listTradingRules().then(setRules)
+  }, [])
 
   function patch(p: Partial<ReportCard>) {
     setCard((c) => ({ ...c, ...p }))
@@ -108,7 +115,7 @@ export function ReportCardPage({
   }
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(toText(card, trades))
+    await navigator.clipboard.writeText(toText(card, trades, rules))
     flash('COPIED')
   }
 
@@ -176,7 +183,7 @@ export function ReportCardPage({
 
         <TradeLinkSection card={card} trades={trades} userId={userId} onChange={patch} />
         <ScoreboardSection card={card} onChange={patch} />
-        <ExecutionChecklist card={card} onChange={patch} />
+        <ExecutionChecklist card={card} rules={rules} onChange={patch} />
         <GradeSection card={card} onChange={patch} />
         <FiveWhysSection card={card} onChange={patch} />
         <LedgerSection card={card} onChange={patch} />

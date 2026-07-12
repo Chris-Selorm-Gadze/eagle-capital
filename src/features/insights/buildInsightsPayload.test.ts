@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildInsightsPayload, rangeForPreset } from './buildInsightsPayload'
-import type { Trade, ReportCard, Playbook, PlaybookExample } from '../../types'
+import type { Trade, ReportCard, Playbook, PlaybookExample, TradingRule } from '../../types'
 
 function trade(overrides: Partial<Trade>): Trade {
   return {
@@ -29,7 +29,7 @@ describe('buildInsightsPayload', () => {
   it('filters trades/report cards to the given date range', () => {
     const trades = [trade({ date: '2026-01-15', pnl: 50 }), trade({ date: '2027-01-15', pnl: -50 })]
     const cards = [reportCard({ date: '2026-01-15' }), reportCard({ date: '2027-01-15' })]
-    const payload = buildInsightsPayload(trades, cards, [], [], RANGE)
+    const payload = buildInsightsPayload(trades, cards, [], [], [], RANGE)
     expect(payload.meta.tradeCount).toBe(1)
     expect(payload.meta.reportCardCount).toBe(1)
   })
@@ -40,7 +40,7 @@ describe('buildInsightsPayload', () => {
       trade({ tags: ['fomo', 'revenge'], pnl: -100 }),
       trade({ tags: ['solid-setup'], pnl: 200 }),
     ]
-    const payload = buildInsightsPayload(trades, [], [], [], RANGE)
+    const payload = buildInsightsPayload(trades, [], [], [], [], RANGE)
     const fomo = payload.tagBreakdown.find((t) => t.tag === 'fomo')!
     expect(fomo.tradeCount).toBe(2)
     expect(fomo.netPnl).toBe(-150)
@@ -49,12 +49,13 @@ describe('buildInsightsPayload', () => {
   })
 
   it('ruleAdherence: miss rate excludes unanswered rules from the denominator', () => {
+    const rules: TradingRule[] = [{ id: 'r1', text: 'Every position had a stop loss set before entry.', isCore: true }]
     const cards = [
-      reportCard({ grade: 'R', rule1: false }),
-      reportCard({ grade: 'R', rule1: true }),
-      reportCard({ grade: 'R' }), // rule1 unanswered — must not count as a violation
+      reportCard({ grade: 'R', ruleChecks: { r1: false } }),
+      reportCard({ grade: 'R', ruleChecks: { r1: true } }),
+      reportCard({ grade: 'R' }), // r1 unanswered — must not count as a violation
     ]
-    const payload = buildInsightsPayload([], cards, [], [], RANGE)
+    const payload = buildInsightsPayload([], cards, [], [], rules, RANGE)
     const rule1 = payload.ruleAdherence.find((r) => r.rule.includes('stop loss'))!
     expect(rule1.poorDayCount).toBe(3)
     expect(rule1.missRatePoorPct).toBe(50) // 1 miss out of 2 *answered*, not 3
@@ -62,13 +63,13 @@ describe('buildInsightsPayload', () => {
 
   it('profitFactor Infinity is coerced to null (JSON-safe)', () => {
     const trades = [trade({ pnl: 100 })]
-    const payload = buildInsightsPayload(trades, [], [], [], RANGE)
+    const payload = buildInsightsPayload(trades, [], [], [], [], RANGE)
     expect(payload.overview.profitFactor).toBeNull()
   })
 
   it('notableTrades caps at 6 (top 3 + bottom 3) and dedupes when fewer than 6 trades exist', () => {
     const trades = [trade({ pnl: 10 }), trade({ pnl: -10 })]
-    const payload = buildInsightsPayload(trades, [], [], [], RANGE)
+    const payload = buildInsightsPayload(trades, [], [], [], [], RANGE)
     expect(payload.notableTrades.length).toBe(2)
   })
 
@@ -77,7 +78,7 @@ describe('buildInsightsPayload', () => {
     const cards = Array.from({ length: 10 }, (_, i) =>
       reportCard({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, grade: 'R', rootCause: longText }),
     )
-    const payload = buildInsightsPayload([], cards, [], [], RANGE)
+    const payload = buildInsightsPayload([], cards, [], [], [], RANGE)
     expect(payload.reportCardSamples.length).toBeLessThanOrEqual(8)
     expect(payload.reportCardSamples[0].rootCause!.length).toBeLessThanOrEqual(281)
   })
@@ -86,7 +87,7 @@ describe('buildInsightsPayload', () => {
     const t1 = trade({ pnl: 100 })
     const playbooks: Playbook[] = [{ id: 'pb1', name: 'Breakout' }]
     const examples: PlaybookExample[] = [{ id: 'ex1', playbookId: 'pb1', tradeId: t1.id }]
-    const payload = buildInsightsPayload([t1], [], playbooks, examples, RANGE)
+    const payload = buildInsightsPayload([t1], [], playbooks, examples, [], RANGE)
     expect(payload.playbookBreakdown[0]).toMatchObject({ name: 'Breakout', tradeCount: 1, winRatePct: 100 })
   })
 })
