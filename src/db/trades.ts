@@ -66,8 +66,8 @@ export async function listTrades(): Promise<Trade[]> {
   return (data ?? []).map(fromRow)
 }
 
-export async function addTrade(userId: string, input: TradeInput): Promise<void> {
-  const { error } = await supabase.from('trades').insert({ user_id: userId, ...toRow(input) })
+export async function addTrade(userId: string, input: TradeInput, pnlOverride?: number): Promise<void> {
+  const { error } = await supabase.from('trades').insert({ user_id: userId, ...toRow(input, pnlOverride) })
   if (error) throw error
 }
 

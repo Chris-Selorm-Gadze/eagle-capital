@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Account, Trade } from '../../../db/schema'
 import { addTrade, updateTrade } from '../../../db/trades'
 import { Modal } from '../../../shared/ui/Modal'
@@ -33,6 +33,23 @@ export function AddTradeDialog({
   const [exitTime, setExitTime] = useState(toLocalInput(trade ? new Date(trade.exitTime) : new Date()))
   const [fees, setFees] = useState(trade?.fees !== undefined ? String(trade.fees) : '')
   const [notes, setNotes] = useState(trade?.notes ?? '')
+  // Prefilled from the trade's real P&L when editing, so saving a notes/fees tweak can't
+  // silently recompute and corrupt an authoritative (e.g. CSV-imported) value — see pnlOverride
+  // in db/trades.ts. Auto-synced from price × qty for brand-new trades until the user overrides
+  // it, since the naive price-diff formula only holds for $1/point/unit instruments (not true
+  // for e.g. index CFDs or futures with a real contract multiplier).
+  const [pnl, setPnl] = useState(trade ? String(trade.pnl) : '')
+  const [pnlTouched, setPnlTouched] = useState(!!trade)
+
+  const naivePnl =
+    entryPrice === '' || exitPrice === '' || qty === ''
+      ? null
+      : (Number(exitPrice) - Number(entryPrice)) * Number(qty) * (side === 'long' ? 1 : -1) - (fees === '' ? 0 : Number(fees))
+
+  useEffect(() => {
+    if (pnlTouched || naivePnl === null) return
+    setPnl(String(naivePnl))
+  }, [naivePnl, pnlTouched])
 
   const canSave = accountId && symbol && entryPrice !== '' && exitPrice !== '' && entryTime && exitTime
 
@@ -49,8 +66,9 @@ export function AddTradeDialog({
       fees: fees === '' ? undefined : Number(fees),
       notes: notes || undefined,
     }
-    if (trade) await updateTrade(trade.id!, input)
-    else await addTrade(userId, input)
+    const pnlOverride = pnl === '' ? undefined : Number(pnl)
+    if (trade) await updateTrade(trade.id!, input, pnlOverride)
+    else await addTrade(userId, input, pnlOverride)
     onSaved()
     onClose()
   }
@@ -120,6 +138,19 @@ export function AddTradeDialog({
         Fees (optional)
         <input type="number" value={fees} onChange={(e) => setFees(e.target.value)} />
       </label>
+
+      <label className="field">
+        P&amp;L
+        <input
+          type="number"
+          value={pnl}
+          onChange={(e) => { setPnl(e.target.value); setPnlTouched(true) }}
+        />
+      </label>
+      <p style={{ marginTop: '0.35rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+        Auto-filled from price × qty (assumes $1 per point per unit) — type the real amount if this
+        instrument has a different contract multiplier, or if you're correcting a broker-reported value.
+      </p>
 
       <label className="field">
         Notes

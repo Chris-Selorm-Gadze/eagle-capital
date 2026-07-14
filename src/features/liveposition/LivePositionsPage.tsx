@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
+import { ComingSoonSection } from '../../shared/ui/ComingSoonSection'
 import { livePositionsConfigured, type LiveAccountPositions } from '../../lib/livePositionsClient'
 import { subscribeLivePositions } from '../../lib/livePositionsSocket'
 import styles from './LivePositionsPage.module.css'
+
+// The backend WS route can be slow to roll out across environments (or not deployed yet) — the
+// socket itself retries forever with silent backoff, so without a cap here a not-yet-live backend
+// leaves this page stuck on "Loading live positions…" with no feedback that anything is wrong.
+const CONNECT_TIMEOUT_MS = 8_000
 
 function money(n: number): string {
   const sign = n < 0 ? '-' : ''
@@ -65,16 +71,31 @@ function AccountPanel({ account }: { account: LiveAccountPositions }) {
 function LivePositionsWorkspace() {
   const [accounts, setAccounts] = useState<LiveAccountPositions[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
     const unsubscribe = subscribeLivePositions(setAccounts, setError)
     return unsubscribe
   }, [])
 
+  useEffect(() => {
+    if (accounts !== null) return
+    const timer = setTimeout(() => setTimedOut(true), CONNECT_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [accounts])
+
   const loaded = accounts !== null
   const safeAccounts = accounts ?? []
   const totalPositions = safeAccounts.reduce((s, a) => s + a.positions.length, 0)
   const totalUnrealized = safeAccounts.reduce((s, a) => s + a.positions.reduce((s2, p) => s2 + p.unrealizedPnl, 0), 0)
+
+  if (!loaded && timedOut) {
+    return (
+      <ComingSoonSection>
+        Live position streaming is still rolling out — check back soon.
+      </ComingSoonSection>
+    )
+  }
 
   return (
     <div>
