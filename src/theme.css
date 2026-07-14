@@ -1,6 +1,12 @@
 /* Dark theme tokens — reused from the dataviz skill's validated dark reference
    palette (references/palette.md), not invented hex values. */
 :root {
+  /* Tells the browser this page is dark, so native UI it renders itself — scrollbars, form
+     control chrome, etc. — defaults to a dark variant instead of assuming light. Without this,
+     custom scrollbar colors below only affect Chrome/Safari; Firefox's native scrollbar stays
+     light regardless of scrollbar-color unless color-scheme says otherwise. */
+  color-scheme: dark;
+
   --page-bg: #0d0d0d;
   --surface: #1a1a19;
   --surface-2: #242422;
@@ -20,6 +26,29 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* Firefox + modern Chromium. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) var(--surface);
+}
+
+/* Safari/older Chromium — scrollbar-color above doesn't reach these engines. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 6px;
+  border: 2px solid var(--surface);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 html,
@@ -225,18 +254,22 @@ label > textarea {
    viewport narrows — plain inline styles can't express breakpoints. */
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* minmax(0, 1fr), not bare 1fr — a bare 1fr track's implicit minimum is the content's own
+     size, so a tile wider than the space available (e.g. this row squeezed into a narrower
+     column, like the Playbook detail dialog's left half) forces the whole row to overflow its
+     container instead of the tracks actually shrinking to fit. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
 }
 
 @media (max-width: 900px) {
   .kpi-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 560px) {
   .kpi-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }

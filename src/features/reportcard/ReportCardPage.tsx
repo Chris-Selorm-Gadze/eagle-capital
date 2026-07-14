@@ -3,6 +3,7 @@ import type { ReportCard, Trade, TradingRule } from '../../types'
 import { saveReportCard } from '../../db/reportCards'
 import { listTradingRules } from '../../db/tradingRules'
 import { todayISO } from '../../db/sessions'
+import { errorMessage } from '../../utils/errors'
 import { ScoreboardSection } from './components/ScoreboardSection'
 import { ExecutionChecklist } from './components/ExecutionChecklist'
 import { GradeSection } from './components/GradeSection'
@@ -12,12 +13,12 @@ import { TradeLinkSection } from './components/TradeLinkSection'
 import styles from './ReportCardPage.module.css'
 
 const SECTIONS = [
-  { id: 'sec-trades', label: 'Trades' },
   { id: 'sec-scoreboard', label: 'Scoreboard' },
   { id: 'sec-execution', label: 'Execution' },
   { id: 'sec-grade', label: 'Grade' },
   { id: 'sec-whys', label: '5 Whys' },
   { id: 'sec-ledger', label: 'Ledger' },
+  { id: 'sec-trades', label: 'Trades' },
 ]
 
 function scrollToSection(id: string) {
@@ -93,6 +94,8 @@ export function ReportCardPage({
   const [card, setCard] = useState<ReportCard>(() => openedCard ?? blankCard(todayISO()))
   const [savedMessage, setSavedMessage] = useState('')
   const [rules, setRules] = useState<TradingRule[]>([])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     listTradingRules().then(setRules)
@@ -108,10 +111,21 @@ export function ReportCardPage({
   }
 
   async function handleSave() {
-    await saveReportCard(userId, card)
-    flash('SAVED')
-    setCard(blankCard(todayISO()))
-    onSaved?.()
+    // This used to fail silently on any error (missing try/catch) — the form would just sit
+    // there with no feedback, indistinguishable from a slow save. Real report-card data is worth
+    // surfacing a real error for rather than losing quietly.
+    setError(null)
+    setSaving(true)
+    try {
+      await saveReportCard(userId, card)
+      flash('SAVED')
+      setCard(blankCard(todayISO()))
+      onSaved?.()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleCopy() {
@@ -181,20 +195,23 @@ export function ReportCardPage({
           <button type="button" className="btn-ghost" onClick={handleClear}>Clear form</button>
         </nav>
 
-        <TradeLinkSection card={card} trades={trades} userId={userId} onChange={patch} />
         <ScoreboardSection card={card} onChange={patch} />
         <ExecutionChecklist card={card} rules={rules} onChange={patch} />
         <GradeSection card={card} onChange={patch} />
         <FiveWhysSection card={card} onChange={patch} />
         <LedgerSection card={card} onChange={patch} />
+        <TradeLinkSection card={card} trades={trades} userId={userId} onChange={patch} />
 
         <div className={styles.actions}>
-          <button type="button" className="btn-primary" onClick={handleSave}>Save entry</button>
+          <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save entry'}
+          </button>
           <button type="button" onClick={handleCopy}>Copy as text</button>
           <button type="button" onClick={handleExport}>Export JSON</button>
           <button type="button" onClick={handleClear} className="btn-ghost">Clear form</button>
           <span className={`${styles.saved} ${savedMessage ? styles.savedShow : ''}`}>{savedMessage}</span>
         </div>
+        {error && <div style={{ color: 'var(--critical)', marginTop: '0.75rem' }}>{error}</div>}
 
         <p className={styles.creed}>
           The market pays you for discipline and charges you for everything else.{' '}

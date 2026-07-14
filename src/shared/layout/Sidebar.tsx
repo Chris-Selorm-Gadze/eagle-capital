@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faBars, faGaugeHigh, faPenToSquare, faUserGear, faBookOpen,
-  faBriefcase, faChartLine, faCalendarDays, faTableList, faClone, faPlug, faBrain,
+  faBriefcase, faChartLine, faCalendarDays, faTableList, faClone, faPlug, faBrain, faBoltLightning,
   type IconDefinition,
 } from '@fortawesome/free-solid-svg-icons'
 import styles from './Sidebar.module.css'
 
-export type NavKey = 'dashboard' | 'cockpit' | 'tradecopier' | 'tradelog' | 'tradejournal' | 'tradermanagement' | 'playbooks' | 'charting' | 'calendar' | 'brokers' | 'insights'
+export type NavKey = 'dashboard' | 'cockpit' | 'tradecopier' | 'tradelog' | 'tradejournal' | 'tradermanagement' | 'playbooks' | 'charting' | 'calendar' | 'brokers' | 'insights' | 'livepositions'
 
 const NAV_ITEMS: { key: NavKey; label: string; icon: IconDefinition }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: faGaugeHigh },
+  { key: 'livepositions', label: 'Live Positions', icon: faBoltLightning },
   { key: 'tradejournal', label: 'Trade Journal', icon: faPenToSquare },
   { key: 'tradermanagement', label: 'Trader Management', icon: faUserGear },
   { key: 'playbooks', label: 'Playbooks', icon: faBookOpen },

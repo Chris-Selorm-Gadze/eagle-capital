@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, lazy, Suspense } from 'react'
 import { useAuth } from './features/auth/AuthContext'
 import { useSupabaseData } from './db/useSupabaseData'
 import { downloadElementAsImage } from './utils/snapshot'
@@ -11,19 +11,25 @@ import { AddTradeDialog } from './features/trades/components/AddTradeDialog'
 import { ImportTradesDialog } from './features/trades/components/ImportTradesDialog'
 import { AddTradeChooserDialog } from './features/trades/components/AddTradeChooserDialog'
 import { AddAccountDialog } from './features/accounts/components/AddAccountDialog'
-import { RiskCockpitPage } from './features/accounts/RiskCockpitPage'
-import { TradeCopierPage } from './features/copier/TradeCopierPage'
-import { TradeJournalPage } from './features/trades/TradeJournalPage'
-import { TraderManagementPage } from './features/tradermanagement/TraderManagementPage'
-import { PlaybooksPage } from './features/playbooks/PlaybooksPage'
-import { InsightsPage } from './features/insights/InsightsPage'
-import { ChartingPage } from './features/charting/ChartingPage'
-import { EconomicCalendarPage } from './features/calendar/EconomicCalendarPage'
-import { DashboardPage } from './features/dashboard/DashboardPage'
-import { TradeLogPage } from './features/trades/TradeLogPage'
-import { BrokerConnectionsPage } from './features/brokers/BrokerConnectionsPage'
 import { posthog } from './lib/posthog'
 import styles from './App.module.css'
+
+// Route-level code splitting: each nav page becomes its own chunk instead of one shared bundle,
+// so e.g. visiting the Dashboard doesn't also download TradingView (Charting), jsPDF/docx
+// (Playbooks), or every other page's own dependencies. Named exports, not default — hence the
+// .then() adapter, since React.lazy only accepts a module with a default export.
+const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const RiskCockpitPage = lazy(() => import('./features/accounts/RiskCockpitPage').then((m) => ({ default: m.RiskCockpitPage })))
+const TradeCopierPage = lazy(() => import('./features/copier/TradeCopierPage').then((m) => ({ default: m.TradeCopierPage })))
+const LivePositionsPage = lazy(() => import('./features/liveposition/LivePositionsPage').then((m) => ({ default: m.LivePositionsPage })))
+const TradeLogPage = lazy(() => import('./features/trades/TradeLogPage').then((m) => ({ default: m.TradeLogPage })))
+const TradeJournalPage = lazy(() => import('./features/trades/TradeJournalPage').then((m) => ({ default: m.TradeJournalPage })))
+const TraderManagementPage = lazy(() => import('./features/tradermanagement/TraderManagementPage').then((m) => ({ default: m.TraderManagementPage })))
+const PlaybooksPage = lazy(() => import('./features/playbooks/PlaybooksPage').then((m) => ({ default: m.PlaybooksPage })))
+const InsightsPage = lazy(() => import('./features/insights/InsightsPage').then((m) => ({ default: m.InsightsPage })))
+const ChartingPage = lazy(() => import('./features/charting/ChartingPage').then((m) => ({ default: m.ChartingPage })))
+const EconomicCalendarPage = lazy(() => import('./features/calendar/EconomicCalendarPage').then((m) => ({ default: m.EconomicCalendarPage })))
+const BrokerConnectionsPage = lazy(() => import('./features/brokers/BrokerConnectionsPage').then((m) => ({ default: m.BrokerConnectionsPage })))
 
 export default function App() {
   const { user } = useAuth()
@@ -120,44 +126,48 @@ export default function App() {
               onAddTrade={() => setChoosingAddMethod(true)}
               onAddAccount={() => setAddingAccount(true)}
               onSnapshot={handleSnapshot}
+              onAccountDeleted={refresh}
             />
           )}
           <main className={styles.main} ref={mainRef}>
-            {nav === 'dashboard' && (
-              <DashboardPage
-                trades={filteredTrades}
-                accounts={dashboardAccounts}
-                payouts={filteredPayouts}
-                onOpenDateInJournal={handleOpenDateInJournal}
-              />
-            )}
-            {nav === 'cockpit' && (
-              <RiskCockpitPage
-                accounts={accounts}
-                payouts={payouts}
-                rewards={rewards}
-                sessionsByAccountId={sessionsByAccountId}
-                userId={userId}
-                onChanged={refresh}
-              />
-            )}
-            {nav === 'tradecopier' && <TradeCopierPage />}
-            {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
-            {nav === 'tradejournal' && (
-              <TradeJournalPage
-                trades={trades}
-                accounts={accounts}
-                userId={userId}
-                onChanged={refresh}
-                initialDateFilter={pendingJournalDate}
-              />
-            )}
-            {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
-            {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
-            {nav === 'insights' && <InsightsPage trades={trades} accounts={accounts} userId={userId} />}
-            {nav === 'charting' && <ChartingPage trades={trades} />}
-            {nav === 'calendar' && <EconomicCalendarPage />}
-            {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}
+            <Suspense fallback={<p style={{ color: 'var(--text-muted)' }}>Loading…</p>}>
+              {nav === 'dashboard' && (
+                <DashboardPage
+                  trades={filteredTrades}
+                  accounts={dashboardAccounts}
+                  payouts={filteredPayouts}
+                  onOpenDateInJournal={handleOpenDateInJournal}
+                />
+              )}
+              {nav === 'cockpit' && (
+                <RiskCockpitPage
+                  accounts={accounts}
+                  payouts={payouts}
+                  rewards={rewards}
+                  sessionsByAccountId={sessionsByAccountId}
+                  userId={userId}
+                  onChanged={refresh}
+                />
+              )}
+              {nav === 'tradecopier' && <TradeCopierPage />}
+              {nav === 'livepositions' && <LivePositionsPage />}
+              {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
+              {nav === 'tradejournal' && (
+                <TradeJournalPage
+                  trades={trades}
+                  accounts={accounts}
+                  userId={userId}
+                  onChanged={refresh}
+                  initialDateFilter={pendingJournalDate}
+                />
+              )}
+              {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
+              {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
+              {nav === 'insights' && <InsightsPage trades={trades} accounts={accounts} userId={userId} />}
+              {nav === 'charting' && <ChartingPage trades={trades} />}
+              {nav === 'calendar' && <EconomicCalendarPage />}
+              {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}
+            </Suspense>
           </main>
         </div>
 

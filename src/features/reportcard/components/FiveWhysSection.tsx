@@ -19,7 +19,7 @@ export function FiveWhysSection({
   return (
     <section className={styles.section} id="sec-whys">
       <div className={styles.secHead}>
-        <span className={styles.secNum}>05</span>
+        <span className={styles.secNum}>04</span>
         <h2>The 5 Whys</h2>
         <span className={styles.secNote}>The one that actually changes you</span>
       </div>

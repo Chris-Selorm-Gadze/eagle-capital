@@ -1,0 +1,136 @@
+.hint {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0 0 1rem;
+}
+
+.configNotice {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.error {
+  color: var(--critical);
+  margin-bottom: 1rem;
+}
+
+.summaryRow {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.summaryRow strong {
+  color: var(--text-primary);
+}
+
+.accountGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 1.25rem;
+}
+
+.accountCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.accountHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+
+.accountLabel {
+  display: block;
+  font-weight: 700;
+}
+
+.accountBroker {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.accountBalances {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.accountError {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.positionList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.positionRow {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.7fr 1fr 1fr 1fr;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  padding: 0.35rem 0;
+  align-items: center;
+}
+
+.positionHeaderRow {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+
+.positionSymbol {
+  font-weight: 600;
+}
+
+.sideLong {
+  color: var(--good);
+  text-transform: capitalize;
+}
+.sideShort {
+  color: var(--critical);
+  text-transform: capitalize;
+}
+
+.pnlGood {
+  color: var(--good);
+  font-weight: 600;
+}
+.pnlBad {
+  color: var(--critical);
+  font-weight: 600;
+}
+.pnlNeutral {
+  color: var(--text-secondary);
+}

@@ -41,9 +41,10 @@ export function PlaybookDetailDialog({
   const linkedTrades = [...new Set(examples.map((e) => e.tradeId).filter((id): id is string => !!id))]
     .map((id) => tradeById.get(id))
     .filter((t): t is Trade => !!t)
-  // First-glance view only needs one representative chart, not every uploaded example — the full
-  // set (with delete controls) lives in the scrollable "All examples" list below.
-  const previewExample = examples.find((e) => e.imageUrl)
+  // First-glance view shows up to 2 representative charts (stacked to fill whatever height the
+  // description + performance tiles take up), not every uploaded example — the full set (with
+  // delete controls) lives in the scrollable "All examples" list below.
+  const previewExamples = examples.filter((e) => e.imageUrl).slice(0, 2)
 
   async function handleExport(format: 'pdf' | 'docx') {
     setError(null)
@@ -138,60 +139,71 @@ export function PlaybookDetailDialog({
 
         <div className={styles.overviewRight}>
           <div style={{ fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1.1rem' }}>
-            Example
+            {previewExamples.length > 1 ? 'Examples' : 'Example'}
           </div>
-          {previewExample ? (
-            <img src={previewExample.imageUrl} alt="Example chart" className={styles.cardExampleImage} />
-          ) : (
+          {previewExamples.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No example images yet.</p>
+          ) : (
+            <div className={styles.exampleStack}>
+              {previewExamples.map((ex) => (
+                <img key={ex.id} src={ex.imageUrl} alt="Example chart" className={styles.exampleStackImage} />
+              ))}
+            </div>
           )}
         </div>
       </div>
 
-      <div style={{ marginTop: '1.25rem', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1.1rem' }}>
-        All examples {examples.length > 0 ? `(${examples.length})` : ''}
-      </div>
-
-      {examples.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No examples yet.</p>
-      ) : (
-        <div className={`${styles.exampleList} ${styles.exampleListScroll}`}>
-          {examples.map((ex) => {
-            const trade = ex.tradeId ? tradeById.get(ex.tradeId) : undefined
-            return (
-              <div key={ex.id} className={styles.example}>
-                <div className={styles.exampleHeader}>
-                  {trade ? <span className={styles.tradeChip}>{tradeChipLabel(trade)}</span> : <span />}
-                  <button className="btn-ghost" onClick={() => handleDeleteExample(ex.id!)}>Delete</button>
-                </div>
-                {ex.note && <div className={styles.exampleNote}>{ex.note}</div>}
-                {ex.imageUrl && <img src={ex.imageUrl} alt="Example chart" className={styles.exampleImage} />}
-              </div>
-            )
-          })}
+      <details className={styles.collapsibleSection} style={{ marginTop: '1.25rem' }}>
+        <summary className={styles.collapsibleHeader}>
+          All examples {examples.length > 0 ? `(${examples.length})` : ''}
+        </summary>
+        <div className={styles.collapsibleBody}>
+          {examples.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No examples yet.</p>
+          ) : (
+            <div className={`${styles.exampleList} ${styles.exampleListScroll}`}>
+              {examples.map((ex) => {
+                const trade = ex.tradeId ? tradeById.get(ex.tradeId) : undefined
+                return (
+                  <div key={ex.id} className={styles.example}>
+                    <div className={styles.exampleHeader}>
+                      {trade ? <span className={styles.tradeChip}>{tradeChipLabel(trade)}</span> : <span />}
+                      <button className="btn-ghost" onClick={() => handleDeleteExample(ex.id!)}>Delete</button>
+                    </div>
+                    {ex.note && <div className={styles.exampleNote}>{ex.note}</div>}
+                    {ex.imageUrl && <img src={ex.imageUrl} alt="Example chart" className={styles.exampleImage} />}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </details>
 
       <div style={{ marginTop: '1.25rem', fontWeight: 600, fontSize: '0.9rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1.1rem' }}>
         Add example
       </div>
 
       <div className="field">
-        <span style={{ display: 'block', marginBottom: '0.4rem' }}>
-          Link logged trades{selectedTradeIds.length > 0 ? ` (${selectedTradeIds.length} selected)` : ''}
-        </span>
-        {trades.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>No trades logged yet.</p>
-        ) : (
-          <div className={styles.tradePicker}>
-            {trades.map((t) => (
-              <label key={t.id} className={styles.tradePickerRow}>
-                <input type="checkbox" checked={selectedTradeIds.includes(t.id!)} onChange={() => toggleTrade(t.id!)} />
-                <span>{tradeChipLabel(t)}</span>
-              </label>
-            ))}
+        <details className={styles.collapsibleSection}>
+          <summary className={styles.collapsibleSummarySmall}>
+            Link logged trades{selectedTradeIds.length > 0 ? ` (${selectedTradeIds.length} selected)` : ''}
+          </summary>
+          <div className={styles.collapsibleBody}>
+            {trades.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>No trades logged yet.</p>
+            ) : (
+              <div className={styles.tradePicker}>
+                {trades.map((t) => (
+                  <label key={t.id} className={styles.tradePickerRow}>
+                    <input type="checkbox" checked={selectedTradeIds.includes(t.id!)} onChange={() => toggleTrade(t.id!)} />
+                    <span>{tradeChipLabel(t)}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </details>
       </div>
 
       <div className="field">

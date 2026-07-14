@@ -1,5 +1,10 @@
+import { useEffect, useRef, useState } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faEllipsisVertical, faTrash } from '@fortawesome/free-solid-svg-icons'
 import type { Account } from '../../../db/schema'
 import { PROP_FIRMS } from '../propFirms'
+import { deleteAccount } from '../../../db/accounts'
+import { errorMessage } from '../../../utils/errors'
 import styles from './AccountCard.module.css'
 
 const STAGE_LABEL: Record<Account['stage'], string> = {
@@ -39,12 +44,14 @@ export function AccountCard({
   onLogSession,
   onPayoutPlanner,
   onScalingTracker,
+  onDeleted,
 }: {
   account: Account
   onEdit: () => void
   onLogSession: () => void
   onPayoutPlanner?: () => void
   onScalingTracker?: () => void
+  onDeleted: () => void
 }) {
   const firm = PROP_FIRMS.find((f) => f.id === account.firmId)
   const firmName = account.stage === 'live'
@@ -55,6 +62,32 @@ export function AccountCard({
   const accent = STAGE_ACCENT[account.stage]
   const netPnl = account.balance - account.size
 
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function onPointerDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [menuOpen])
+
+  async function handleDelete() {
+    setMenuOpen(false)
+    if (!window.confirm(`Delete ${account.label}? This also deletes all sessions, trades, payouts, and rewards logged against it. This cannot be undone.`)) return
+    setDeleting(true)
+    try {
+      await deleteAccount(account.id!)
+      onDeleted()
+    } catch (err) {
+      alert(errorMessage(err))
+      setDeleting(false)
+    }
+  }
+
   // Plain display of whatever the user typed in — no derived room/gate/pass-fail logic.
   const miniStats: { label: string; value: string }[] = []
   if (account.profitTarget !== undefined) miniStats.push({ label: 'Profit target', value: money(account.profitTarget) })
@@ -62,7 +95,7 @@ export function AccountCard({
   if (account.dailyLossLimit !== undefined) miniStats.push({ label: 'Daily loss limit', value: money(account.dailyLossLimit) })
   if (account.minTradingDays !== undefined) miniStats.push({ label: 'Min trading days', value: String(account.minTradingDays) })
 
-  const hasMeta = account.fundedDate || account.cost !== undefined || account.cumulativePaid !== undefined
+  const hasMeta = Boolean(account.fundedDate)
 
   return (
     <div className={styles.root} style={{ borderLeftColor: accent }}>
@@ -71,7 +104,43 @@ export function AccountCard({
           <div className={styles.title}>{account.label}</div>
           <div className={styles.firmLine}>{firmName} · {money(account.size)}</div>
         </div>
-        <span className={styles.stageBadge} style={{ color: accent, borderColor: accent }}>{STAGE_LABEL[account.stage]}</span>
+        <div className={styles.headerRight}>
+          <span className={styles.stageBadge} style={{ color: accent, borderColor: accent }}>{STAGE_LABEL[account.stage]}</span>
+          <div className={styles.menuWrapper} ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className={styles.menuButton}
+              disabled={deleting}
+              aria-label="Account actions"
+            >
+              <FontAwesomeIcon icon={faEllipsisVertical} />
+            </button>
+            {menuOpen && (
+              <div className={styles.menu}>
+                <button onClick={() => { setMenuOpen(false); onLogSession() }} className={styles.menuItem}>
+                  Log session
+                </button>
+                <button onClick={() => { setMenuOpen(false); onEdit() }} className={styles.menuItem}>
+                  Edit
+                </button>
+                {onPayoutPlanner && (
+                  <button onClick={() => { setMenuOpen(false); onPayoutPlanner() }} className={styles.menuItem}>
+                    Payout planner
+                  </button>
+                )}
+                {onScalingTracker && (
+                  <button onClick={() => { setMenuOpen(false); onScalingTracker() }} className={styles.menuItem}>
+                    Scaling rules
+                  </button>
+                )}
+                <div className={styles.menuDivider} />
+                <button onClick={handleDelete} className={styles.menuItemDanger}>
+                  <FontAwesomeIcon icon={faTrash} /> Delete account
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className={styles.balanceRow}>
@@ -98,17 +167,8 @@ export function AccountCard({
       {hasMeta && (
         <div className={styles.metaRow}>
           {account.fundedDate && <span>Funded {account.fundedDate}</span>}
-          {account.cost !== undefined && <span>Cost {money(account.cost)}</span>}
-          {account.cumulativePaid !== undefined && <span>Paid out {money(account.cumulativePaid)}</span>}
         </div>
       )}
-
-      <div className={styles.buttonsRow}>
-        <button onClick={onLogSession} className="btn-primary">Log session</button>
-        <button onClick={onEdit} className="btn-ghost">Edit</button>
-        {onPayoutPlanner && <button onClick={onPayoutPlanner}>Payout planner</button>}
-        {onScalingTracker && <button onClick={onScalingTracker}>Scaling rules</button>}
-      </div>
     </div>
   )
 }

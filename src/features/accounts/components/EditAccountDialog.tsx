@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { STAGE_OPTIONS, type Account } from '../../../db/schema'
-import { updateAccount } from '../../../db/accounts'
+import { updateAccount, deleteAccount } from '../../../db/accounts'
 import { Modal } from '../../../shared/ui/Modal'
 import { BREACH_REASONS } from '../breachReasons'
 import { errorMessage } from '../../../utils/errors'
@@ -30,6 +30,7 @@ export function EditAccountDialog({
   const [cost, setCost] = useState(account.cost !== undefined ? String(account.cost) : '')
 
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const isLive = stage === 'live'
@@ -60,6 +61,20 @@ export function EditAccountDialog({
     }
   }
 
+  async function handleDelete() {
+    if (!window.confirm(`Delete ${account.label}? This also deletes all sessions, trades, payouts, and rewards logged against it. This cannot be undone.`)) return
+    setError(null)
+    setDeleting(true)
+    try {
+      await deleteAccount(account.id!)
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err))
+      setDeleting(false)
+    }
+  }
+
   return (
     <Modal
       title={`Edit ${account.label}`}
@@ -67,8 +82,16 @@ export function EditAccountDialog({
       minWidth={360}
       footer={
         <>
+          <button
+            onClick={handleDelete}
+            disabled={saving || deleting}
+            className="btn-ghost"
+            style={{ color: 'var(--critical)', marginRight: 'auto' }}
+          >
+            {deleting ? 'Deleting…' : 'Delete account'}
+          </button>
           <button onClick={onClose} className="btn-ghost">Cancel</button>
-          <button onClick={save} disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save'}</button>
+          <button onClick={save} disabled={saving || deleting} className="btn-primary">{saving ? 'Saving…' : 'Save'}</button>
         </>
       }
     >

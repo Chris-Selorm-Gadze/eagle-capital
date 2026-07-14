@@ -92,3 +92,8 @@ export async function updateAccount(id: string, patch: Partial<Account>): Promis
 export async function setAccountActive(id: string, active: boolean): Promise<void> {
   await updateAccount(id, { active })
 }
+
+export async function deleteAccount(id: string): Promise<void> {
+  const { error } = await supabase.from('accounts').delete().eq('id', id)
+  if (error) throw error
+}

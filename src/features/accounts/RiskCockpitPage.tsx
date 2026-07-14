@@ -99,6 +99,7 @@ export function RiskCockpitPage({
                   onLogSession={() => setLogging(a)}
                   onPayoutPlanner={['funded', 'pa'].includes(a.stage) ? () => setPlanningPayout(a) : undefined}
                   onScalingTracker={['funded', 'pa'].includes(a.stage) ? () => setTrackingCycles(a) : undefined}
+                  onDeleted={onChanged}
                 />
               ))}
             </div>

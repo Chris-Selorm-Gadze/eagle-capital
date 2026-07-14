@@ -25,7 +25,7 @@ export function GradeSection({
   return (
     <section className={styles.section} id="sec-grade">
       <div className={styles.secHead}>
-        <span className={styles.secNum}>04</span>
+        <span className={styles.secNum}>03</span>
         <h2>Grade the Day</h2>
         <span className={styles.secNote}>Process, not outcome</span>
       </div>

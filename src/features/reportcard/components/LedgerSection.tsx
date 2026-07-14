@@ -11,7 +11,7 @@ export function LedgerSection({
   return (
     <section className={styles.section} id="sec-ledger">
       <div className={styles.secHead}>
-        <span className={styles.secNum}>06</span>
+        <span className={styles.secNum}>05</span>
         <h2>The Ledger</h2>
         <span className={styles.secNote}>Two columns. Be honest in both.</span>
       </div>

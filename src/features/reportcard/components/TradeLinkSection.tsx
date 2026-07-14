@@ -54,7 +54,7 @@ export function TradeLinkSection({
   return (
     <section className={styles.section} id="sec-trades">
       <div className={styles.secHead}>
-        <span className={styles.secNum}>01</span>
+        <span className={styles.secNum}>06</span>
         <h2>Attach the trade(s)</h2>
         <span className={styles.secNote}>Link this report to the real entries it's about</span>
       </div>

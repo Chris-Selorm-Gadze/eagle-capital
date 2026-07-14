@@ -219,20 +219,67 @@
   flex-shrink: 0;
 }
 
-/* Description + stats on the left, chart examples on the right (used in the detail dialog) */
+/* Description + stats on the left, chart examples on the right (used in the detail dialog).
+   No align-items: start here (default is stretch) — the right column matches the left column's
+   real height, so the example image(s) can fill it via .exampleStack below instead of leaving
+   dead space whenever the description + performance tiles run taller than a single thumbnail. */
 .overview {
   display: grid;
   grid-template-columns: 3fr 2fr;
   gap: 1.5rem;
-  align-items: start;
 }
-.overviewLeft, .overviewRight {
+.overviewLeft {
   min-width: 0;
+}
+.overviewRight {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 @media (max-width: 560px) {
   .overview {
     grid-template-columns: 1fr;
   }
+}
+
+/* Fills whatever vertical space the left column's height leaves available — one image stretches
+   to fill it, two stack and split it evenly, rather than a single fixed-height thumbnail sitting
+   above a block of empty space. */
+.exampleStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+  min-height: 160px;
+}
+.exampleStackImage {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* Collapsible sections (used in the detail dialog) — "All examples" and "Link logged trades"
+   default to closed via plain <details>, no extra state needed. Native marker kept (not hidden)
+   since these are real section-level toggles, not an inline aside like Insights' Evidence link. */
+.collapsibleSection {
+  margin-top: 0;
+}
+.collapsibleHeader {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+.collapsibleSummarySmall {
+  cursor: pointer;
+  margin-bottom: 0.4rem;
+}
+.collapsibleBody {
+  margin-top: 0.85rem;
 }
 
 /* Example list (used in the detail dialog) */

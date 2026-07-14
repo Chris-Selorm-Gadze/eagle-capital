@@ -11,7 +11,7 @@ export function ScoreboardSection({
   return (
     <section className={styles.section} id="sec-scoreboard">
       <div className={styles.secHead}>
-        <span className={styles.secNum}>02</span>
+        <span className={styles.secNum}>01</span>
         <h2>Scoreboard</h2>
         <span className={styles.secNote}>Facts only. No story yet.</span>
       </div>
