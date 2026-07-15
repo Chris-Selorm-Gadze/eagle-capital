@@ -32,7 +32,10 @@ export function AddAccountDialog({
 }: {
   userId: string
   onClose: () => void
-  onSaved: () => void
+  // Reports back the newly created account's id — lets a caller embedding this dialog inline
+  // (e.g. AddTradeDialog's "+ Add account") auto-select the account it just created instead of
+  // leaving the picker on whatever it was before.
+  onSaved: (accountId?: string) => void
   // Skips the live-vs-prop-firm choice screen entirely — e.g. opened from Prop Firm Management,
   // where the context already implies "prop firm account" and there's no need to ask.
   forceKind?: 'live' | 'prop'
@@ -216,7 +219,7 @@ export function AddAccountDialog({
         active,
       })
       await linkAccount(liveConnectionId, accountId)
-      onSaved()
+      onSaved(accountId)
       onClose()
     } catch (err) {
       setError(errorMessage(err))
@@ -240,7 +243,7 @@ export function AddAccountDialog({
         active,
       })
       await linkSubAccount(userId, futuresConnectionId, accountId, String(selectedFuturesAccount.externalId), selectedFuturesAccount.name)
-      onSaved()
+      onSaved(accountId)
       onClose()
     } catch (err) {
       setError(errorMessage(err))
@@ -254,7 +257,7 @@ export function AddAccountDialog({
     setSaving(true)
     try {
       const sizeNum = Number(size)
-      await addAccount(userId, {
+      const accountId = await addAccount(userId, {
         firmId,
         customFirmName: firmId === 'other' ? customFirmName : undefined,
         label: label.trim(),
@@ -268,7 +271,7 @@ export function AddAccountDialog({
         minTradingDays: minTradingDays ? Number(minTradingDays) : undefined,
         cost: cost ? Number(cost) : undefined,
       })
-      onSaved()
+      onSaved(accountId)
       onClose()
     } catch (err) {
       setError(errorMessage(err))

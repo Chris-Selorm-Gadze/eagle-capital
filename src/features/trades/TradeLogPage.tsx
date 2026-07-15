@@ -66,6 +66,7 @@ export function TradeLogPage({
           userId={userId}
           onClose={() => setEditingTrade(null)}
           onSaved={onChanged}
+          onAccountAdded={onChanged}
         />
       )}
     </div>

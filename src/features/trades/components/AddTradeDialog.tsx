@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Account, Trade } from '../../../db/schema'
 import { addTrade, updateTrade } from '../../../db/trades'
 import { Modal } from '../../../shared/ui/Modal'
+import { AddAccountDialog } from '../../accounts/components/AddAccountDialog'
 
 function toLocalInput(date: Date): string {
   const d = new Date(date)
@@ -16,14 +17,20 @@ export function AddTradeDialog({
   userId,
   onClose,
   onSaved,
+  onAccountAdded,
 }: {
   accounts: Account[]
   trade?: Trade
   userId: string
   onClose: () => void
   onSaved: () => void
+  // Refetches the parent's account list — needed so an account added inline via "+ Add account"
+  // below actually shows up as a selectable option (this dialog only ever gets whatever
+  // `accounts` its parent passes down, it can't refresh that list itself).
+  onAccountAdded?: () => void
 }) {
   const [accountId, setAccountId] = useState(trade?.accountId ?? accounts[0]?.id ?? '')
+  const [addingAccount, setAddingAccount] = useState(false)
   const [symbol, setSymbol] = useState(trade?.symbol ?? '')
   const [side, setSide] = useState<'long' | 'short'>(trade?.side ?? 'long')
   const [qty, setQty] = useState(String(trade?.qty ?? 1))
@@ -85,14 +92,41 @@ export function AddTradeDialog({
         </>
       }
     >
-      <label className="field">
-        Account
-        <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>{a.label}</option>
-          ))}
-        </select>
-      </label>
+      {/* Plain div, not <label> — a <label> wrapping both the button and the select would make
+          the browser forward any click on the label's empty space to the first labelable
+          descendant (the button, since it comes before the select in the DOM), opening Add
+          account without the button itself being clicked. */}
+      <div className="field">
+        <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Account
+          <button type="button" className="btn-primary" style={{ marginTop: 0 }} onClick={() => setAddingAccount(true)}>
+            + Add account
+          </button>
+        </span>
+        {accounts.length === 0 ? (
+          <p style={{ marginTop: '0.35rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            No accounts yet — add one to log a trade against.
+          </p>
+        ) : (
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.label}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {addingAccount && (
+        <AddAccountDialog
+          userId={userId}
+          onClose={() => setAddingAccount(false)}
+          onSaved={(newAccountId) => {
+            setAddingAccount(false)
+            onAccountAdded?.()
+            if (newAccountId) setAccountId(newAccountId)
+          }}
+        />
+      )}
 
       <div className="field-row">
         <label className="flex-2">

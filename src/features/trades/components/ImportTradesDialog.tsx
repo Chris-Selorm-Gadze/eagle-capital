@@ -3,6 +3,7 @@ import type { Account } from '../../../db/schema'
 import { importTrades } from '../../../db/trades'
 import { parseTradeCsv, type ParsedTrade } from '../csvImport'
 import { Modal } from '../../../shared/ui/Modal'
+import { AddAccountDialog } from '../../accounts/components/AddAccountDialog'
 import styles from './ImportTradesDialog.module.css'
 import { errorMessage } from '../../../utils/errors'
 
@@ -11,13 +12,18 @@ export function ImportTradesDialog({
   userId,
   onClose,
   onSaved,
+  onAccountAdded,
 }: {
   accounts: Account[]
   userId: string
   onClose: () => void
   onSaved: () => void
+  // Refetches the parent's account list — needed so an account added inline via "+ Add account"
+  // below actually shows up as a selectable option (mirrors AddTradeDialog's same prop).
+  onAccountAdded?: () => void
 }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
+  const [addingAccount, setAddingAccount] = useState(false)
   const [fileName, setFileName] = useState('')
   const [parsed, setParsed] = useState<ParsedTrade[] | null>(null)
   const [skippedRows, setSkippedRows] = useState(0)
@@ -77,15 +83,36 @@ export function ImportTradesDialog({
         </>
       }
     >
-      <label className="field">
-        Account
+      {/* Plain div, not <label> — a <label> wrapping both the button and the select would make
+          the browser forward any click on the label's empty space to the first labelable
+          descendant (the button, since it comes before the select in the DOM), opening Add
+          account without the button itself being clicked. */}
+      <div className="field">
+        <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Account
+          <button type="button" className="btn-primary" style={{ marginTop: 0 }} onClick={() => setAddingAccount(true)}>
+            + Add account
+          </button>
+        </span>
         <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
           {accounts.length === 0 && <option value="">No accounts yet</option>}
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>{a.label}</option>
           ))}
         </select>
-      </label>
+      </div>
+
+      {addingAccount && (
+        <AddAccountDialog
+          userId={userId}
+          onClose={() => setAddingAccount(false)}
+          onSaved={(newAccountId) => {
+            setAddingAccount(false)
+            onAccountAdded?.()
+            if (newAccountId) setAccountId(newAccountId)
+          }}
+        />
+      )}
 
       <label className="field">
         CSV file (trade-history export from MT4/MT5 or a similarly-formatted broker/platform)

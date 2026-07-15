@@ -180,10 +180,10 @@ export default function App() {
           />
         )}
         {addingTrade && (
-          <AddTradeDialog accounts={accounts} userId={userId} onClose={() => setAddingTrade(false)} onSaved={refresh} />
+          <AddTradeDialog accounts={accounts} userId={userId} onClose={() => setAddingTrade(false)} onSaved={refresh} onAccountAdded={refresh} />
         )}
         {importingTrades && (
-          <ImportTradesDialog accounts={accounts} userId={userId} onClose={() => setImportingTrades(false)} onSaved={refresh} />
+          <ImportTradesDialog accounts={accounts} userId={userId} onClose={() => setImportingTrades(false)} onSaved={refresh} onAccountAdded={refresh} />
         )}
         {addingAccount && (
           <AddAccountDialog userId={userId} onClose={() => setAddingAccount(false)} onSaved={refresh} />

@@ -29,8 +29,8 @@ export function PlaybookDetailDialog({
   onChanged: () => void
 }) {
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState<'pdf' | 'docx' | null>(null)
@@ -60,33 +60,42 @@ export function PlaybookDetailDialog({
   }
 
   useEffect(() => {
-    if (!imageFile) { setPreviewUrl(null); return }
-    const url = URL.createObjectURL(imageFile)
-    setPreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [imageFile])
+    if (imageFiles.length === 0) { setPreviewUrls([]); return }
+    const urls = imageFiles.map((f) => URL.createObjectURL(f))
+    setPreviewUrls(urls)
+    return () => urls.forEach((url) => URL.revokeObjectURL(url))
+  }, [imageFiles])
 
   function toggleTrade(id: string) {
     setSelectedTradeIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]))
   }
 
-  const canAdd = selectedTradeIds.length > 0 || !!imageFile
+  function removeImageFile(index: number) {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const canAdd = selectedTradeIds.length > 0 || imageFiles.length > 0
 
   async function handleAddExample() {
     if (!canAdd) return
     setError(null)
     setAdding(true)
     try {
-      const imageUrl = imageFile ? await uploadPlaybookImage(userId, imageFile) : undefined
+      const imageUrls = await Promise.all(imageFiles.map((f) => uploadPlaybookImage(userId, f)))
       if (selectedTradeIds.length > 0) {
+        // Multiple images alongside linked trades has no clean 1:1 mapping — attach the first
+        // image (if any) to every linked trade, same as when only a single image could be chosen.
         for (const tradeId of selectedTradeIds) {
-          await addPlaybookExample(userId, { playbookId: playbook.id!, tradeId, imageUrl })
+          await addPlaybookExample(userId, { playbookId: playbook.id!, tradeId, imageUrl: imageUrls[0] })
         }
-      } else if (imageUrl) {
-        await addPlaybookExample(userId, { playbookId: playbook.id!, imageUrl })
+      } else {
+        // No trade to attach to — each uploaded image becomes its own standalone example.
+        for (const imageUrl of imageUrls) {
+          await addPlaybookExample(userId, { playbookId: playbook.id!, imageUrl })
+        }
       }
       setSelectedTradeIds([])
-      setImageFile(null)
+      setImageFiles([])
       if (fileInput.current) fileInput.current.value = ''
       onChanged()
     } catch (err) {
@@ -207,31 +216,40 @@ export function PlaybookDetailDialog({
       </div>
 
       <div className="field">
-        <span style={{ display: 'block', marginBottom: '0.4rem' }}>Image (optional)</span>
+        <span style={{ display: 'block', marginBottom: '0.4rem' }}>Images (optional)</span>
         <label htmlFor={fileInputId} className={styles.fileButton}>
-          {imageFile ? `Change image (${imageFile.name})` : 'Choose image'}
+          {imageFiles.length > 0 ? `Change images (${imageFiles.length} selected)` : 'Choose images'}
         </label>
         <input
           ref={fileInput}
           id={fileInputId}
           type="file"
           accept="image/*"
+          multiple
           className={styles.hiddenFileInput}
-          onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => setImageFiles(Array.from(e.target.files ?? []))}
         />
       </div>
 
-      {previewUrl && (
+      {previewUrls.length > 0 && (
         <div className={styles.previewGrid}>
-          <div className={styles.previewItem}>
-            <img src={previewUrl} alt={imageFile?.name} className={styles.previewImage} />
-            <button onClick={() => setImageFile(null)} className={styles.previewRemove}>✕</button>
-          </div>
+          {previewUrls.map((url, i) => (
+            <div key={url} className={styles.previewItem}>
+              <img src={url} alt={imageFiles[i]?.name} className={styles.previewImage} />
+              <button onClick={() => removeImageFile(i)} className={styles.previewRemove}>✕</button>
+            </div>
+          ))}
         </div>
       )}
 
       <button className="btn-primary" onClick={handleAddExample} disabled={!canAdd || adding} style={{ marginTop: '0.85rem' }}>
-        {adding ? 'Adding…' : selectedTradeIds.length > 1 ? `Add ${selectedTradeIds.length} examples` : 'Add example'}
+        {adding
+          ? 'Adding…'
+          : selectedTradeIds.length > 1
+            ? `Add ${selectedTradeIds.length} examples`
+            : imageFiles.length > 1
+              ? `Add ${imageFiles.length} images`
+              : 'Add example'}
       </button>
 
       {error && <div style={{ color: 'var(--critical)', marginTop: '1rem' }}>{error}</div>}
