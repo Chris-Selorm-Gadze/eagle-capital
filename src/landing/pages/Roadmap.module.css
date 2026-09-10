@@ -1,0 +1,26 @@
+.stages { display: grid; gap: 2.5rem; }
+
+@media (min-width: 900px) { .stages { grid-template-columns: repeat(4, 1fr); gap: 2rem; } }
+
+/* The rule above each column carries the weight — heavier for what's live,
+   lighter for what's speculative. That ordering IS the information. */
+.stage { padding-top: 1.35rem; border-top: 2px solid var(--l-border-soft); }
+
+.stageName {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-bottom: 1.35rem;
+  color: var(--l-ink);
+}
+
+.inProgress { border-top-color: var(--l-gold-deep); }
+.next { border-top-color: var(--l-ink); }
+.considering { border-top-color: var(--l-border); }
+.shipped { border-top-color: var(--l-good); }
+
+.items { display: flex; flex-direction: column; gap: 1rem; }
+
+.item { font-size: 0.9rem; line-height: 1.65; color: var(--l-text-2); }
+
+.shippedItem { color: var(--l-text-3); }

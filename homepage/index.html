@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vectorline — Spatial Systems Console</title>
+<script>
+(function () {
+  var t = 'dark';
+  try {
+    var q = new URLSearchParams(location.search).get('theme');
+    var saved = localStorage.getItem('vl-theme');
+    if (q === 'light' || q === 'dark') t = q;
+    else if (saved === 'light' || saved === 'dark') t = saved;
+  } catch (e) {}
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+<meta name="description" content="Vectorline builds isometric spatial systems, routing meshes and audit-grade infrastructure for precision teams." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Gloock&family=Manrope:wght@200..800&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Gloock', 'ui-serif', 'Georgia', 'serif'],
+        tech: ['"Bebas Neue"', 'Impact', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+      },
+      colors: { ink: '#070707', sand: '#e8c382', cocoa: '#351e10' }
+    }
+  }
+};
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.29/dist/lenis.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/iconify-icon@1.0.7/dist/iconify-icon.min.js"></script>
+
+<style>
+  /* ============================================================
+     THEME TOKENS — dark is the source aesthetic, light is paper
+     ============================================================ */
+  :root {
+    --bg: #070707;
+    --bg-elev: #060606;
+    --ink: #ffffff;
+    --gold: #e8c382;
+    --gold-fill: #e8c382;
+    --gold-ink: #351e10;
+    --indigo: #6366f1;
+
+    --hairline: rgba(255, 255, 255, 0.035);
+    --grid-strong: rgba(255, 255, 255, 0.05);
+    --grid-soft: rgba(255, 255, 255, 0.045);
+    --grid-body-a: rgba(255, 255, 255, 0.028);
+    --grid-body-b: rgba(255, 255, 255, 0.018);
+    --wash-indigo: rgba(99, 102, 241, 0.16);
+    --wash-gold: rgba(232, 195, 130, 0.12);
+
+    --noise-opacity: 0.02;
+    --noise-blend: normal;
+
+    --frame-border: rgba(255, 255, 255, 0.1);
+    --frame-face: linear-gradient(180deg, rgba(255, 255, 255, 0.038) 0%, rgba(255, 255, 255, 0.006) 100%);
+    --frame-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.09),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.65),
+      inset 0 0 60px -30px rgba(255, 255, 255, 0.22),
+      0 30px 80px -46px rgba(0, 0, 0, 0.95);
+
+    --etch-face: linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.02) 100%);
+    --etch-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.26),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.85),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+      0 10px 24px -16px rgba(0, 0, 0, 1);
+    --etch-shadow-hover:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.9),
+      inset 0 0 0 1px rgba(232, 195, 130, 0.28),
+      0 14px 30px -18px rgba(232, 195, 130, 0.6);
+
+    --pill-face: linear-gradient(180deg, rgba(18, 18, 18, 0.72) 0%, rgba(8, 8, 8, 0.62) 100%);
+    --pill-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.8),
+      0 20px 44px -26px rgba(0, 0, 0, 1);
+
+    --search-face: linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(255, 255, 255, 0.025) 100%);
+    --search-shadow:
+      inset 0 3px 8px rgba(0, 0, 0, 0.95),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+      0 1px 0 rgba(255, 255, 255, 0.04);
+
+    --chip-face: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.015));
+    --chip-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.8),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+
+    --conn-gold: rgba(232, 195, 130, 0.55);
+    --conn-indigo: rgba(99, 102, 241, 0.65);
+
+    --scrim: linear-gradient(to top, #070707 0%, rgba(7, 7, 7, 0.25) 45%, transparent 100%);
+    --glow-top: linear-gradient(to bottom, rgba(99, 102, 241, 0.07), transparent);
+    --fade-bottom: linear-gradient(to top, #000 0%, transparent 100%);
+    --bar-fill: linear-gradient(to top, rgba(99, 102, 241, 0.25), rgba(232, 195, 130, 0.7));
+    --meter-fill: linear-gradient(to right, #818cf8, #e8c382);
+    --blob-indigo: rgba(99, 102, 241, 0.1);
+    --blob-gold: rgba(232, 195, 130, 0.07);
+    --viewport-wash: radial-gradient(circle at 50% 45%, rgba(99, 102, 241, 0.16), transparent 62%);
+
+    --scroll-track: #070707;
+    --scroll-thumb: #333;
+    --scroll-thumb-hover: #e8c382;
+
+    --img-grayscale: 1;
+  }
+
+  [data-theme="light"] {
+    --bg: #f3f0e9;
+    --bg-elev: #e7e2d6;
+    --ink: #12100c;
+    --gold: #8a6626;
+    --gold-fill: #e8c382;
+    --gold-ink: #351e10;
+    --indigo: #4f46e5;
+
+    --hairline: rgba(18, 16, 12, 0.05);
+    --grid-strong: rgba(18, 16, 12, 0.07);
+    --grid-soft: rgba(18, 16, 12, 0.06);
+    --grid-body-a: rgba(18, 16, 12, 0.045);
+    --grid-body-b: rgba(18, 16, 12, 0.03);
+    --wash-indigo: rgba(79, 70, 229, 0.055);
+    --wash-gold: rgba(138, 102, 38, 0.07);
+
+    /* the noise reads as paper grain rather than film grain */
+    --noise-opacity: 0.035;
+    --noise-blend: multiply;
+
+    --frame-border: rgba(18, 16, 12, 0.12);
+    --frame-face: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.5) 100%);
+    --frame-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(18, 16, 12, 0.07),
+      inset 0 0 60px -30px rgba(18, 16, 12, 0.1),
+      0 24px 60px -44px rgba(18, 16, 12, 0.6);
+
+    --etch-face: linear-gradient(180deg, #ffffff 0%, #efebe1 100%);
+    --etch-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      inset 0 -1px 0 rgba(18, 16, 12, 0.14),
+      inset 0 0 0 1px rgba(18, 16, 12, 0.1),
+      0 8px 18px -14px rgba(18, 16, 12, 0.7);
+    --etch-shadow-hover:
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      inset 0 -1px 0 rgba(18, 16, 12, 0.16),
+      inset 0 0 0 1px rgba(138, 102, 38, 0.42),
+      0 12px 24px -16px rgba(138, 102, 38, 0.5);
+
+    --pill-face: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(250, 248, 243, 0.78) 100%);
+    --pill-shadow:
+      inset 0 0 0 1px rgba(18, 16, 12, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      inset 0 -1px 0 rgba(18, 16, 12, 0.06),
+      0 18px 38px -26px rgba(18, 16, 12, 0.55);
+
+    --search-face: linear-gradient(180deg, rgba(18, 16, 12, 0.07) 0%, rgba(255, 255, 255, 0.9) 100%);
+    --search-shadow:
+      inset 0 3px 8px rgba(18, 16, 12, 0.16),
+      inset 0 0 0 1px rgba(18, 16, 12, 0.1),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.9),
+      0 1px 0 rgba(255, 255, 255, 0.8);
+
+    --chip-face: linear-gradient(180deg, #ffffff, #f0ece2);
+    --chip-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      inset 0 -1px 0 rgba(18, 16, 12, 0.12),
+      inset 0 0 0 1px rgba(18, 16, 12, 0.09);
+
+    --conn-gold: rgba(138, 102, 38, 0.6);
+    --conn-indigo: rgba(79, 70, 229, 0.55);
+
+    --scrim: linear-gradient(to top, rgba(243, 240, 233, 0.97) 0%, rgba(243, 240, 233, 0.35) 45%, transparent 100%);
+    --glow-top: linear-gradient(to bottom, rgba(79, 70, 229, 0.035), transparent);
+    --fade-bottom: linear-gradient(to top, rgba(231, 226, 214, 0.85) 0%, transparent 100%);
+    --bar-fill: linear-gradient(to top, rgba(79, 70, 229, 0.35), rgba(138, 102, 38, 0.75));
+    --meter-fill: linear-gradient(to right, #4f46e5, #8a6626);
+    --blob-indigo: rgba(79, 70, 229, 0.09);
+    --blob-gold: rgba(138, 102, 38, 0.08);
+    --viewport-wash: radial-gradient(circle at 50% 45%, rgba(79, 70, 229, 0.1), transparent 62%);
+
+    --scroll-track: #f3f0e9;
+    --scroll-thumb: #cfc8b8;
+    --scroll-thumb-hover: #8a6626;
+
+    --img-grayscale: 0.85;
+  }
+
+  /* ---------- Scrollbar ---------- */
+  html { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) var(--scroll-track); }
+  ::-webkit-scrollbar { width: 0.5rem; height: 0.5rem; }
+  ::-webkit-scrollbar-track { background: var(--scroll-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+
+  body {
+    font-family: 'Manrope', sans-serif;
+    overflow-x: hidden;
+    color: var(--ink);
+    transition: background-color 0.45s ease, color 0.45s ease;
+  }
+
+  /* ---------- Lenis host styles ---------- */
+  html.lenis { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto; }
+  .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+  .lenis.lenis-stopped { overflow: hidden; }
+  .font-display { font-family: 'Gloock', serif; }
+  .font-tech { font-family: 'Bebas Neue', Impact, sans-serif; }
+
+  /* ---------- Global background: 135deg hairline + radial washes + 3rem/5rem grids ---------- */
+  .site-bg {
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(135deg, var(--hairline) 1px, transparent 1px),
+      radial-gradient(circle at 20% 10%, var(--wash-indigo), transparent 55%),
+      radial-gradient(circle at 80% 0%, var(--wash-gold), transparent 48%),
+      linear-gradient(to right, var(--grid-body-a) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-body-a) 1px, transparent 1px),
+      linear-gradient(to right, var(--grid-body-b) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-body-b) 1px, transparent 1px);
+    background-size:
+      3rem 3rem,
+      100% 100%,
+      100% 100%,
+      3rem 3rem,
+      3rem 3rem,
+      5rem 5rem,
+      5rem 5rem;
+  }
+
+  /* ---------- Section grids: 4rem coarse, 2rem fine ---------- */
+  .grid-4rem {
+    background-image:
+      linear-gradient(to right, var(--grid-strong) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-strong) 1px, transparent 1px);
+    background-size: 4rem 4rem;
+  }
+  .grid-2rem {
+    background-image:
+      linear-gradient(to right, var(--grid-soft) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-soft) 1px, transparent 1px);
+    background-size: 2rem 2rem;
+  }
+
+  /* ---------- Fixed fractal noise overlay ---------- */
+  .noise-overlay {
+    opacity: var(--noise-opacity);
+    mix-blend-mode: var(--noise-blend);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- Decorative gradient layers ---------- */
+  .glow-top { background-image: var(--glow-top); }
+  .fade-bottom { background-image: var(--fade-bottom); }
+  .scrim { background-image: var(--scrim); }
+  .viewport-wash { background-image: var(--viewport-wash); }
+  .blob-indigo { background-color: var(--blob-indigo); }
+  .blob-gold { background-color: var(--blob-gold); }
+  .bar-fill { background-image: var(--bar-fill); }
+  .meter-fill { background-image: var(--meter-fill); }
+  .rule-gold { background-color: var(--gold); opacity: 0.75; }
+  .rule-indigo { background-color: var(--indigo); opacity: 0.75; }
+  .dot-gold { background-color: var(--gold); opacity: 0.85; }
+  .chip-indigo {
+    border: 1px solid color-mix(in srgb, var(--indigo) 32%, transparent);
+    background-color: color-mix(in srgb, var(--indigo) 8%, transparent);
+    color: color-mix(in srgb, var(--indigo) 82%, var(--ink));
+  }
+
+  /* ---------- Glass-morphism console frame ---------- */
+  .frame-section {
+    border: 1px solid var(--frame-border);
+    background: var(--frame-face);
+    box-shadow: var(--frame-shadow);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* ---------- Partial corner accents: 10px indigo/40 ---------- */
+  .accent-corner {
+    position: absolute;
+    width: 1.6rem;
+    height: 1.6rem;
+    pointer-events: none;
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--indigo) 40%, transparent);
+    border-width: 0;
+    z-index: 5;
+  }
+  .accent-tl { top: -1px; left: -1px; border-top-width: 10px; border-left-width: 10px; }
+  .accent-tr { top: -1px; right: -1px; border-top-width: 10px; border-right-width: 10px; }
+  .accent-bl { bottom: -1px; left: -1px; border-bottom-width: 10px; border-left-width: 10px; }
+  .accent-br { bottom: -1px; right: -1px; border-bottom-width: 10px; border-right-width: 10px; }
+
+  /* ---------- Header logo: physical button gradient + shadow stack.
+       Stays a dark chip in both themes so the mark keeps its weight. ---------- */
+  .logo-btn {
+    background:
+      linear-gradient(160deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.02) 42%, rgba(0, 0, 0, 0.4) 100%),
+      linear-gradient(180deg, #191919 0%, #0a0a0a 100%);
+    color: #e8c382;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.38),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.95),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+      inset 0 0 14px -6px rgba(232, 195, 130, 0.55),
+      0 1px 0 rgba(0, 0, 0, 0.9),
+      0 8px 18px -8px rgba(0, 0, 0, 0.95),
+      0 0 26px -10px rgba(232, 195, 130, 0.5);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9), 0 0 12px rgba(232, 195, 130, 0.45);
+    transition: box-shadow 0.35s ease, transform 0.35s ease;
+  }
+  .logo-btn:hover { transform: translateY(-1px); }
+  .logo-btn:active { transform: translateY(1px); }
+
+  /* ---------- Etched / pressed buttons ---------- */
+  .btn-etch {
+    background: var(--etch-face);
+    box-shadow: var(--etch-shadow);
+    transition: box-shadow 0.3s ease, transform 0.3s ease, color 0.3s ease;
+  }
+  .btn-etch:hover { box-shadow: var(--etch-shadow-hover); }
+  .btn-etch:active { transform: translateY(1px); }
+
+  .btn-gold {
+    color: var(--gold-ink);
+    background: linear-gradient(180deg, #f6e0b8 0%, #e8c382 42%, #c49a58 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.75),
+      inset 0 -2px 0 rgba(53, 30, 16, 0.32),
+      inset 0 0 0 1px rgba(53, 30, 16, 0.18),
+      0 14px 32px -18px rgba(232, 195, 130, 0.9);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  .btn-gold:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -2px 0 rgba(53,30,16,.35), 0 18px 40px -18px rgba(232,195,130,1); }
+  .btn-gold:active { transform: translateY(1px); }
+
+  /* ---------- Floating UI pills ---------- */
+  .pill {
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    background: var(--pill-face);
+    box-shadow: var(--pill-shadow);
+  }
+
+  /* ---------- Inset search field ---------- */
+  .search-inset {
+    background: var(--search-face);
+    box-shadow: var(--search-shadow);
+  }
+  .search-inset input { color: var(--ink); }
+  .search-inset input::placeholder { color: color-mix(in srgb, var(--ink) 42%, transparent); }
+
+  /* ---------- Connector lines ---------- */
+  .connector path {
+    stroke-dasharray: 6 8;
+    animation: dash-run 2.8s linear infinite;
+  }
+  .connector .conn-gold { stroke: var(--conn-gold); }
+  .connector .conn-indigo { stroke: var(--conn-indigo); }
+  .connector path:nth-child(2) { animation-duration: 3.4s; }
+  .connector path:nth-child(3) { animation-duration: 3.1s; }
+  .connector path:nth-child(4) { animation-duration: 3.8s; }
+  @keyframes dash-run { to { stroke-dashoffset: -56; } }
+
+  /* ---------- Word reveal ---------- */
+  .word-mask { display: inline-block; overflow: hidden; vertical-align: bottom; padding-bottom: 0.06em; }
+  .word { display: inline-block; will-change: transform, filter; }
+
+  /* ---------- Architecture card hover: top border gradient ---------- */
+  .arch-card::before {
+    content: "";
+    position: absolute;
+    inset: -1px -1px auto -1px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--indigo) 32%, var(--gold) 62%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    z-index: 6;
+  }
+  .arch-card:hover::before { opacity: 1; }
+  .arch-card { transition: border-color 0.5s ease; }
+  .arch-card:hover { border-color: color-mix(in srgb, var(--ink) 18%, transparent); }
+
+  /* ---------- Nav ---------- */
+  .nav-link {
+    position: relative;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.26em;
+    color: color-mix(in srgb, var(--ink) 52%, transparent);
+    transition: color 0.3s ease;
+  }
+  .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0; bottom: -0.55rem;
+    width: 0; height: 1px;
+    background: var(--gold);
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .nav-link:hover { color: var(--ink); }
+  .nav-link:hover::after { width: 100%; }
+
+  .icon-chip {
+    display: grid;
+    place-items: center;
+    width: 2.5rem; height: 2.5rem;
+    flex: 0 0 auto;
+    border-radius: 0.55rem;
+    color: var(--gold);
+    background: var(--chip-face);
+    box-shadow: var(--chip-shadow);
+  }
+
+  .pulse-dot { position: relative; display: inline-flex; width: 0.45rem; height: 0.45rem; border-radius: 999px; background: var(--indigo); }
+  .pulse-dot::after {
+    content: ""; position: absolute; inset: 0; border-radius: 999px; background: var(--indigo);
+    animation: pulse-ring 1.9s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.75; } 80%, 100% { transform: scale(3.2); opacity: 0; } }
+
+  .rule-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.34em;
+    color: color-mix(in srgb, var(--ink) 42%, transparent);
+  }
+
+  canvas { display: block; }
+  .asset-img {
+    filter: grayscale(var(--img-grayscale));
+    transition: filter 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .asset-card:hover .asset-img { filter: grayscale(0) contrast(1.02); }
+
+  /* ---------- Theme toggle: shows the icon for the theme you'd switch TO ---------- */
+  #themeToggle .icon-sun { display: none; }
+  [data-theme="light"] #themeToggle .icon-sun { display: none; }
+  [data-theme="light"] #themeToggle .icon-moon { display: inline-flex; }
+  #themeToggle .icon-moon { display: inline-flex; }
+  [data-theme="dark"] #themeToggle .icon-moon { display: none; }
+  [data-theme="dark"] #themeToggle .icon-sun { display: inline-flex; }
+
+  /* ============================================================
+     LIGHT-MODE OVERRIDES for the Tailwind utilities in the markup.
+     Specificity (0,2,0) beats the CDN's (0,1,0) regardless of order.
+     ============================================================ */
+  [data-theme="light"] .text-white { color: var(--ink); }
+  [data-theme="light"] .text-white\/90 { color: rgba(18, 16, 12, 0.9); }
+  [data-theme="light"] .text-white\/85 { color: rgba(18, 16, 12, 0.86); }
+  [data-theme="light"] .text-white\/80 { color: rgba(18, 16, 12, 0.8); }
+  [data-theme="light"] .text-white\/70 { color: rgba(18, 16, 12, 0.72); }
+  [data-theme="light"] .text-white\/60 { color: rgba(18, 16, 12, 0.64); }
+  [data-theme="light"] .text-white\/55 { color: rgba(18, 16, 12, 0.62); }
+  [data-theme="light"] .text-white\/50 { color: rgba(18, 16, 12, 0.6); }
+  [data-theme="light"] .text-white\/45 { color: rgba(18, 16, 12, 0.56); }
+  [data-theme="light"] .text-white\/40 { color: rgba(18, 16, 12, 0.52); }
+  [data-theme="light"] .text-white\/35 { color: rgba(18, 16, 12, 0.48); }
+  [data-theme="light"] .text-white\/25 { color: rgba(18, 16, 12, 0.4); }
+
+  [data-theme="light"] .border-white\/10 { border-color: rgba(18, 16, 12, 0.12); }
+  [data-theme="light"] .border-white\/15 { border-color: rgba(18, 16, 12, 0.16); }
+  [data-theme="light"] .bg-white\/10 { background-color: rgba(18, 16, 12, 0.06); }
+  [data-theme="light"] .bg-black\/50 { background-color: rgba(231, 226, 214, 0.6); }
+
+  [data-theme="light"] .bg-\[\#070707\] { background-color: var(--bg); }
+  [data-theme="light"] .bg-\[\#070707\]\/70 { background-color: rgba(243, 240, 233, 0.78); }
+  [data-theme="light"] .bg-\[\#070707\]\/95 { background-color: rgba(243, 240, 233, 0.96); }
+  [data-theme="light"] .bg-\[\#060606\] { background-color: var(--bg-elev); }
+
+  [data-theme="light"] .text-\[\#e8c382\],
+  [data-theme="light"] .text-\[\#e8c382\]\/85 { color: var(--gold); }
+  [data-theme="light"] .text-indigo-300,
+  [data-theme="light"] .text-indigo-200\/80 { color: #4338ca; }
+
+  [data-theme="light"] .mix-blend-overlay,
+  [data-theme="light"] .mix-blend-screen { mix-blend-mode: multiply; }
+
+  html[data-theme="light"] ::selection { background: #351e10; color: #f3f0e9; }
+
+  .avatar-shadow { box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 1); }
+  [data-theme="light"] .avatar-shadow { box-shadow: 0 8px 18px -12px rgba(18, 16, 12, 0.75); }
+  [data-theme="light"] .bg-white\/\[0\.06\] { background-color: rgba(18, 16, 12, 0.06); }
+</style>
+</head>
+
+<body class="site-bg bg-[#070707] text-white antialiased selection:bg-[#e8c382] selection:text-[#351e10]">
+
+<!-- ===== Fixed noise overlay (z-50) ===== -->
+<div class="noise-overlay pointer-events-none fixed inset-0 z-50"></div>
+
+<!-- ===== Fixed grid background (z-0) ===== -->
+<div class="pointer-events-none fixed inset-0 z-0">
+  <div class="absolute inset-0 grid-4rem opacity-[0.35] mix-blend-overlay"></div>
+  <div class="glow-top absolute inset-x-0 top-0 h-[45vh]"></div>
+  <div class="fade-bottom absolute inset-x-0 bottom-0 h-[40vh]"></div>
+</div>
+
+<!-- ===== Header (z-20) ===== -->
+<header class="relative z-20 border-b border-white/10 bg-[#070707]/70 backdrop-blur-xl">
+  <div class="mx-auto flex max-w-[110rem] items-center gap-5 px-5 py-4 md:px-10">
+    <a href="#top" class="group flex items-center gap-3">
+      <span class="logo-btn grid h-11 w-11 place-items-center rounded-[0.7rem] font-tech text-[1.35rem] leading-none tracking-[0.06em] text-[#e8c382]">VL</span>
+      <span class="hidden leading-none sm:block">
+        <span class="block font-display text-[1.05rem] leading-none">Vectorline</span>
+        <span class="mt-[0.35rem] block font-mono text-[0.58rem] uppercase tracking-[0.34em] text-white/40">Spatial Systems</span>
+      </span>
+    </a>
+
+    <nav class="ml-auto hidden items-center gap-9 lg:flex">
+      <a class="nav-link" href="#architecture">Architecture</a>
+      <a class="nav-link" href="#signals">Signals</a>
+      <a class="nav-link" href="#assets">Assets</a>
+      <a class="nav-link" href="#contact">Archive</a>
+    </nav>
+
+    <div class="ml-auto hidden items-center gap-3 border-l border-white/10 pl-6 lg:ml-9 lg:flex">
+      <span class="pulse-dot"></span>
+      <span class="font-mono text-[0.58rem] uppercase tracking-[0.28em] text-white/45">Node&nbsp;/&nbsp;EU-West&nbsp;·&nbsp;Live</span>
+    </div>
+
+    <button id="themeToggle" class="btn-etch ml-auto grid h-11 w-11 place-items-center rounded-lg text-white/70 hover:text-white lg:ml-4" aria-label="Switch to light theme" title="Switch theme">
+      <iconify-icon class="icon-sun text-lg" icon="lucide:sun"></iconify-icon>
+      <iconify-icon class="icon-moon text-lg" icon="lucide:moon"></iconify-icon>
+    </button>
+
+    <a href="#contact" class="btn-etch ml-2 hidden rounded-lg px-5 py-2.5 font-mono text-[0.6rem] uppercase tracking-[0.28em] text-white/80 hover:text-white md:inline-flex lg:ml-6">
+      Request access
+    </a>
+
+    <button id="menuBtn" class="btn-etch ml-2 grid h-11 w-11 place-items-center rounded-lg text-white/70 lg:hidden" aria-label="Open menu">
+      <iconify-icon icon="lucide:menu" class="text-lg"></iconify-icon>
+    </button>
+  </div>
+
+  <div id="mobileMenu" class="hidden border-t border-white/10 bg-[#070707]/95 px-5 py-5 backdrop-blur-xl lg:hidden">
+    <div class="flex flex-col gap-5">
+      <a class="nav-link" href="#architecture">Architecture</a>
+      <a class="nav-link" href="#signals">Signals</a>
+      <a class="nav-link" href="#assets">Assets</a>
+      <a class="nav-link" href="#contact">Archive</a>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Main (z-10) ===== -->
+<main id="top" class="relative z-10">
+
+  <!-- ================= SECTION 1 — HERO / MODEL ================= -->
+  <section class="relative overflow-hidden px-5 pb-16 pt-12 md:px-10 md:pb-24 md:pt-14">
+    <div class="pointer-events-none absolute inset-0 grid-4rem opacity-40 mix-blend-overlay"></div>
+    <div class="pointer-events-none absolute -left-40 top-10 h-[32rem] w-[32rem] rounded-full blob-indigo blur-[130px]"></div>
+    <div class="pointer-events-none absolute -right-40 -top-24 h-[30rem] w-[30rem] rounded-full blob-gold blur-[130px]"></div>
+
+    <div class="relative mx-auto grid max-w-[110rem] gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-14">
+
+      <!-- LEFT COLUMN -->
+      <div class="reveal-block flex flex-col justify-center">
+        <div class="inline-flex w-fit items-center gap-3 chip-indigo rounded-full px-4 py-2">
+          <span class="pulse-dot"></span>
+          <span class="font-mono text-[0.58rem] uppercase tracking-[0.3em] text-indigo-200/80">Build 2.4 · Mesh online</span>
+        </div>
+
+        <h1 data-reveal class="mt-7 font-display text-[2.5rem] leading-[1.04] tracking-[-0.01em] sm:text-[3rem] lg:text-[3.4rem] xl:text-[3.8rem]">
+          Precision geometry for computed environments.
+        </h1>
+
+        <p class="mt-6 max-w-xl text-[0.95rem] leading-relaxed text-white/55">
+          Vectorline is a spatial systems console. We model isometric architecture, route memory across
+          distributed meshes, and keep every frame auditable — from the first vector to the final render pass.
+        </p>
+
+        <!-- Dual feature grid -->
+        <div class="mt-8 grid gap-4 sm:grid-cols-2">
+          <div class="frame-section relative overflow-hidden rounded-xl p-5">
+            <span class="accent-corner accent-tl"></span>
+            <span class="icon-chip"><iconify-icon icon="solar:atom-linear" class="text-lg"></iconify-icon></span>
+            <h3 class="mt-4 font-tech text-xl tracking-[0.06em] text-white/90">Vector Core</h3>
+            <p class="mt-2 text-[0.8rem] leading-relaxed text-white/45">
+              Deterministic geometry kernels with sub-millimetre tolerance across every export target.
+            </p>
+          </div>
+          <div class="frame-section relative overflow-hidden rounded-xl p-5">
+            <span class="accent-corner accent-tr"></span>
+            <span class="icon-chip"><iconify-icon icon="solar:routing-2-linear" class="text-lg"></iconify-icon></span>
+            <h3 class="mt-4 font-tech text-xl tracking-[0.06em] text-white/90">Route Memory</h3>
+            <p class="mt-2 text-[0.8rem] leading-relaxed text-white/45">
+              Every traversal is written to an append-only ledger and replayable frame by frame.
+            </p>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-8 flex flex-wrap items-center gap-3">
+          <a href="#architecture" class="btn-gold inline-flex items-center gap-2 rounded-lg px-6 py-3.5 font-mono text-[0.62rem] uppercase tracking-[0.26em]">
+            Open the console
+            <iconify-icon icon="lucide:arrow-up-right" class="text-base"></iconify-icon>
+          </a>
+          <a href="#signals" class="btn-etch inline-flex items-center gap-2 rounded-lg px-6 py-3.5 font-mono text-[0.62rem] uppercase tracking-[0.26em] text-white/80 hover:text-white">
+            Read signals
+          </a>
+        </div>
+
+        <!-- Operator stack -->
+        <div class="mt-8 flex items-center gap-5 border-t border-white/10 pt-6">
+          <div class="flex -space-x-3">
+            <img src="https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/b94b411a-e647-4262-bb32-dd6dd64ce236_1600w.png" alt="Maya, systems operator" class="h-11 w-11 rounded-full border border-white/15 object-cover avatar-shadow" />
+            <img src="https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/2e8160c9-b485-42e9-bd6b-25a41e4ebda2_1600w.png" alt="Theo, mesh engineer" class="h-11 w-11 rounded-full border border-white/15 object-cover avatar-shadow" />
+            <img src="https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/51103d1b-20cf-4050-bc90-32838f19e2e2_3840w.png" alt="Ilya, render lead" class="h-11 w-11 rounded-full border border-white/15 object-cover avatar-shadow" />
+            <span class="grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-white/[0.06] font-mono text-[0.6rem] text-white/60 backdrop-blur">+9</span>
+          </div>
+          <div>
+            <div class="font-tech text-lg leading-none tracking-[0.06em] text-white/85">Maya · Theo · Ilya</div>
+            <div class="mt-1.5 rule-label font-mono">Operators on shift · 24/7 coverage</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN — model viewport -->
+      <div class="frame-section relative overflow-hidden rounded-2xl p-3 md:p-5">
+        <span class="accent-corner accent-tl"></span>
+        <span class="accent-corner accent-tr"></span>
+        <span class="accent-corner accent-bl"></span>
+        <span class="accent-corner accent-br"></span>
+
+        <div class="mb-3 flex items-center justify-between px-1.5">
+          <div class="flex items-center gap-2.5">
+            <span class="dot-gold h-2 w-2 rounded-full"></span>
+            <span class="font-mono text-[0.58rem] uppercase tracking-[0.3em] text-white/40">viewport · isometric</span>
+          </div>
+          <span class="font-mono text-[0.58rem] uppercase tracking-[0.3em] text-white/25">ortho / 1.0×</span>
+        </div>
+
+        <div class="relative aspect-[16/11] w-full overflow-hidden rounded-xl border border-white/10 bg-[#060606]">
+          <div class="pointer-events-none absolute inset-0 grid-2rem opacity-30 mix-blend-screen"></div>
+          <div class="pointer-events-none absolute inset-0 viewport-wash"></div>
+
+          <canvas id="wireframeCanvas" class="absolute inset-0 h-full w-full"></canvas>
+
+          <!-- Connector layer -->
+          <svg class="connector pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 1000 700" fill="none" preserveAspectRatio="none" aria-hidden="true">
+            <path class="conn-gold" d="M188 158 H316 V254" stroke-width="1.5" />
+            <path class="conn-indigo" d="M816 172 H686 V278" stroke-width="1.5" />
+            <path class="conn-indigo" d="M196 526 H356 V426" stroke-width="1.5" />
+            <path class="conn-gold" d="M790 552 H636 V446" stroke-width="1.5" />
+          </svg>
+
+          <!-- UI pills -->
+          <div class="pill absolute left-[3%] top-[15%] z-20 rounded-lg px-3.5 py-2.5">
+            <div class="flex items-center gap-2.5">
+              <iconify-icon icon="solar:atom-linear" class="text-sm text-[#e8c382]"></iconify-icon>
+              <span class="font-mono text-[0.56rem] uppercase tracking-[0.26em] text-white/70">Sync mesh</span>
+            </div>
+            <div class="mt-1.5 font-tech text-xl leading-none tracking-[0.05em] text-white/90">04.912</div>
+          </div>
+
+          <div class="pill absolute right-[3%] top-[17%] z-20 rounded-lg px-3.5 py-2.5">
+            <div class="flex items-center gap-2.5">
+              <iconify-icon icon="solar:routing-2-linear" class="text-sm text-indigo-300"></iconify-icon>
+              <span class="font-mono text-[0.56rem] uppercase tracking-[0.26em] text-white/70">Route memory</span>
+            </div>
+            <div class="mt-1.5 font-tech text-xl leading-none tracking-[0.05em] text-white/90">128 ND</div>
+          </div>
+
+          <div class="pill absolute bottom-[16%] left-[3%] z-20 w-[10.5rem] rounded-lg px-3.5 py-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-mono text-[0.56rem] uppercase tracking-[0.26em] text-white/70">Canvas load</span>
+              <span id="canvasLoadValue" class="font-tech text-base leading-none tracking-[0.05em] text-[#e8c382]">87%</span>
+            </div>
+            <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/10">
+              <div id="canvasLoadBar" class="meter-fill h-full w-[87%] rounded-full"></div>
+            </div>
+          </div>
+
+          <div class="pill absolute bottom-[14%] right-[3%] z-20 rounded-lg px-3.5 py-2.5">
+            <div class="flex items-center gap-2.5">
+              <iconify-icon icon="solar:shield-check-linear" class="text-sm text-indigo-300"></iconify-icon>
+              <span class="font-mono text-[0.56rem] uppercase tracking-[0.26em] text-white/70">Depth buffer</span>
+            </div>
+            <div class="mt-1.5 font-tech text-xl leading-none tracking-[0.05em] text-white/90">Stable</div>
+          </div>
+        </div>
+
+        <div class="mt-3 grid grid-cols-2 gap-3 px-1.5 sm:grid-cols-4">
+          <div><div class="rule-label font-mono">Vertices</div><div class="mt-1 font-tech text-xl tracking-[0.05em]">24,880</div></div>
+          <div><div class="rule-label font-mono">Draw calls</div><div class="mt-1 font-tech text-xl tracking-[0.05em]">36</div></div>
+          <div><div class="rule-label font-mono">Frame</div><div class="mt-1 font-tech text-xl tracking-[0.05em]">16.6 ms</div></div>
+          <div><div class="rule-label font-mono">Projection</div><div class="mt-1 font-tech text-xl tracking-[0.05em]">Isometric</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SECTION 2 — CORE ARCHITECTURE ================= -->
+  <section id="architecture" class="relative px-5 py-20 md:px-10 md:py-28">
+    <div class="pointer-events-none absolute inset-0 grid-4rem opacity-40 mix-blend-overlay"></div>
+
+    <div class="relative mx-auto max-w-[110rem]">
+      <div class="grid gap-8 border-b border-white/10 pb-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="rule-gold h-px w-10"></span>
+            <span class="rule-label font-mono">02 — Core architecture</span>
+          </div>
+          <h2 data-reveal class="mt-6 font-display text-[2.1rem] leading-[1.08] sm:text-[2.7rem] lg:text-[3.1rem]">
+            Four modules holding the system upright.
+          </h2>
+        </div>
+        <p class="max-w-2xl text-[0.95rem] leading-relaxed text-white/50 lg:pb-3">
+          Each module runs its own orthographic scene and reports into the same clock. Nothing renders
+          speculatively — geometry is committed, consensus is reached, access is gated, and the trail is written.
+        </p>
+      </div>
+
+      <div class="mt-10 grid grid-cols-1 gap-5 md:grid-cols-12">
+
+        <!-- Card 01 -->
+        <article class="arch-card frame-section relative overflow-hidden rounded-2xl p-5 md:col-span-5 md:p-7">
+          <span class="accent-corner accent-tl"></span>
+          <div class="relative h-52 w-full overflow-hidden rounded-xl border border-white/10 bg-black/50 md:h-60">
+            <div class="pointer-events-none absolute inset-0 grid-2rem opacity-25 mix-blend-screen"></div>
+            <canvas class="technical-scene absolute inset-0 h-full w-full" data-scene="lattice"></canvas>
+          </div>
+          <div class="mt-6 flex items-start gap-4">
+            <span class="icon-chip"><iconify-icon icon="solar:atom-linear" class="text-lg"></iconify-icon></span>
+            <div>
+              <h3 class="font-display text-xl leading-none">Quantum Lattice</h3>
+              <p class="mt-3 text-[0.85rem] leading-relaxed text-white/50">
+                A fixed 4×4×4 solve space. Every node holds position, weight and phase, so a scene can be
+                rebuilt from coordinates alone.
+              </p>
+            </div>
+          </div>
+          <div class="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
+            <span class="rule-label font-mono">Module 01</span>
+            <span class="rule-label font-mono">64 nodes</span>
+          </div>
+        </article>
+
+        <!-- Card 02 -->
+        <article class="arch-card frame-section relative overflow-hidden rounded-2xl p-5 md:col-span-7 md:p-7">
+          <span class="accent-corner accent-tr"></span>
+          <div class="relative h-52 w-full overflow-hidden rounded-xl border border-white/10 bg-black/50 md:h-60">
+            <div class="pointer-events-none absolute inset-0 grid-2rem opacity-25 mix-blend-screen"></div>
+            <canvas class="technical-scene absolute inset-0 h-full w-full" data-scene="consensus"></canvas>
+          </div>
+          <div class="mt-6 flex items-start gap-4">
+            <span class="icon-chip"><iconify-icon icon="solar:cpu-bolt-linear" class="text-lg"></iconify-icon></span>
+            <div>
+              <h3 class="font-display text-xl leading-none">Node Consensus</h3>
+              <p class="mt-3 max-w-xl text-[0.85rem] leading-relaxed text-white/50">
+                Eight peers agree on frame state before a single pixel is committed. Quorum is visible in
+                the ring — dim peers are still catching up, bright peers have signed.
+              </p>
+            </div>
+          </div>
+          <div class="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
+            <span class="rule-label font-mono">Module 02</span>
+            <span class="rule-label font-mono">Quorum 6 / 8</span>
+          </div>
+        </article>
+
+        <!-- Card 03 -->
+        <article class="arch-card frame-section relative overflow-hidden rounded-2xl p-5 md:col-span-7 md:p-7">
+          <span class="accent-corner accent-bl"></span>
+          <div class="relative h-52 w-full overflow-hidden rounded-xl border border-white/10 bg-black/50 md:h-60">
+            <div class="pointer-events-none absolute inset-0 grid-2rem opacity-25 mix-blend-screen"></div>
+            <canvas class="technical-scene absolute inset-0 h-full w-full" data-scene="access"></canvas>
+          </div>
+          <div class="mt-6 flex items-start gap-4">
+            <span class="icon-chip"><iconify-icon icon="solar:shield-keyhole-linear" class="text-lg"></iconify-icon></span>
+            <div>
+              <h3 class="font-display text-xl leading-none">Access Control</h3>
+              <p class="mt-3 max-w-xl text-[0.85rem] leading-relaxed text-white/50">
+                Three concentric gates on independent axes. Scope, session and device each rotate on their
+                own schedule — the core only opens when all three align.
+              </p>
+            </div>
+          </div>
+          <div class="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
+            <span class="rule-label font-mono">Module 03</span>
+            <span class="rule-label font-mono">3 gates</span>
+          </div>
+        </article>
+
+        <!-- Card 04 -->
+        <article class="arch-card frame-section relative overflow-hidden rounded-2xl p-5 md:col-span-5 md:p-7">
+          <span class="accent-corner accent-br"></span>
+          <div class="relative h-52 w-full overflow-hidden rounded-xl border border-white/10 bg-black/50 md:h-60">
+            <div class="pointer-events-none absolute inset-0 grid-2rem opacity-25 mix-blend-screen"></div>
+            <canvas class="technical-scene absolute inset-0 h-full w-full" data-scene="audit"></canvas>
+          </div>
+          <div class="mt-6 flex items-start gap-4">
+            <span class="icon-chip"><iconify-icon icon="solar:document-text-linear" class="text-lg"></iconify-icon></span>
+            <div>
+              <h3 class="font-display text-xl leading-none">Audit Trails</h3>
+              <p class="mt-3 text-[0.85rem] leading-relaxed text-white/50">
+                An append-only waveform of every mutation. Scrub back to any frame and the console
+                reconstructs exactly what was on screen.
+              </p>
+            </div>
+          </div>
+          <div class="mt-6 flex items-center justify-between border-t border-white/10 pt-4">
+            <span class="rule-label font-mono">Module 04</span>
+            <span class="rule-label font-mono">Append-only</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SECTION 3 — SIGNALS ================= -->
+  <section id="signals" class="relative px-5 py-20 md:px-10 md:py-28">
+    <div class="pointer-events-none absolute inset-0 grid-2rem opacity-25 mix-blend-overlay"></div>
+    <div class="pointer-events-none absolute left-1/2 top-0 h-[26rem] w-[42rem] -translate-x-1/2 rounded-full blob-indigo blur-[140px]"></div>
+
+    <div class="relative mx-auto grid max-w-[110rem] gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+
+      <!-- Left -->
+      <div>
+        <div class="flex items-center gap-3">
+          <span class="rule-indigo h-px w-10"></span>
+          <span class="rule-label font-mono">03 — Signals</span>
+        </div>
+        <h2 data-reveal class="mt-6 font-display text-[2.1rem] leading-[1.08] sm:text-[2.6rem]">
+          The console tells you what it is doing.
+        </h2>
+        <p class="mt-6 max-w-lg text-[0.95rem] leading-relaxed text-white/50">
+          No hidden queues, no silent retries. Every number below is read straight off the running mesh and
+          refreshed on the same frame clock that drives the models above.
+        </p>
+
+        <ul class="mt-9 space-y-4">
+          <li class="flex items-start gap-4 border-t border-white/10 pt-4">
+            <iconify-icon icon="solar:pulse-linear" class="mt-0.5 text-lg text-[#e8c382]"></iconify-icon>
+            <div>
+              <div class="font-tech text-lg tracking-[0.06em] text-white/90">Frame-locked telemetry</div>
+              <p class="mt-1 text-[0.82rem] leading-relaxed text-white/45">Sampled at render time, never interpolated after the fact.</p>
+            </div>
+          </li>
+          <li class="flex items-start gap-4 border-t border-white/10 pt-4">
+            <iconify-icon icon="solar:database-linear" class="mt-0.5 text-lg text-[#e8c382]"></iconify-icon>
+            <div>
+              <div class="font-tech text-lg tracking-[0.06em] text-white/90">Replayable history</div>
+              <p class="mt-1 text-[0.82rem] leading-relaxed text-white/45">Ninety days of frames held hot, everything older archived cold.</p>
+            </div>
+          </li>
+          <li class="flex items-start gap-4 border-t border-white/10 pt-4">
+            <iconify-icon icon="solar:bell-bing-linear" class="mt-0.5 text-lg text-[#e8c382]"></iconify-icon>
+            <div>
+              <div class="font-tech text-lg tracking-[0.06em] text-white/90">Threshold alerts</div>
+              <p class="mt-1 text-[0.82rem] leading-relaxed text-white/45">Drift past tolerance and the mesh pages an operator before the render lands.</p>
+            </div>
+          </li>
+        </ul>
+
+        <a href="#contact" class="btn-etch mt-9 inline-flex items-center gap-2 rounded-lg px-6 py-3.5 font-mono text-[0.62rem] uppercase tracking-[0.26em] text-white/80 hover:text-white">
+          Open full readout
+          <iconify-icon icon="lucide:arrow-up-right" class="text-base"></iconify-icon>
+        </a>
+      </div>
+
+      <!-- Right — metric grid -->
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div class="frame-section relative overflow-hidden rounded-xl p-6">
+          <span class="accent-corner accent-tl"></span>
+          <iconify-icon icon="solar:graph-up-linear" class="text-2xl text-[#e8c382]/85"></iconify-icon>
+          <div class="mt-8 font-tech text-[3.6rem] leading-[0.85] tracking-[0.02em]">99.982<span class="ml-1 align-top font-tech text-2xl text-white/35">%</span></div>
+          <div class="mt-3 rule-label font-mono">Mesh coherence · 30d</div>
+        </div>
+
+        <div class="frame-section relative overflow-hidden rounded-xl p-6">
+          <span class="accent-corner accent-tr"></span>
+          <iconify-icon icon="solar:clock-circle-linear" class="text-2xl text-[#e8c382]/85"></iconify-icon>
+          <div class="mt-8 font-tech text-[3.6rem] leading-[0.85] tracking-[0.02em]">16.6<span class="ml-1 align-top font-tech text-2xl text-white/35">ms</span></div>
+          <div class="mt-3 rule-label font-mono">Median frame time</div>
+        </div>
+
+        <div class="frame-section relative overflow-hidden rounded-xl p-6">
+          <span class="accent-corner accent-bl"></span>
+          <iconify-icon icon="solar:layers-minimalistic-linear" class="text-2xl text-[#e8c382]/85"></iconify-icon>
+          <div class="mt-8 font-tech text-[3.6rem] leading-[0.85] tracking-[0.02em]">1,284</div>
+          <div class="mt-3 rule-label font-mono">Committed geometries</div>
+        </div>
+
+        <div class="frame-section relative overflow-hidden rounded-xl p-6">
+          <span class="accent-corner accent-br"></span>
+          <iconify-icon icon="solar:server-square-linear" class="text-2xl text-[#e8c382]/85"></iconify-icon>
+          <div class="mt-8 font-tech text-[3.6rem] leading-[0.85] tracking-[0.02em]">08<span class="ml-1 align-top font-tech text-2xl text-white/35">/08</span></div>
+          <div class="mt-3 rule-label font-mono">Peers in quorum</div>
+        </div>
+
+        <!-- Wide throughput card -->
+        <div class="frame-section relative overflow-hidden rounded-xl p-6 sm:col-span-2">
+          <span class="accent-corner accent-bl"></span>
+          <span class="accent-corner accent-br"></span>
+          <div class="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div class="rule-label font-mono">Throughput · last 24 frames</div>
+              <div class="mt-3 font-tech text-[3rem] leading-[0.85] tracking-[0.02em]">4.9<span class="ml-1 align-top font-tech text-xl text-white/35">M vec/s</span></div>
+            </div>
+            <div class="flex items-center gap-2 chip-indigo rounded-full px-3.5 py-1.5">
+              <span class="pulse-dot"></span>
+              <span class="font-mono text-[0.56rem] uppercase tracking-[0.26em] text-indigo-200/80">Nominal</span>
+            </div>
+          </div>
+          <div class="mt-7 flex h-24 items-end gap-1.5" id="throughputBars"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SECTION 4 — ASSET ACQUISITION ================= -->
+  <section id="assets" class="relative px-5 py-20 md:px-10 md:py-28">
+    <div class="pointer-events-none absolute inset-0 grid-4rem opacity-40 mix-blend-overlay"></div>
+
+    <div class="relative mx-auto max-w-[110rem]">
+      <div class="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="rule-gold h-px w-10"></span>
+            <span class="rule-label font-mono">04 — Asset acquisition</span>
+          </div>
+          <h2 data-reveal class="mt-6 max-w-3xl font-display text-[2.1rem] leading-[1.08] sm:text-[2.7rem] lg:text-[3.1rem]">
+            Source geometry, studies and captures from the archive.
+          </h2>
+        </div>
+
+        <!-- Search bar -->
+        <div class="w-full lg:w-[26rem]">
+          <label class="search-inset flex items-center gap-3 rounded-xl px-4 py-3.5">
+            <iconify-icon icon="solar:magnifer-linear" class="text-lg text-white/40"></iconify-icon>
+            <input id="assetSearch" type="search" placeholder="Search the archive…" class="w-full bg-transparent font-mono text-[0.72rem] uppercase tracking-[0.16em] text-white/80 outline-none" />
+            <span class="btn-etch hidden shrink-0 rounded-md px-2 py-1 font-mono text-[0.55rem] uppercase tracking-[0.2em] text-white/40 sm:inline-block">⌘K</span>
+          </label>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button class="btn-etch rounded-md px-3 py-1.5 font-mono text-[0.55rem] uppercase tracking-[0.22em] text-white/50">Geometry</button>
+            <button class="btn-etch rounded-md px-3 py-1.5 font-mono text-[0.55rem] uppercase tracking-[0.22em] text-white/50">Studies</button>
+            <button class="btn-etch rounded-md px-3 py-1.5 font-mono text-[0.55rem] uppercase tracking-[0.22em] text-white/50">Captures</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5-column asset grid -->
+      <div class="mt-12 grid grid-cols-2 gap-4 md:grid-cols-5" id="assetGrid">
+
+        <figure class="asset-card frame-section group relative overflow-hidden rounded-xl" data-asset="abstract wave geometry">
+          <span class="accent-corner accent-tl"></span>
+          <div class="relative h-[19rem] overflow-hidden md:h-[24rem]">
+            <img data-parallax src="https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/fa51902b-c2a4-4c33-a96e-a8f1ef67edc6_1600w.jpg" alt="Abstract wave" class="asset-img absolute inset-x-0 -top-[15%] h-[130%] w-full object-cover" />
+            <div class="scrim pointer-events-none absolute inset-0"></div>
+          </div>
+          <figcaption class="absolute inset-x-0 bottom-0 p-4">
+            <div class="rule-label font-mono">AR-014</div>
+            <div class="mt-1.5 font-tech text-xl leading-none tracking-[0.05em]">Abstract wave</div>
+          </figcaption>
+        </figure>
+
+        <figure class="asset-card frame-section group relative overflow-hidden rounded-xl" data-asset="glass habitat structure">
+          <div class="relative h-[19rem] overflow-hidden md:h-[24rem]">
+            <img data-parallax src="https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/2ad43cd6-06fd-4688-8d31-1255a49e65b6_1600w.png" alt="Glass habitat" class="asset-img absolute inset-x-0 -top-[15%] h-[130%] w-full object-cover" />
+            <div class="scrim pointer-events-none absolute inset-0"></div>
+          </div>
+          <figcaption class="absolute inset-x-0 bottom-0 p-4">
+            <div class="rule-label font-mono">AR-027</div>
+            <div class="mt-1.5 font-tech text-xl leading-none tracking-[0.05em]">Glass habitat</div>
+          </figcaption>
+        </figure>
+
+        <figure class="asset-card frame-section group relative overflow-hidden rounded-xl" data-asset="pyramid study geometry">
+          <div class="relative h-[19rem] overflow-hidden md:h-[24rem]">
+            <img data-parallax src="https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/0381c1be-4833-400e-8980-ba655a35c355_1600w.png" alt="Pyramid study" class="asset-img absolute inset-x-0 -top-[15%] h-[130%] w-full object-cover" />
+            <div class="scrim pointer-events-none absolute inset-0"></div>
+          </div>
+          <figcaption class="absolute inset-x-0 bottom-0 p-4">
+            <div class="rule-label font-mono">AR-031</div>
+            <div class="mt-1.5 font-tech text-xl leading-none tracking-[0.05em]">Pyramid study</div>
+          </figcaption>
+        </figure>
+
+        <figure class="asset-card frame-section group relative overflow-hidden rounded-xl" data-asset="studio subject capture">
+          <div class="relative h-[19rem] overflow-hidden md:h-[24rem]">
+            <img data-parallax src="https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/ad4abe08-8cf7-4aff-8f68-7b905586a39f_1600w.png" alt="Studio subject" class="asset-img absolute inset-x-0 -top-[15%] h-[130%] w-full object-cover" />
+            <div class="scrim pointer-events-none absolute inset-0"></div>
+          </div>
+          <figcaption class="absolute inset-x-0 bottom-0 p-4">
+            <div class="rule-label font-mono">AR-042</div>
+            <div class="mt-1.5 font-tech text-xl leading-none tracking-[0.05em]">Studio subject</div>
+          </figcaption>
+        </figure>
+
+        <figure class="asset-card frame-section group relative overflow-hidden rounded-xl" data-asset="dusk waveform capture">
+          <span class="accent-corner accent-br"></span>
+          <div class="relative h-[19rem] overflow-hidden md:h-[24rem]">
+            <img data-parallax src="https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/35f471e8-2800-451e-9d01-6ee6d33c395d_3840w.png" alt="Dusk waveform" class="asset-img absolute inset-x-0 -top-[15%] h-[130%] w-full object-cover" />
+            <div class="scrim pointer-events-none absolute inset-0"></div>
+          </div>
+          <figcaption class="absolute inset-x-0 bottom-0 p-4">
+            <div class="rule-label font-mono">AR-058</div>
+            <div class="mt-1.5 font-tech text-xl leading-none tracking-[0.05em]">Dusk waveform</div>
+          </figcaption>
+        </figure>
+      </div>
+
+      <p id="assetEmpty" class="mt-8 hidden font-mono text-[0.62rem] uppercase tracking-[0.26em] text-white/35">No records match that query.</p>
+    </div>
+  </section>
+
+  <!-- ================= CTA / ARCHIVE ================= -->
+  <section id="contact" class="relative px-5 py-20 md:px-10 md:py-28">
+    <div class="relative mx-auto max-w-[110rem]">
+      <div class="frame-section relative overflow-hidden rounded-2xl px-6 py-14 md:px-14 md:py-20">
+        <span class="accent-corner accent-tl"></span>
+        <span class="accent-corner accent-tr"></span>
+        <span class="accent-corner accent-bl"></span>
+        <span class="accent-corner accent-br"></span>
+        <div class="pointer-events-none absolute inset-0 grid-2rem opacity-25 mix-blend-screen"></div>
+        <div class="pointer-events-none absolute left-1/2 top-0 h-72 w-[36rem] -translate-x-1/2 rounded-full blob-gold blur-[120px]"></div>
+
+        <div class="relative mx-auto max-w-3xl text-center">
+          <span class="rule-label font-mono">05 — Archive access</span>
+          <h2 data-reveal class="mt-6 font-display text-[2.2rem] leading-[1.06] sm:text-[3rem] lg:text-[3.4rem]">
+            Bring your geometry into the console.
+          </h2>
+          <p class="mx-auto mt-6 max-w-xl text-[0.95rem] leading-relaxed text-white/55">
+            Access is granted per operator, per mesh. Tell us what you are building and we will
+            open a node on the next scheduling window.
+          </p>
+          <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
+            <a href="mailto:access@vectorline.systems" class="btn-gold inline-flex items-center gap-2 rounded-lg px-7 py-4 font-mono text-[0.62rem] uppercase tracking-[0.26em]">
+              Request access
+              <iconify-icon icon="lucide:arrow-up-right" class="text-base"></iconify-icon>
+            </a>
+            <a href="#architecture" class="btn-etch inline-flex items-center gap-2 rounded-lg px-7 py-4 font-mono text-[0.62rem] uppercase tracking-[0.26em] text-white/80 hover:text-white">
+              Review architecture
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="relative border-t border-white/10 px-5 py-10 md:px-10">
+    <div class="mx-auto flex max-w-[110rem] flex-col gap-6 md:flex-row md:items-center md:justify-between">
+      <div class="flex items-center gap-3">
+        <span class="logo-btn grid h-10 w-10 place-items-center rounded-[0.65rem] font-tech text-[1.2rem] leading-none tracking-[0.06em] text-[#e8c382]">VL</span>
+        <div>
+          <div class="font-display text-[0.98rem] leading-none">Vectorline</div>
+          <div class="mt-1.5 rule-label font-mono">Spatial systems console</div>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-6">
+        <a class="nav-link" href="#architecture">Architecture</a>
+        <a class="nav-link" href="#signals">Signals</a>
+        <a class="nav-link" href="#assets">Assets</a>
+      </div>
+      <div class="rule-label font-mono">© 2026 Vectorline · All frames reserved</div>
+    </div>
+  </footer>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  gsap.registerPlugin(ScrollTrigger);
+
+  /* ============================================================
+     SMOOTH SCROLL — Lenis 1.0.29 wired into the GSAP ticker
+     ============================================================ */
+  var LenisCtor = window.Lenis || window.lenis;
+  if (!REDUCED && typeof LenisCtor === 'function') {
+    var lenis = new LenisCtor({
+      duration: 1.15,
+      easing: function (t) { return Math.min(1, 1.001 - Math.pow(2, -10 * t)); },
+      smoothWheel: true,
+      wheelMultiplier: 0.95
+    });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add(function (t) { lenis.raf(t * 1000); });
+    gsap.ticker.lagSmoothing(0);
+
+    if (window.location.hash) {
+      var landing = document.querySelector(window.location.hash);
+      if (landing) {
+        requestAnimationFrame(function () {
+          lenis.scrollTo(landing, { offset: -20, immediate: true });
+          ScrollTrigger.refresh();
+        });
+      }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        var id = a.getAttribute('href');
+        if (id.length < 2) return;
+        var target = document.querySelector(id);
+        if (!target) return;
+        e.preventDefault();
+        lenis.scrollTo(target, { offset: -20 });
+      });
+    });
+  }
+
+  /* ============================================================
+     WORD REVEAL — split headings into masked spans
+     ============================================================ */
+  document.querySelectorAll('[data-reveal]').forEach(function (el) {
+    var words = el.textContent.trim().split(/\s+/);
+    el.innerHTML = words.map(function (w) {
+      return '<span class="word-mask"><span class="word">' + w + '</span></span>';
+    }).join(' ');
+
+    if (REDUCED) return;
+    gsap.from(el.querySelectorAll('.word'), {
+      y: 100,
+      opacity: 0,
+      filter: 'blur(12px)',
+      duration: 1.2,
+      ease: 'power4.out',
+      stagger: 0.055,
+      scrollTrigger: { trigger: el, start: 'top 88%' }
+    });
+  });
+
+  /* ============================================================
+     FRAME-SECTION ENTRY + PARALLAX IMAGES
+     ============================================================ */
+  if (!REDUCED) {
+    gsap.utils.toArray('.frame-section').forEach(function (el) {
+      gsap.from(el, {
+        y: 28,
+        opacity: 0,
+        duration: 0.95,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: el, start: 'top 90%' }
+      });
+    });
+
+    gsap.utils.toArray('[data-parallax]').forEach(function (img) {
+      var wrap = img.parentElement;
+      gsap.fromTo(img,
+        { yPercent: -15 },
+        {
+          yPercent: 15,
+          ease: 'none',
+          scrollTrigger: { trigger: wrap, start: 'top bottom', end: 'bottom top', scrub: true }
+        }
+      );
+    });
+
+    gsap.utils.toArray('.reveal-block > *').forEach(function (el, i) {
+      gsap.from(el, {
+        y: 22,
+        opacity: 0,
+        duration: 0.85,
+        delay: 0.08 * i,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: el, start: 'top 92%' }
+      });
+    });
+  }
+
+  /* ============================================================
+     THREE.JS — one clock, many orthographic scenes
+     ============================================================ */
+  var SCENES = [];
+  var TIME = 0;
+
+  function makeRenderer(canvas) {
+    var r = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    r.setClearColor(0x000000, 0);
+    return r;
+  }
+
+  function fit(renderer, camera, canvas, frustum) {
+    var w = canvas.clientWidth || 1;
+    var h = canvas.clientHeight || 1;
+    renderer.setSize(w, h, false);
+    var a = w / h;
+    camera.left = -frustum * a;
+    camera.right = frustum * a;
+    camera.top = frustum;
+    camera.bottom = -frustum;
+    camera.updateProjectionMatrix();
+  }
+
+  function isoCamera(frustum) {
+    var cam = new THREE.OrthographicCamera(-frustum, frustum, frustum, -frustum, -60, 120);
+    cam.position.set(6, 5.2, 6);
+    cam.lookAt(0, 0, 0);
+    return cam;
+  }
+
+  /* --- themed material registry: roles resolve per theme and re-resolve on switch --- */
+  var GOLD = 'gold';
+  var INDIGO = 'indigo';
+  var CHALK = 'chalk';
+
+  var SCENE_PALETTE = {
+    dark: { chalk: 0xdcdcdc, gold: 0xe8c382, indigo: 0x6366f1 },
+    light: { chalk: 0x2f2a20, gold: 0x8a6626, indigo: 0x4f46e5 }
+  };
+  var sceneTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  var TRACKED = [];
+
+  function themed(material, role) {
+    material.color.setHex(SCENE_PALETTE[sceneTheme][role]);
+    TRACKED.push({ m: material, role: role });
+    return material;
+  }
+
+  function setSceneTheme(name) {
+    sceneTheme = name === 'light' ? 'light' : 'dark';
+    for (var i = 0; i < TRACKED.length; i++) {
+      TRACKED[i].m.color.setHex(SCENE_PALETTE[sceneTheme][TRACKED[i].role]);
+    }
+  }
+
+  /* --- wireframe primitives --- */
+  function wireBox(w, h, d, role, opacity) {
+    var geo = new THREE.BoxGeometry(w, h, d);
+    var mat = themed(new THREE.LineBasicMaterial({ transparent: true, opacity: opacity }), role);
+    return new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat);
+  }
+
+  function wireBar(w, h, d, role, opacity) {
+    var geo = new THREE.BoxGeometry(w, h, d);
+    geo.translate(0, h / 2, 0);
+    var mat = themed(new THREE.LineBasicMaterial({ transparent: true, opacity: opacity }), role);
+    return new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat);
+  }
+
+  function wireTorus(radius, tube, role, opacity, rs, ts) {
+    var geo = new THREE.TorusGeometry(radius, tube, rs || 8, ts || 40);
+    var mat = themed(new THREE.MeshBasicMaterial({ wireframe: true, transparent: true, opacity: opacity }), role);
+    return new THREE.Mesh(geo, mat);
+  }
+
+  function wireOcta(radius, role, opacity) {
+    var geo = new THREE.OctahedronGeometry(radius);
+    var mat = themed(new THREE.LineBasicMaterial({ transparent: true, opacity: opacity }), role);
+    return new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat);
+  }
+
+  function segment(a, b, role, opacity) {
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute([a.x, a.y, a.z, b.x, b.y, b.z], 3));
+    return new THREE.LineSegments(geo, themed(new THREE.LineBasicMaterial({ transparent: true, opacity: opacity }), role));
+  }
+
+  /* ------------------------------------------------------------
+     HERO — isometric architecture: wireframe boxes + toruses,
+     'top' and 'bottom' segments floating out of phase
+     ------------------------------------------------------------ */
+  function initHero() {
+    var canvas = document.getElementById('wireframeCanvas');
+    if (!canvas) return;
+
+    var renderer = makeRenderer(canvas);
+    var scene = new THREE.Scene();
+    var camera = isoCamera(3.9);
+    var root = new THREE.Group();
+    scene.add(root);
+
+    var top = new THREE.Group();
+    var bottom = new THREE.Group();
+    root.add(top);
+    root.add(bottom);
+
+    var pulses = [];
+    function track(mesh, base, amp, phase) {
+      pulses.push({ m: mesh.material, base: base, amp: amp, phase: phase });
+      return mesh;
+    }
+
+    /* --- top segment: stacked tower + orbiting rings --- */
+    var t1 = track(wireBox(2.2, 0.9, 2.2, CHALK, 0.5), 0.5, 0.16, 0.0);
+    t1.position.y = 0.0;
+    top.add(t1);
+
+    var t2 = track(wireBox(1.55, 1.1, 1.55, INDIGO, 0.6), 0.6, 0.2, 1.1);
+    t2.position.y = 1.0;
+    top.add(t2);
+
+    var t3 = track(wireBox(0.9, 0.9, 0.9, GOLD, 0.75), 0.75, 0.22, 2.2);
+    t3.position.y = 1.98;
+    top.add(t3);
+
+    var ring1 = track(wireTorus(1.85, 0.035, GOLD, 0.42), 0.42, 0.18, 0.7);
+    ring1.rotation.x = Math.PI / 2;
+    ring1.position.y = 0.55;
+    top.add(ring1);
+
+    var ring2 = track(wireTorus(1.35, 0.03, INDIGO, 0.5), 0.5, 0.2, 1.9);
+    ring2.rotation.x = Math.PI / 2;
+    ring2.position.y = 1.62;
+    top.add(ring2);
+    top.position.y = 1.15;
+
+    /* --- bottom segment: plinth, sub-blocks and a base ring --- */
+    var b1 = track(wireBox(3.6, 0.42, 3.6, CHALK, 0.4), 0.4, 0.12, 0.4);
+    bottom.add(b1);
+
+    var b2 = track(wireBox(2.9, 0.22, 2.9, INDIGO, 0.45), 0.45, 0.16, 1.5);
+    b2.position.y = -0.42;
+    bottom.add(b2);
+
+    for (var i = 0; i < 4; i++) {
+      var x = i % 2 === 0 ? -1.15 : 1.15;
+      var z = i < 2 ? -1.15 : 1.15;
+      var cube = track(wireBox(0.55, 0.55, 0.55, GOLD, 0.55), 0.55, 0.25, i * 0.9);
+      cube.position.set(x, 0.48, z);
+      bottom.add(cube);
+    }
+
+    var baseRing = track(wireTorus(2.55, 0.03, GOLD, 0.35), 0.35, 0.15, 2.6);
+    baseRing.rotation.x = Math.PI / 2;
+    baseRing.position.y = -0.72;
+    bottom.add(baseRing);
+    bottom.position.y = -1.35;
+
+    /* --- connective spine --- */
+    var spine = segment(new THREE.Vector3(0, -1.2, 0), new THREE.Vector3(0, 1.2, 0), CHALK, 0.22);
+    root.add(spine);
+
+    SCENES.push({
+      canvas: canvas,
+      update: function (t) {
+        root.rotation.y = t * 0.16;
+        top.position.y = 1.15 + Math.sin(t * 0.9) * 0.14;
+        top.rotation.y = Math.sin(t * 0.35) * 0.12;
+        bottom.position.y = -1.35 + Math.cos(t * 0.72) * 0.09;
+        bottom.rotation.y = -Math.sin(t * 0.3) * 0.1;
+        ring1.rotation.z = t * 0.5;
+        ring2.rotation.z = -t * 0.65;
+        baseRing.rotation.z = t * 0.35;
+
+        for (var k = 0; k < pulses.length; k++) {
+          var p = pulses[k];
+          p.m.opacity = p.base + Math.sin(t * 1.8 + p.phase) * p.amp;
+        }
+        renderer.render(scene, camera);
+      },
+      resize: function () { fit(renderer, camera, canvas, 3.9); }
+    });
+  }
+
+  /* ------------------------------------------------------------
+     TECHNICAL SCENES — one per architecture card
+     ------------------------------------------------------------ */
+  function buildLattice(scene) {
+    var group = new THREE.Group();
+    var pulses = [];
+    var n = 4, gap = 0.82, off = (n - 1) * gap / 2;
+    for (var x = 0; x < n; x++) {
+      for (var y = 0; y < n; y++) {
+        for (var z = 0; z < n; z++) {
+          var edge = (x === 0 || x === n - 1) && (z === 0 || z === n - 1);
+          var color = edge ? GOLD : INDIGO;
+          var node = wireBox(0.26, 0.26, 0.26, color, 0.5);
+          node.position.set(x * gap - off, y * gap - off, z * gap - off);
+          pulses.push({ m: node.material, base: 0.42, amp: 0.3, phase: (x + y + z) * 0.5 });
+          group.add(node);
+        }
+      }
+    }
+    var shell = wireBox(n * gap, n * gap, n * gap, CHALK, 0.16);
+    group.add(shell);
+    scene.add(group);
+    return function (t) {
+      group.rotation.y = t * 0.26;
+      group.rotation.x = Math.sin(t * 0.4) * 0.12;
+      for (var i = 0; i < pulses.length; i++) {
+        var p = pulses[i];
+        p.m.opacity = p.base + Math.sin(t * 2.1 + p.phase) * p.amp;
+      }
+    };
+  }
+
+  function buildConsensus(scene) {
+    var group = new THREE.Group();
+    var pulses = [];
+    var core = wireOcta(0.55, GOLD, 0.8);
+    group.add(core);
+    pulses.push({ m: core.material, base: 0.7, amp: 0.22, phase: 0 });
+
+    var coreRing = wireTorus(0.95, 0.028, GOLD, 0.4);
+    coreRing.rotation.x = Math.PI / 2;
+    group.add(coreRing);
+
+    var peers = 8, radius = 2.1;
+    for (var i = 0; i < peers; i++) {
+      var a = (i / peers) * Math.PI * 2;
+      var pos = new THREE.Vector3(Math.cos(a) * radius, Math.sin(a * 2) * 0.35, Math.sin(a) * radius);
+      var signed = i < 6;
+      var node = wireOcta(0.3, signed ? INDIGO : CHALK, signed ? 0.75 : 0.3);
+      node.position.copy(pos);
+      group.add(node);
+      pulses.push({ m: node.material, base: signed ? 0.6 : 0.24, amp: signed ? 0.3 : 0.08, phase: i * 0.78 });
+
+      var link = segment(new THREE.Vector3(0, 0, 0), pos, signed ? INDIGO : CHALK, 0.25);
+      group.add(link);
+      pulses.push({ m: link.material, base: 0.22, amp: 0.16, phase: i * 0.78 + 0.4 });
+    }
+
+    var orbit = wireTorus(radius, 0.022, INDIGO, 0.3);
+    orbit.rotation.x = Math.PI / 2;
+    group.add(orbit);
+    scene.add(group);
+
+    return function (t) {
+      group.rotation.y = t * 0.3;
+      core.rotation.y = -t * 0.9;
+      core.rotation.x = t * 0.4;
+      coreRing.rotation.z = t * 0.8;
+      for (var i = 0; i < pulses.length; i++) {
+        var p = pulses[i];
+        p.m.opacity = p.base + Math.sin(t * 2.4 + p.phase) * p.amp;
+      }
+    };
+  }
+
+  function buildAccess(scene) {
+    var group = new THREE.Group();
+    var pulses = [];
+
+    var g1 = wireTorus(2.0, 0.045, INDIGO, 0.5, 6, 48);
+    var g2 = wireTorus(1.45, 0.04, GOLD, 0.55, 6, 44);
+    var g3 = wireTorus(0.95, 0.035, CHALK, 0.45, 6, 40);
+    g1.rotation.x = Math.PI / 2;
+    g2.rotation.y = Math.PI / 2;
+    g3.rotation.z = Math.PI / 2;
+    group.add(g1); group.add(g2); group.add(g3);
+    pulses.push({ m: g1.material, base: 0.42, amp: 0.22, phase: 0 });
+    pulses.push({ m: g2.material, base: 0.48, amp: 0.24, phase: 1.2 });
+    pulses.push({ m: g3.material, base: 0.4, amp: 0.2, phase: 2.4 });
+
+    var vault = wireBox(0.85, 0.85, 0.85, GOLD, 0.85);
+    group.add(vault);
+    pulses.push({ m: vault.material, base: 0.72, amp: 0.24, phase: 0.6 });
+
+    var inner = wireOcta(0.34, INDIGO, 0.7);
+    group.add(inner);
+    pulses.push({ m: inner.material, base: 0.6, amp: 0.3, phase: 1.8 });
+
+    scene.add(group);
+    return function (t) {
+      group.rotation.y = t * 0.18;
+      g1.rotation.z = t * 0.55;
+      g2.rotation.z = -t * 0.4;
+      g3.rotation.x = t * 0.7;
+      vault.rotation.y = t * 0.5;
+      inner.rotation.x = -t * 1.1;
+      inner.rotation.y = t * 0.8;
+      for (var i = 0; i < pulses.length; i++) {
+        var p = pulses[i];
+        p.m.opacity = p.base + Math.sin(t * 2.0 + p.phase) * p.amp;
+      }
+    };
+  }
+
+  function buildAudit(scene) {
+    var group = new THREE.Group();
+    var bars = [];
+    var pulses = [];
+    var count = 16, gap = 0.32;
+    var span = (count - 1) * gap;
+
+    for (var i = 0; i < count; i++) {
+      var recent = i > count - 5;
+      var bar = wireBar(0.18, 1, 0.18, recent ? GOLD : INDIGO, 0.55);
+      bar.position.set(i * gap - span / 2, -1.1, 0);
+      group.add(bar);
+      bars.push(bar);
+      pulses.push({ m: bar.material, base: recent ? 0.6 : 0.4, amp: 0.24, phase: i * 0.42 });
+    }
+
+    var ledger = wireBox(span + 0.8, 0.16, 1.5, CHALK, 0.25);
+    ledger.position.y = -1.18;
+    group.add(ledger);
+
+    var head = wireBox(0.34, 2.6, 0.34, GOLD, 0.35);
+    head.position.set(span / 2 + 0.55, 0.1, 0);
+    group.add(head);
+    pulses.push({ m: head.material, base: 0.3, amp: 0.2, phase: 0.9 });
+
+    scene.add(group);
+    return function (t) {
+      group.rotation.y = -0.35 + Math.sin(t * 0.25) * 0.18;
+      for (var i = 0; i < bars.length; i++) {
+        var h = 0.55 + (Math.sin(t * 1.7 - i * 0.42) * 0.5 + 0.5) * 1.9;
+        bars[i].scale.y = h;
+      }
+      for (var k = 0; k < pulses.length; k++) {
+        var p = pulses[k];
+        p.m.opacity = p.base + Math.sin(t * 2.2 + p.phase) * p.amp;
+      }
+    };
+  }
+
+  var BUILDERS = {
+    lattice: { build: buildLattice, frustum: 2.9 },
+    consensus: { build: buildConsensus, frustum: 3.0 },
+    access: { build: buildAccess, frustum: 2.7 },
+    audit: { build: buildAudit, frustum: 3.2 }
+  };
+
+  function initTechnicalScenes() {
+    document.querySelectorAll('.technical-scene').forEach(function (canvas) {
+      var key = canvas.getAttribute('data-scene');
+      var spec = BUILDERS[key];
+      if (!spec) return;
+
+      var renderer = makeRenderer(canvas);
+      var scene = new THREE.Scene();
+      var camera = isoCamera(spec.frustum);
+      var step = spec.build(scene);
+
+      SCENES.push({
+        canvas: canvas,
+        update: function (t) { step(t); renderer.render(scene, camera); },
+        resize: function () { fit(renderer, camera, canvas, spec.frustum); }
+      });
+    });
+  }
+
+  /* --- boot the render loop with a single shared time uniform --- */
+  function bootThree() {
+    if (typeof THREE === 'undefined') return;
+    initHero();
+    initTechnicalScenes();
+    if (!SCENES.length) return;
+
+    SCENES.forEach(function (s) { s.resize(); });
+
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(function () { SCENES.forEach(function (s) { s.resize(); }); });
+      SCENES.forEach(function (s) { ro.observe(s.canvas); });
+    }
+    window.addEventListener('resize', function () { SCENES.forEach(function (s) { s.resize(); }); });
+
+    (function loop() {
+      requestAnimationFrame(loop);
+      TIME += 0.016;
+      for (var i = 0; i < SCENES.length; i++) SCENES[i].update(TIME);
+    })();
+  }
+  bootThree();
+
+  /* ============================================================
+     UI — throughput bars, canvas load meter, search, menu
+     ============================================================ */
+  var barsHost = document.getElementById('throughputBars');
+  if (barsHost) {
+    var seed = [42, 58, 51, 67, 73, 61, 80, 72, 88, 79, 64, 71, 85, 92, 76, 68, 83, 95, 87, 74, 66, 81, 90, 78];
+    seed.forEach(function (h, i) {
+      var bar = document.createElement('span');
+      bar.className = 'bar-fill flex-1 rounded-sm';
+      bar.style.height = h + '%';
+      barsHost.appendChild(bar);
+      if (!REDUCED) {
+        gsap.from(bar, {
+          scaleY: 0,
+          transformOrigin: 'bottom',
+          duration: 0.8,
+          delay: i * 0.025,
+          ease: 'power3.out',
+          scrollTrigger: { trigger: barsHost, start: 'top 90%' }
+        });
+      }
+    });
+  }
+
+  var loadValue = document.getElementById('canvasLoadValue');
+  var loadBar = document.getElementById('canvasLoadBar');
+  if (loadValue && loadBar && !REDUCED) {
+    setInterval(function () {
+      var v = 78 + Math.round(Math.random() * 16);
+      loadValue.textContent = v + '%';
+      gsap.to(loadBar, { width: v + '%', duration: 1.1, ease: 'power2.out' });
+    }, 2600);
+  }
+
+  var search = document.getElementById('assetSearch');
+  var empty = document.getElementById('assetEmpty');
+  if (search) {
+    search.addEventListener('input', function () {
+      var q = search.value.trim().toLowerCase();
+      var hits = 0;
+      document.querySelectorAll('#assetGrid [data-asset]').forEach(function (card) {
+        var match = !q || card.getAttribute('data-asset').indexOf(q) !== -1;
+        card.style.display = match ? '' : 'none';
+        if (match) hits++;
+      });
+      if (empty) empty.classList.toggle('hidden', hits > 0);
+    });
+    window.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        search.focus();
+      }
+    });
+  }
+
+  var root = document.documentElement;
+  var themeToggle = document.getElementById('themeToggle');
+
+  function applyTheme(name, persist) {
+    root.setAttribute('data-theme', name);
+    setSceneTheme(name);
+    if (themeToggle) {
+      themeToggle.setAttribute('aria-label', name === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+    }
+    if (persist) {
+      try { localStorage.setItem('vl-theme', name); } catch (e) {}
+    }
+  }
+  applyTheme(root.getAttribute('data-theme') === 'light' ? 'light' : 'dark', false);
+
+  if (themeToggle) {
+    themeToggle.addEventListener('click', function () {
+      applyTheme(root.getAttribute('data-theme') === 'light' ? 'dark' : 'light', true);
+    });
+  }
+
+  var menuBtn = document.getElementById('menuBtn');
+  var mobileMenu = document.getElementById('mobileMenu');
+  if (menuBtn && mobileMenu) {
+    menuBtn.addEventListener('click', function () {
+      mobileMenu.classList.toggle('hidden');
+      menuBtn.innerHTML = mobileMenu.classList.contains('hidden')
+        ? '<iconify-icon icon="lucide:menu" class="text-lg"></iconify-icon>'
+        : '<iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>';
+    });
+    mobileMenu.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', function () { mobileMenu.classList.add('hidden'); });
+    });
+  }
+
+  window.addEventListener('load', function () { ScrollTrigger.refresh(); });
+})();
+</script>
+</body>
+</html>

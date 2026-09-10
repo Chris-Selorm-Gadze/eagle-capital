@@ -1,0 +1,1112 @@
+================================================================================
+EAGLECAPITAL — LANDING SITE COPY
+Full multi-page copy deck · Draft v1 · 2026-09-09
+================================================================================
+
+HOW TO USE THIS FILE
+  Every line of body copy here is ready to paste. Bracketed [NOTES] are
+  instructions to you, not copy — delete them before shipping.
+
+ACCURACY NOTE — READ BEFORE EDITING
+  This copy was written against the actual state of the codebase, not the
+  README's aspirations. Specifically:
+    · MT5 (via MetaApi) is the ONLY live-verified broker integration.
+    · Tradovate is built but blocked pending a paid Tradovate API plan.
+    · MT4, Topstep, Rithmic, IBKR, TradeLocker and DXtrade appear in the
+      broker catalog but have NO credential or sync path. They are inert.
+    · Trade copying is MT4/5-only via CopyFactory. Futures copying does
+      not exist and would need its own execution engine.
+  Nothing below claims otherwise. If you widen a claim, widen the code first.
+  Section 14 lists every open decision this draft could not make for you.
+
+================================================================================
+00 · BRAND FOUNDATION
+================================================================================
+
+THE ONE-LINER
+  The trading desk for people who run more than one account.
+
+POSITIONING STATEMENT
+  EagleCapital is a trading operations suite for serious retail traders —
+  prop-firm and live accounts side by side, with a journal, real broker
+  sync, trade copying and pattern detection in one place. It is firm-
+  agnostic by design: no prop firm's rules are hardcoded anywhere, because
+  every firm's math is different and yours will change next quarter.
+
+VOICE & TONE
+  Write like a trader who respects other traders' time.
+    · Direct. Short sentences. No throat-clearing.
+    · Specific over grand. "Detects revenge trading" beats "AI-powered."
+    · Never promise returns. Never imply edge. Ever.
+    · Concrete nouns: accounts, drawdown, fills, payouts, sessions.
+    · Admit limits out loud. Credibility is the whole product here.
+  AVOID: "unlock", "supercharge", "game-changing", "next-level",
+  "revolutionary", "effortless", "guaranteed", "10x", rocket emoji.
+
+BOILERPLATE
+  Short (1 line)
+    EagleCapital is a trading operations suite for multi-account traders.
+
+  Medium (50 words)
+    EagleCapital brings your prop-firm evaluations, funded accounts and live
+    broker accounts into one dashboard — with a real trade journal, live
+    position streaming, MT5 trade copying and deterministic pattern
+    detection. No firm's rules are hardcoded, so it works with the firm you
+    trade today and the one you move to next.
+
+  Long (100 words)
+    Most traders running multiple accounts end up with a spreadsheet, three
+    broker terminals and a screenshot folder. EagleCapital replaces that.
+    Track prop-firm challenges, funded accounts and live broker accounts in
+    one place. Journal every trade with charts, tags and ratings. Connect a
+    real MT5 account and stream live positions. Copy trades between accounts.
+    Get honest, deterministic feedback on revenge trading, overtrading and
+    size escalation — computed from your own trade log, no API call needed.
+    EagleCapital hardcodes no firm's rules and no risk math. Every number is
+    yours, or it comes live from your broker.
+
+================================================================================
+01 · HOME
+================================================================================
+
+--- GLOBAL NAV -----------------------------------------------------------------
+  Logo: 🦅 EagleCapital
+  Links: Features · How it works · Pricing · Security · FAQ
+  Buttons: Sign in  |  Get started
+
+--- HERO -----------------------------------------------------------------------
+  EYEBROW
+    Built for multi-account traders
+
+  H1 (primary)
+    Every account. One desk.
+
+  H1 (alternates — pick one, A/B the rest)
+    A: Stop running your trading business in a spreadsheet.
+    B: Your prop accounts, your live accounts, one screen.
+    C: The desk your broker never gave you.
+
+  SUBHEAD
+    Track prop-firm evaluations, funded accounts and live broker accounts
+    side by side. Journal every trade. Stream live positions. Copy orders
+    between accounts. No firm's rules hardcoded — because yours will change.
+
+  PRIMARY CTA     Start free
+  SECONDARY CTA   See how it works
+  CTA FOOTNOTE    No card required. Your data stays yours.
+
+  HERO VISUAL [NOTE: screenshot of the Dashboard, dark theme, realistic
+  numbers — never fabricate a suspiciously good equity curve.]
+
+--- TRUST STRIP ----------------------------------------------------------------
+  [NOTE: Do NOT invent logos, user counts or testimonials. Until you have
+  real ones, use capability proof instead — it converts better than fake
+  social proof and costs you nothing in credibility.]
+
+    Live MT5 sync   ·   Real order copying   ·   Per-user encryption at rest
+    12 tools        ·   Your data exportable ·   No firm lock-in
+
+--- PROBLEM --------------------------------------------------------------------
+  H2
+    Running four accounts shouldn't take four hours.
+
+  BODY
+    You passed the evaluation. Then you took a second one. Then a funded
+    account, then a live account to trade your own size. Now your P&L lives
+    in a spreadsheet, your rules live in your head, your screenshots live in
+    a folder called "screenshots", and the only thing tracking your drawdown
+    is your pulse.
+
+  PAIN POINTS [3-up]
+    1. Scattered
+       Every firm has its own dashboard, its own rules, its own login.
+       None of them talk to each other, and none of them show you the
+       whole book.
+
+    2. Unexamined
+       You know you tilt. You don't know that it costs you 4.2% a month,
+       or that it always starts on the second loss before 10am.
+
+    3. Manual
+       Copying a trade to three accounts by hand is how you end up with
+       three different fills and one very expensive typo.
+
+--- SOLUTION / HOW IT WORKS ----------------------------------------------------
+  H2
+    Three steps to a real trading desk.
+
+  STEP 1 — Add your accounts
+    Prop-firm challenge, funded account, or your own live broker account.
+    Enter your own risk numbers — max drawdown, daily loss limit, profit
+    target. EagleCapital never guesses them, because every firm is
+    different and guessing wrong is how people get breached.
+
+  STEP 2 — Get your trades in
+    Import a CSV from your platform, log trades by hand, or connect a real
+    MT5 account and let it sync. Re-importing the same file is safe — it
+    dedupes on fill time and price.
+
+  STEP 3 — Actually review
+    Daily report card, playbook stats, and pattern detection that tells you
+    what you did, not what you meant to do.
+
+  STEP CTA   Start free
+
+--- FEATURE GRID ---------------------------------------------------------------
+  H2
+    Twelve tools. One login.
+
+  SUBHEAD
+    Not a roadmap. All of this is built.
+
+  1. Dashboard
+     KPIs, cumulative P&L, a calendar heatmap and time-of-day scatters that
+     show when you actually make money.
+
+  2. Live Positions
+     Open positions across connected accounts, streaming over WebSocket,
+     with unrealized P&L in one total.
+
+  3. Trade Journal
+     Three panes: your trades, the analysis, the chart. Tag it, rate it,
+     write the note you'll need to read next month.
+
+  4. Trader Management
+     A daily report card with a 5 Whys review — and an execution checklist
+     built from your rules, not a generic list someone else wrote.
+
+  5. Playbooks
+     Document a setup, attach real trades to it, and find out whether it
+     actually works. Export to PDF or Word.
+
+  6. AI Insights
+     Two layers: instant pattern detection that costs nothing and runs on
+     your own data, plus an on-demand coaching digest when you want depth.
+
+  7. Prop Firm Manager
+     Challenges, funded accounts, payouts, rewards and scaling cycles.
+     Firm-agnostic, every number yours.
+
+  8. Charting
+     Full TradingView Advanced Chart for any symbol, without leaving.
+
+  9. Economic Calendar
+     Real structured release data — filterable by impact and by currency.
+     Not an iframe of someone else's widget.
+
+  10. Trade Log
+      The whole book in one sortable table. Filter, bulk-edit, bulk-delete.
+
+  11. Trade Copier
+      Real order copying between MT4/5 accounts. Master/follower groups,
+      live P&L, risk stopouts and a flatten-all button you hope to
+      never need.
+
+  12. Broker Connections
+      Link a real MT5 account and pull real balances and fills. One login
+      can expose several accounts — you pick which to import.
+
+--- DEEP DIVE 1: FIRM-AGNOSTIC --------------------------------------------------
+  EYEBROW  The core design decision
+
+  H2
+    We don't hardcode a single firm's rules. On purpose.
+
+  BODY
+    Most prop trackers ship with FTMO's rules, Apex's rules, Topstep's
+    rules baked in. Then a firm changes its trailing drawdown policy on a
+    Tuesday and the tool quietly lies to you.
+
+    EagleCapital takes the other path. Your risk limits are fields you fill
+    in. Your payouts and rewards are entries you make. Your execution
+    checklist is built from rules you wrote. Nothing is computed from a
+    firm's rulebook, because rulebooks change and yours is the only one
+    that has to be right.
+
+    It means five minutes of setup. It also means the tool still tells the
+    truth after your firm updates its terms — and it works exactly the same
+    when you move to a firm we've never heard of.
+
+  PULL QUOTE
+    "Every number is either yours, or it came live from your broker."
+
+--- DEEP DIVE 2: PATTERN DETECTION ----------------------------------------------
+  EYEBROW  AI Insights
+
+  H2
+    Feedback that doesn't need an API key.
+
+  BODY
+    Most "AI trading coaches" are one prompt in a trenchcoat. EagleCapital
+    splits it in two.
+
+    The free layer is deterministic. It reads your trade log and flags
+    revenge trading, overtrading and size escalation — with the specific
+    trades as evidence. No API call, no waiting, no cost, and the same
+    input always gives the same answer.
+
+    The second layer is a coaching digest you trigger yourself, when you
+    want the longer read. It runs server-side and your API key never
+    touches the browser.
+
+  MICRO-PROOF
+    Detects: revenge trades · overtrading days · size escalation after loss
+
+--- DEEP DIVE 3: TRADE COPIER ---------------------------------------------------
+  EYEBROW  Trade Copier
+
+  H2
+    One entry. Every account.
+
+  BODY
+    Group a master account and its followers, and orders mirror in real
+    time across your connected MT4/5 accounts. Watch live P&L per account
+    over WebSocket. Set a risk profile that stops a follower out on its own
+    terms. Flatten everything with one button.
+
+  HONESTY BLOCK [KEEP THIS. It is a feature, not a caveat.]
+    Copying runs on MetaApi's CopyFactory, which is MT4/5 only. Futures
+    accounts — Tradovate, Topstep and the like — can be tracked and synced
+    but not copied. We'd rather tell you now than at the fill.
+
+  SAFETY LINE
+    The copier places real orders on real accounts. Treat it like any other
+    live-trading tool.
+
+--- SECURITY TEASER -------------------------------------------------------------
+  H2
+    Your data is yours, and it's scoped to you.
+
+  BODY
+    Every table is row-level-secured to your user ID at the database level,
+    not just hidden in the UI. Broker credentials never pass through the
+    browser to storage — they go straight to an isolated sync service.
+    Analytics are deliberately conservative: no session replay, and text
+    and attributes are masked, because this screen shows real balances.
+
+  LINK  Read how we handle your data →
+
+--- FINAL CTA -------------------------------------------------------------------
+  H2
+    Put the whole book on one screen.
+
+  SUB
+    Free to start. No card. Export your data whenever you want it.
+
+  PRIMARY   Create your account
+  SECONDARY Browse the features
+
+--- FOOTER ----------------------------------------------------------------------
+  COLUMNS
+    Product      Features · Pricing · Roadmap · Changelog
+    Company      About · Contact
+    Resources    Docs · FAQ · Status
+    Legal        Terms · Privacy · Risk disclaimer
+
+  FOOTER DISCLAIMER [must appear site-wide]
+    EagleCapital is a tracking and journaling tool, not financial advice
+    and not a substitute for your own risk judgment. No prop firm's rules
+    or risk calculations are encoded in this product. The Trade Copier
+    places real orders on real accounts you connect. Trading carries risk
+    of loss.
+
+  COPYRIGHT
+    © 2026 EagleCapital. Not affiliated with any prop firm or broker.
+
+================================================================================
+02 · FEATURES — OVERVIEW PAGE
+================================================================================
+
+  H1        Everything you need to run a trading business.
+  SUBHEAD   Twelve tools, one login, no firm lock-in. All of it shipped.
+
+  INTRO
+    EagleCapital isn't a dashboard with a journal bolted on. It's four
+    connected layers: track your accounts, capture your trades, review your
+    behaviour, and execute across accounts. Each one feeds the next.
+
+  LAYER 1 — TRACK
+    Prop Firm Manager · Dashboard · Trade Log
+    Where the accounts and the numbers live.
+
+  LAYER 2 — CAPTURE
+    Trade Journal · Broker Connections · Live Positions
+    How trades get in: by hand, by CSV, or straight from your broker.
+
+  LAYER 3 — REVIEW
+    AI Insights · Playbooks · Trader Management
+    What you did, whether the setup works, and what to fix tomorrow.
+
+  LAYER 4 — EXECUTE
+    Trade Copier · Charting · Economic Calendar
+    Acting on it, across every account at once.
+
+  CTA  Start free · See pricing
+
+================================================================================
+03 · FEATURE DETAIL PAGES
+================================================================================
+
+--------------------------------------------------------------------------------
+03.1 — TRADE JOURNAL
+--------------------------------------------------------------------------------
+  H1        A journal you'll actually keep.
+  SUBHEAD   Three panes, five tabs, and the chart right there.
+
+  BODY
+    Most journals fail because reviewing a trade means opening four things.
+    Here it's one screen: your trades on the left, the analysis in the
+    middle, the price chart on the right.
+
+  FEATURE BULLETS
+    · Stats, tags, notes, strategy and chart — five tabs, no context switch
+    · Rate a trade 1–5 and tag it however you think ("FOMO", "A+ setup")
+    · Record planned stop and target, so you can see what you actually did
+      versus what you planned
+    · Jump straight from a red day on the dashboard heatmap into that day
+
+  GETTING TRADES IN
+    Type them, or import a CSV from your platform. The importer dedupes on
+    symbol, fill times and prices, so re-importing last month's export
+    won't double your book. Where your broker reports the real P&L, we keep
+    that number exactly — we don't recompute it and quietly get contract
+    multipliers wrong.
+
+  CTA  Start journaling free
+
+--------------------------------------------------------------------------------
+03.2 — PROP FIRM MANAGER
+--------------------------------------------------------------------------------
+  H1        Every challenge, every payout, one page.
+  SUBHEAD   Firm-agnostic by design.
+
+  BODY
+    Track challenges, phase 2s, verifications, funded accounts, PAs and
+    your own live accounts — each with the stage, balance, high-water mark
+    and the risk limits you set.
+
+  FEATURE BULLETS
+    · Account cards grouped by firm, with stage badges and live balances
+    · Log a session: P&L, trade count, consecutive losses, rules-followed
+    · Track payouts requested vs received, and performance rewards by cycle
+    · Record what an attempt cost you, and why an account blew, when it does
+    · Scaling cycles and payout planning as plain entries you control
+
+  THE HONEST PART
+    There is no rule engine here, and that's deliberate. EagleCapital won't
+    tell you you're two days from payout eligibility, because that math is
+    different at every firm and changes without notice. It shows you your
+    numbers, accurately, and leaves the rulebook to you.
+
+  CTA  Add your first account
+
+--------------------------------------------------------------------------------
+03.3 — TRADE COPIER
+--------------------------------------------------------------------------------
+  H1        Trade once. Fill everywhere.
+  SUBHEAD   Real order copying between your MT4/5 accounts.
+
+  BODY
+    Set a master, add followers, and your orders mirror across accounts in
+    real time. Built on MetaApi's CopyFactory — real orders, real fills,
+    not a simulation.
+
+  FEATURE BULLETS
+    · Master/follower groups you configure per strategy
+    · Live P&L per account, streaming over WebSocket
+    · Risk-profile stopouts, with unlock when you're ready
+    · Flatten-all, for the day it's needed
+
+  WHAT IT DOESN'T DO [KEEP]
+    CopyFactory supports MT4 and MT5. Futures platforms — Tradovate,
+    Topstep, Rithmic — are not copyable today and would need a separate
+    execution engine. If your whole book is futures, the copier isn't for
+    you yet.
+
+  RISK LINE
+    This tool places real orders on real accounts. Test with the smallest
+    size your broker allows before you trust it with a funded account.
+
+  CTA  See supported brokers
+
+--------------------------------------------------------------------------------
+03.4 — AI INSIGHTS
+--------------------------------------------------------------------------------
+  H1        The part of your trading you can't see.
+  SUBHEAD   Deterministic pattern detection, plus a coaching digest on demand.
+
+  BODY
+    You already know your win rate. What you don't know is the shape of
+    your bad days.
+
+  THE FREE LAYER
+    Runs instantly on your own trade log. No API call, no cost, no waiting,
+    and it's deterministic — same trades in, same answer out, every time.
+
+      Revenge trading      Trades taken too soon after a loss
+      Overtrading days     Days well above your own normal volume
+      Size escalation      Position size climbing after a losing trade
+
+    Every flag cites the actual trades behind it. You can go look.
+
+  THE DEEP LAYER
+    When you want the longer read, trigger a coaching digest over any
+    window — 30, 60, 90 days or all-time. It reads your trades, report
+    cards, playbooks and rules together and comes back with pain points,
+    what's working, and specific actions. Each finding carries its evidence,
+    collapsed until you ask for it.
+
+    You trigger it. It doesn't run on a schedule and doesn't run without you.
+
+  CTA  See what it finds in your log
+
+--------------------------------------------------------------------------------
+03.5 — BROKER CONNECTIONS & LIVE POSITIONS
+--------------------------------------------------------------------------------
+  H1        Connect the real account.
+  SUBHEAD   Real balances, real fills, streaming positions.
+
+  BODY
+    Link a live MT5 account and EagleCapital pulls real balance and trade
+    history — no CSV, no typing. Open positions stream to the Live
+    Positions page over WebSocket, with unrealized P&L totalled across
+    every connected account.
+
+  MULTI-ACCOUNT LOGINS
+    One broker login often exposes several accounts. Rather than assuming
+    one login equals one account, EagleCapital fetches the real list and
+    lets you choose which to import.
+
+  CREDENTIAL HANDLING
+    Broker credentials never go from the browser into storage. They're
+    submitted straight to an isolated sync service. The app itself reads
+    only connection status, last-synced time and any error.
+
+  SUPPORT STATUS [KEEP THIS TABLE HONEST — update it with the code]
+    MetaTrader 5      Live. Verified against a real account.
+    Tradovate         Built, waiting on a paid Tradovate API plan.
+    MetaTrader 4      Planned. CopyFactory supports it; sync isn't wired.
+    Topstep           Planned.
+    Rithmic           Planned.
+    Interactive Brokers  Planned.
+    TradeLocker       Planned.
+    DXtrade           Planned.
+
+    Don't see yours? CSV import works with any platform that exports.
+
+  CTA  Connect an account
+
+--------------------------------------------------------------------------------
+03.6 — PLAYBOOKS
+--------------------------------------------------------------------------------
+  H1        Find out which setups actually work.
+  SUBHEAD   Document it, attach real trades, read the verdict.
+
+  BODY
+    Write down a setup — context, trigger, invalidation, target. Attach the
+    real trades you took on it. EagleCapital computes the performance from
+    those trades, so the grade comes from your fills, not your memory.
+
+  FEATURE BULLETS
+    · Grade setups A+ through C and watch the grade earn itself
+    · Attach reference examples, with screenshots, to any playbook
+    · Real stats per setup, computed from linked trades
+    · Export a playbook to PDF or Word — for your own records or a prop
+      firm that asks
+
+  CTA  Build your first playbook
+
+--------------------------------------------------------------------------------
+03.7 — TRADER MANAGEMENT & REPORT CARD
+--------------------------------------------------------------------------------
+  H1        Grade the trader, not just the account.
+  SUBHEAD   A daily report card and a rules library that's yours.
+
+  BODY
+    Accounts tell you what happened. The report card tells you why.
+
+  THE DAILY CARD
+    Instrument, session, trades taken, wins, losses, net P&L, largest win,
+    largest loss, max consecutive losses. Then the part that matters: a
+    grade, how you were feeling, what you did well, what must improve, and
+    a note to tomorrow's version of you.
+
+  THE 5 WHYS
+    When a day goes wrong, name the problem and ask why five times until
+    you hit the root cause — then write the counter-measure. It's a process
+    review, not a punishment.
+
+  YOUR RULES, YOUR CHECKLIST
+    The execution checklist is generated from the rules you wrote in your
+    own rules library. Not a generic list. If your rule is "no trades after
+    three consecutive losses," that's what you tick against.
+
+  CTA  Write your rules
+
+--------------------------------------------------------------------------------
+03.8 — DASHBOARD & ANALYTICS
+--------------------------------------------------------------------------------
+  H1        The whole book, at a glance.
+  SUBHEAD   Filter to one account or see all of them together.
+
+  FEATURE BULLETS
+    · KPI row — the numbers you check first
+    · Cumulative P&L and daily P&L bars
+    · Calendar heatmap — click a day, land in that day's journal
+    · Win rate and profit-factor gauges
+    · Average win vs average loss, side by side
+    · Long/short split
+    · Trade duration and time-of-day scatters — find your best hour
+    · Account balance over time
+    · Snapshot the whole dashboard to an image in one click
+
+  CTA  See your numbers
+
+--------------------------------------------------------------------------------
+03.9 — MARKET TOOLS
+--------------------------------------------------------------------------------
+  H1        Charts and the calendar, without another tab.
+
+  CHARTING
+    The full TradingView Advanced Chart for any symbol, inside the app.
+    Same tools you already use, next to the trades you already logged.
+
+  ECONOMIC CALENDAR
+    Real structured release data — not an embedded widget. Filter by impact
+    and by currency or instrument, so you see the releases that can move
+    what you actually trade.
+
+  CTA  Start free
+
+================================================================================
+04 · HOW IT WORKS
+================================================================================
+
+  H1        From spreadsheet to trading desk in an afternoon.
+
+  STEP 1 — Create your account
+    Email and password. Nothing else. You're in.
+
+  STEP 2 — Add your accounts
+    Pick your firm from the catalogue, or type in one we've never heard of
+    — it works the same either way. Choose the stage (challenge, phase 2,
+    verification, funded, PA, or your own live account) and enter your risk
+    numbers: max drawdown, daily loss limit, profit target, minimum trading
+    days. These are yours. We never fill them in for you.
+
+  STEP 3 — Get your history in
+    Three ways, mix freely:
+      Import   Upload a CSV from your platform. Safe to re-import.
+      Connect  Link a live MT5 account and let it sync.
+      Type     Log trades by hand, one dialog, thirty seconds.
+
+  STEP 4 — Write your rules
+    Five to ten rules you actually intend to follow. These become your
+    daily execution checklist.
+
+  STEP 5 — Review daily
+    Fill the report card at the close. Check the pattern flags weekly. Run
+    a coaching digest monthly. That's the whole loop.
+
+  CLOSING
+    Setup takes an afternoon. The loop takes ten minutes a day. That's the
+    trade.
+
+================================================================================
+05 · PRICING
+================================================================================
+
+[DECISION NEEDED — see Section 14. There is no billing code in the product
+today: no Stripe, no plans table, no entitlement checks. Everything below is
+a structure to react to, not a launch price. Do not publish until you've
+decided, and do not gate a feature the code doesn't actually gate.]
+
+  H1        Pricing
+  SUBHEAD   Start free. Pay when you connect a real broker.
+
+  RATIONALE [internal, don't publish]
+    The free tier should be genuinely useful — journal, dashboard, prop
+    tracking, pattern detection all run on your own data at near-zero
+    marginal cost. The paid tier maps to what actually costs you money:
+    MetaApi hosting per connected account, and the coaching digest's API
+    spend. Price the infrastructure, not the features.
+
+  ---- TIER 1: FREE ----
+    Name        Free
+    Price       $0
+    For         Traders getting their book in order
+
+    Includes
+      · Unlimited accounts and trades
+      · Full dashboard and analytics
+      · Trade journal, tags, ratings, charts
+      · CSV import
+      · Playbooks with real performance stats
+      · Daily report card and rules library
+      · Pattern detection — revenge, overtrading, size escalation
+      · Economic calendar and charting
+    CTA  Start free
+
+  ---- TIER 2: CONNECTED ----
+    Name        Connected
+    Price       $[XX]/month
+    For         Traders with live broker accounts
+    Badge       Most popular
+
+    Everything in Free, plus
+      · Connect live broker accounts
+      · Real balance and trade sync
+      · Live position streaming
+      · [N] coaching digests per month
+      · Priority support
+    CTA  Start [N]-day trial
+
+  ---- TIER 3: DESK ----
+    Name        Desk
+    Price       $[XX]/month
+    For         Traders running a book across many accounts
+
+    Everything in Connected, plus
+      · Trade Copier — master/follower groups
+      · Unlimited connected accounts
+      · Unlimited coaching digests
+      · Data export
+    CTA  Start [N]-day trial
+
+  PRICING FAQ
+    Q: What happens to my data if I downgrade?
+    A: Nothing is deleted. Connected features stop syncing; everything you
+       already logged stays, and stays exportable.
+
+    Q: Do you take a cut of my profits?
+    A: No. It's a flat subscription. We're a tool, not a partner.
+
+    Q: Can I export and leave?
+    A: Yes. Your data is yours. We'd rather you leave clean than stay stuck.
+
+================================================================================
+06 · SECURITY & DATA
+================================================================================
+
+  H1        How your data is handled.
+  SUBHEAD   Plain language, because this page matters more than the hero.
+
+  ROW-LEVEL SECURITY
+    Every table is scoped to your user ID with Postgres row-level security
+    — enforced at the database, not hidden in the interface. Another user's
+    query cannot return your rows even if the app has a bug.
+
+  BROKER CREDENTIALS
+    Credentials never travel from the browser into our storage. They go
+    straight to an isolated sync service that holds them under its own
+    policy. The main app can read only connection status, last-synced time
+    and error text — never the secret itself.
+
+  AI PROCESSING
+    The coaching digest runs server-side in an edge function. The provider
+    API key is a server secret and never reaches your browser. Digests run
+    only when you trigger one.
+
+  ANALYTICS
+    Deliberately conservative, because this screen shows real balances and
+    real positions. No session replay. Text and attributes are masked in
+    autocapture. Analytics identify you by user ID only — not email, not
+    name.
+
+  ERROR MONITORING
+    Crash and performance monitoring so we can fix what breaks. Both
+    analytics and error monitoring are optional in our own build and the
+    app runs fully without them.
+
+  WHAT WE DON'T DO
+    · We don't sell your data. There is no data business here.
+    · We don't trade on your data or aggregate it into a signal product.
+    · We don't share your trades with prop firms. Ever.
+    · We don't need your broker password to run the free tier.
+
+  YOUR CONTROL
+    Export your data whenever you want. Delete your account and it goes.
+
+================================================================================
+07 · ABOUT
+================================================================================
+
+  H1        Built by someone who needed it.
+
+  BODY
+    EagleCapital started as a spreadsheet for tracking prop-firm accounts,
+    which became a dashboard, which became the thing you're looking at. It
+    was built by a trader running multiple accounts who got tired of four
+    logins and a screenshots folder.
+
+    That origin shows up in the product. There's no rule engine, because a
+    rule engine that's wrong is worse than no rule engine. The pattern
+    detection is deterministic, because a coach that says something
+    different every time you ask isn't a coach. The copier tells you what
+    it can't do before you find out at the fill.
+
+    It's a tool for doing the boring part of trading properly. That's the
+    whole pitch.
+
+================================================================================
+08 · FAQ
+================================================================================
+
+  Q: Which prop firms does this work with?
+  A: All of them. Genuinely — that's the design. We don't encode any firm's
+     rules, so there's nothing to support or not support. Pick your firm
+     from the catalogue for the label, or type in one we've never heard of.
+     Your risk limits are fields you fill in either way.
+
+  Q: Which brokers can I actually connect?
+  A: MetaTrader 5 is live and verified against a real account. Tradovate is
+     built and waiting on a paid API plan from Tradovate. Others are
+     planned. CSV import works with any platform that exports — which is
+     most of them.
+
+  Q: Does the trade copier work with futures accounts?
+  A: No. Copying runs on CopyFactory, which is MT4/5 only. You can track
+     and sync futures accounts, but not copy between them. Futures copying
+     would need its own execution engine and isn't built.
+
+  Q: Will this tell me when I'm close to breaching?
+  A: It shows you your numbers against the limits you entered. It won't
+     compute your firm's rules for you, because every firm's math differs
+     and firms change terms without notice. A tool that's confidently wrong
+     about your drawdown is more dangerous than one that isn't.
+
+  Q: Is the AI going to tell me what to trade?
+  A: No. It reviews what you already did. Pattern detection flags revenge
+     trading, overtrading and size escalation from your own log. The
+     coaching digest reviews your behaviour. Neither gives entries, and
+     neither is financial advice.
+
+  Q: Do I have to use the AI features?
+  A: No. Pattern detection is free and runs locally on your data. The
+     coaching digest only runs when you click it.
+
+  Q: Can I import my history from another journal?
+  A: If it exports CSV, most likely. The importer handles MT4/5-style
+     exports and dedupes on fill time and price, so trial and error is
+     safe.
+
+  Q: What happens if I import the same file twice?
+  A: Nothing bad. Duplicates are detected on symbol, entry and exit times
+     and prices, and skipped. You'll be told how many were imported and how
+     many skipped.
+
+  Q: Is my P&L recalculated?
+  A: Only when it has to be. If your broker's export reports the real P&L,
+     we keep that figure exactly — recomputing it would get contract
+     multipliers wrong on some instruments. Manually entered trades are
+     computed, since there's no authoritative source.
+
+  Q: Is there a mobile app?
+  A: Not yet. The web app works on mobile browsers; a proper mobile
+     experience is on the roadmap.
+
+  Q: Can I use this with a partner or a team?
+  A: Today it's built for one trader. Each account is fully isolated at the
+     database level.
+
+  Q: Is this financial advice?
+  A: No. It's a tracking and journaling tool. Every risk decision is yours.
+
+================================================================================
+09 · ROADMAP
+================================================================================
+
+[NOTE: Ship a roadmap page only if you'll keep it current. A stale roadmap
+costs more trust than no roadmap. Nothing here has a promised date, on
+purpose.]
+
+  H1        What's next.
+  SUBHEAD   No dates. Honest ordering.
+
+  IN PROGRESS
+    · Broader broker coverage — MT4 sync, then futures platforms
+    · Tradovate, once the API plan is in place
+
+  NEXT
+    · Data export — your whole book, one file
+    · Deep links, so you can bookmark a trade or an account
+    · Progress-vs-plan projections
+    · A real mobile experience
+
+  CONSIDERING
+    · Alerts and notifications
+    · Futures copying — needs its own execution engine
+    · OAuth sign-in
+
+  SHIPPED
+    · Live MT5 sync · Trade Copier · Live position streaming
+    · AI Insights · Playbooks · Report Card · CSV import
+
+================================================================================
+10 · LEGAL COPY
+================================================================================
+
+--- RISK DISCLAIMER (full page) -------------------------------------------------
+  H1  Risk disclaimer
+
+  EagleCapital is a trade-tracking and journaling tool. It is not financial
+  advice, not investment advice, and not a substitute for your own risk
+  judgment.
+
+  No prop firm's rules, limits or risk calculations are encoded in this
+  product. Every risk figure you see is one you entered yourself or one
+  reported by a broker you connected. We do not verify these figures
+  against any firm's terms, and we make no representation that your account
+  complies with any firm's rules.
+
+  The Trade Copier places real orders on real trading accounts you connect.
+  You are responsible for every order it places. Test it with minimal size
+  before using it on a funded account.
+
+  Trading carries a substantial risk of loss and is not suitable for
+  everyone. Past performance does not indicate future results. You may lose
+  more than your initial deposit on leveraged products.
+
+  EagleCapital is not affiliated with, endorsed by, or partnered with any
+  prop firm or broker named in this product.
+
+--- SHORT DISCLAIMER (footer, every page) ---------------------------------------
+  Not financial advice. No firm's rules are encoded here — every risk number
+  is yours or your broker's. Trading carries risk of loss.
+
+--- PRIVACY SUMMARY (plain-language header for the full policy) -----------------
+  The short version: your trades are yours. They're scoped to your user ID
+  at the database level. We don't sell data, we don't share it with prop
+  firms, and we don't need your broker password unless you connect an
+  account. Analytics identify you by user ID only, with no session replay.
+  You can export everything and delete your account whenever you want.
+
+  [Then link to the full policy. NOTE: the full Terms and Privacy Policy
+  need a lawyer, not a copywriter. This is the summary that sits above them.]
+
+================================================================================
+11 · APP & AUTH MICROCOPY
+================================================================================
+
+--- SIGN UP ---
+  Title      Create your account
+  Sub        Free to start. No card.
+  Email      you@example.com
+  Password   At least 8 characters
+  Button     Create account
+  Switch     Already have an account? Sign in
+  Legal      By creating an account you agree to our Terms and Privacy Policy.
+
+--- SIGN IN ---
+  Title      Welcome back
+  Button     Sign in
+  Switch     Don't have an account? Sign up
+  Forgot     Forgot your password?
+
+--- USERNAME PICKER ---
+  Title      Pick a username
+  Help       This is how you'll show up in the app. You can change it later.
+
+--- EMPTY STATES ---
+  No accounts
+    Title  No accounts yet
+    Body   Add your first prop-firm challenge, funded account, or live
+           broker account to get started.
+    CTA    Add an account
+
+  No trades
+    Title  No trades logged
+    Body   Import a CSV, connect a broker, or log your first trade by hand.
+    CTA    Add a trade
+
+  No playbooks
+    Title  No playbooks yet
+    Body   Document a setup and attach real trades to see whether it works.
+    CTA    Create a playbook
+
+  No rules
+    Title  No rules yet
+    Body   Write the rules you intend to follow. They become your daily
+           execution checklist.
+    CTA    Add a rule
+
+  No report card today
+    Title  Today's card is blank
+    Body   Fill it in at the close while the session's still fresh.
+    CTA    Start today's card
+
+  No connections
+    Title  No brokers connected
+    Body   Connect a live account to sync real balances and fills
+           automatically.
+    CTA    Add a connection
+
+  No insights yet
+    Title  Not enough trades yet
+    Body   Log a few more trades and pattern detection will have something
+           to work with.
+
+--- CONFIRMATIONS & WARNINGS ---
+  Delete account (trading account)
+    Title  Delete this account?
+    Body   This removes the account and everything logged against it —
+           sessions, payouts and rewards. Trades stay in your log. This
+           can't be undone.
+    Confirm  Delete account
+
+  Delete trades (bulk)
+    Title  Delete [N] trades?
+    Body   This can't be undone.
+
+  Flatten all (copier)
+    Title  Close every open position?
+    Body   This sends real close orders to every account in this group,
+           right now.
+    Confirm  Flatten everything
+
+  Copier first run
+    Title  This places real orders
+    Body   Orders on the master account will be mirrored to every follower
+           in real time. Start with the smallest size your broker allows.
+    Confirm  I understand — enable copying
+
+--- SUCCESS MESSAGES ---
+  Imported [N] trades, skipped [M] duplicates.
+  Account added.
+  Report card saved.
+  Playbook exported.
+  Connection synced.
+
+--- ERROR MESSAGES ---
+  Generic     Something went wrong. Try again, and tell us if it keeps happening.
+  Offline     You're offline. We'll retry when you're back.
+  Sync failed Couldn't reach your broker. Check your credentials and try again.
+  Import      We couldn't read that file. Make sure it's a CSV exported from
+              your platform.
+
+================================================================================
+12 · EMAIL SEQUENCE
+================================================================================
+
+  EMAIL 1 — Welcome (immediate)
+    Subject   You're in.
+    Preview   Three steps to a working trading desk.
+    Body
+      Welcome to EagleCapital.
+      Here's the fastest path to something useful:
+        1. Add one account — the one you care most about.
+        2. Import a CSV of your history, or log five recent trades.
+        3. Write three rules you intend to follow.
+      That's enough for the dashboard and pattern detection to say
+      something real.
+    CTA  Open EagleCapital
+
+  EMAIL 2 — Day 3
+    Subject   Your first patterns
+    Preview   What your trade log already knows about you.
+    Body
+      If you've logged a few trades, pattern detection has something to
+      work with. It runs on your own data, instantly, free — flagging
+      revenge trades, overtrading days and size escalation, with the
+      specific trades as evidence.
+      It's usually uncomfortable. That's the point.
+    CTA  See your patterns
+
+  EMAIL 3 — Day 7
+    Subject   The ten-minute loop
+    Preview   The habit that makes this worth it.
+    Body
+      The tool doesn't help unless the loop closes. Ours is ten minutes:
+        Daily    Fill the report card at the close.
+        Weekly   Check your pattern flags.
+        Monthly  Run a coaching digest.
+      Everything else is there when you need it.
+    CTA  Start today's card
+
+  EMAIL 4 — Day 14
+    Subject   Connect a real account
+    Preview   Stop typing your fills in.
+    Body
+      If you trade MT5, you can stop entering trades by hand. Connect the
+      account and balances and fills sync automatically — and open
+      positions stream live.
+      Your credentials never pass through the browser into our storage.
+    CTA  Connect an account
+
+================================================================================
+13 · SEO METADATA
+================================================================================
+
+  HOME
+    Title        EagleCapital — Trading Desk for Multi-Account Traders
+    Description  Track prop-firm and live broker accounts in one dashboard.
+                 Trade journal, live MT5 sync, trade copier and pattern
+                 detection. No firm's rules hardcoded. Start free.
+    OG Title     Every account. One desk.
+    OG Desc      Prop-firm evaluations, funded accounts and live broker
+                 accounts side by side — with a real journal, live sync and
+                 order copying.
+
+  FEATURES
+    Title        Features — EagleCapital
+    Description  Twelve tools for multi-account traders: journal, prop-firm
+                 manager, MT5 sync, trade copier, pattern detection,
+                 playbooks and a daily report card.
+
+  PRICING
+    Title        Pricing — EagleCapital
+    Description  Start free with unlimited accounts, trades and journaling.
+                 Pay only when you connect a live broker account.
+
+  SECURITY
+    Title        Security & Data — EagleCapital
+    Description  Row-level security per user, isolated broker credential
+                 handling, conservative analytics, and full data export.
+
+  KEYWORDS TO EARN [not to stuff]
+    prop firm tracker · prop firm dashboard · trading journal · multi
+    account trading · MT5 trade copier · funded account tracker ·
+    trading report card · prop trading tools
+
+================================================================================
+14 · OPEN DECISIONS — THINGS THIS DRAFT COULD NOT DECIDE FOR YOU
+================================================================================
+
+  1. PRICING. There is no billing code in the product — no Stripe, no plans
+     table, no entitlement checks anywhere. Section 05 is a structure, not a
+     price list. Before publishing it you need to decide the numbers, the
+     trial length, and — more importantly — build the gating. Publishing
+     tiers the code doesn't enforce is worse than publishing no pricing.
+
+  2. IS THIS ACTUALLY PUBLIC? The product still reads as personal in places
+     (CLAUDE.md names a single owner). This copy is written for a public
+     launch with real strangers signing up. If it's staying personal, most
+     of this file is unnecessary and you only need Section 01's hero.
+
+  3. AUTH GAPS BEFORE LAUNCH. The copy references "Forgot your password?"
+     and Terms/Privacy links. Today auth is email and password only — no
+     password reset flow, no email verification, no OAuth. A public launch
+     needs at least password reset, or that microcopy is a dead link.
+
+  4. LEGAL PAGES. Section 10 gives you the risk disclaimer and a
+     plain-language privacy summary. The actual Terms of Service and
+     Privacy Policy need a lawyer — especially since the copier places real
+     orders on real accounts and you're processing broker credentials.
+
+  5. BROKER TABLE MAINTENANCE. The support table in 03.5 is accurate as of
+     this draft. It will rot the moment a broker is wired up or a plan
+     lapses. Make updating it part of shipping a broker, not a separate
+     task.
+
+  6. NO SOCIAL PROOF. There are no testimonials, user counts or logos here,
+     because there are none to cite. Add them when they're real. The trust
+     strip in Section 01 uses capability claims instead, which you can
+     stand behind today.
+
+  7. SCREENSHOTS. Every visual note says to use realistic numbers. Resist
+     the fabricated equity curve — traders spot it instantly and it costs
+     you the exact credibility this copy is built on.
+
+================================================================================
+END OF COPY DECK
+================================================================================

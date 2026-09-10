@@ -1,0 +1,230 @@
+/* ==========================================================================
+   LANDING DESIGN SYSTEM — light
+   Warm off-white ground, ink type, gold as a restrained accent.
+
+   Scoped under .landingRoot so none of it leaks into the authenticated app,
+   which stays dark and keeps its own tokens in theme.css. A light marketing
+   site in front of a dark product is a deliberate pairing, not an oversight.
+
+   Deliberately NOT Tailwind — the rest of this codebase is CSS Modules, and
+   the play CDN can't purge.
+   ========================================================================== */
+
+.landingRoot {
+  /* ---- ground ---- */
+  --l-bg: #faf9f7;
+  --l-surface: #ffffff;
+  --l-surface-2: #f4f2ee;
+
+  /* ---- text ramp ----
+     Contrast against the ground, lightest use to darkest:
+     17.4 / 15.2 / 7.3 / 5.1. Every step that carries real text clears WCAG AA
+     (4.5:1); --l-text-4 (3.6:1) is for large or purely decorative type only. */
+  --l-ink: #16150f;
+  --l-text: #23221c;
+  --l-text-2: #55534a;
+  --l-text-3: #6e6b61;
+  --l-text-4: #87837a;
+
+  /* ---- accent ----
+     Raw gold measures 1.59:1 on this ground — unusable as text. It is a FILL
+     only. --l-gold-deep is the text-safe version at 4.8:1. */
+  --l-gold: #e8c382;
+  --l-gold-deep: #8a6a28;
+
+  /* ---- lines ---- */
+  --l-border: rgba(22, 21, 15, 0.11);
+  --l-border-soft: rgba(22, 21, 15, 0.07);
+
+  /* ---- elevation ----
+     One shadow, used sparingly. The dark build layered four inset shadows per
+     surface to fake machined metal; on light that reads as grubby. */
+  --l-shadow: 0 1px 2px rgba(22, 21, 15, 0.04), 0 10px 30px -20px rgba(22, 21, 15, 0.18);
+  --l-shadow-lift: 0 2px 4px rgba(22, 21, 15, 0.05), 0 18px 40px -22px rgba(22, 21, 15, 0.24);
+
+  /* ---- semantic (mirrors the app so previews read true) ---- */
+  --l-good: #197a2b;
+  --l-bad: #b23636;
+
+  /* ---- motion ---- */
+  --l-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ---- rhythm ---- */
+  --l-max: 72rem;
+  --l-gutter: 1.5rem;
+
+  color-scheme: light;
+  background-color: var(--l-bg);
+  color: var(--l-text-2);
+  font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: clip;
+}
+
+@media (min-width: 768px) {
+  .landingRoot { --l-gutter: 2.5rem; }
+}
+
+.landingContent { position: relative; }
+
+/* --------------------------------------------------------------------------
+   TYPE
+   Two families. Gloock carries every headline; Manrope carries body and the
+   small caps-y labels.
+   -------------------------------------------------------------------------- */
+
+/* :where() so this reset carries ZERO specificity — component classes that set
+   their own margin must win, and :is() (which inherits its most specific
+   argument's weight) silently beat them. */
+:where(.landingRoot) :where(h1, h2, h3, h4) {
+  font-family: 'Gloock', ui-serif, Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  margin: 0;
+  color: var(--l-ink);
+}
+
+:where(.landingRoot) :where(p, ul, ol, blockquote, figure) { margin: 0; }
+
+/* Small label type. Tracking pulled back from the dark build's 0.3em — at that
+   width it read as mannered rather than precise. */
+.landingRoot .micro {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  line-height: 1.4;
+  color: var(--l-text-3);
+}
+
+/* --------------------------------------------------------------------------
+   SURFACES
+   A card is a white panel on a hairline. That's it — no corner marks, no
+   layered insets, no backdrop blur.
+   -------------------------------------------------------------------------- */
+.landingRoot .card {
+  position: relative;
+  background: var(--l-surface);
+  border: 1px solid var(--l-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--l-shadow);
+}
+
+/* --------------------------------------------------------------------------
+   BUTTONS
+   Ink primary (18.3:1), hairline secondary. Gold is not a button colour here:
+   a gold fill on an off-white page only reaches 1.6:1 against the ground, so
+   the button would dissolve into the page.
+   -------------------------------------------------------------------------- */
+.landingRoot .btnInk,
+.landingRoot .btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.82rem 1.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.25s ease, border-color 0.25s ease,
+    color 0.25s ease, box-shadow 0.25s ease, transform 0.25s var(--l-ease);
+}
+
+.landingRoot .btnInk {
+  color: var(--l-surface);
+  background: var(--l-ink);
+  box-shadow: var(--l-shadow);
+}
+
+.landingRoot .btnGhost {
+  color: var(--l-ink);
+  background: var(--l-surface);
+  border-color: var(--l-border);
+}
+
+@media (hover: hover) {
+  .landingRoot .btnInk:hover { background: #2c2a20; transform: translateY(-1px); box-shadow: var(--l-shadow-lift); }
+  .landingRoot .btnGhost:hover { border-color: rgba(22, 21, 15, 0.25); transform: translateY(-1px); }
+}
+
+.landingRoot .btnInk:active,
+.landingRoot .btnGhost:active { transform: translateY(0); }
+
+.landingRoot .btnInk:disabled,
+.landingRoot .btnGhost:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.landingRoot :is(a, button):focus-visible {
+  outline: 2px solid var(--l-ink);
+  outline-offset: 3px;
+  border-radius: 0.3rem;
+}
+
+/* --------------------------------------------------------------------------
+   LAYOUT
+   -------------------------------------------------------------------------- */
+
+/* Grid and flex items default to min-width:auto, which lets an unusually wide
+   child (a long mono label, a table) stretch its track past the viewport. The
+   page clips overflow, so that shows up as truncated text rather than a
+   scrollbar — hard to spot. Opt every landing item into shrinking. */
+:where(.landingRoot) :where(.shell, section, div) > * { min-width: 0; }
+
+.landingRoot .shell {
+  width: 100%;
+  max-width: var(--l-max);
+  margin-inline: auto;
+  padding-inline: var(--l-gutter);
+}
+
+.landingRoot .section { padding-block: 4.5rem; }
+@media (min-width: 768px) { .landingRoot .section { padding-block: 7rem; } }
+
+.landingRoot .bandTop { border-top: 1px solid var(--l-border-soft); }
+
+/* A slightly tinted band, for alternating sections without adding borders. */
+.landingRoot .bandTint { background: var(--l-surface-2); }
+
+/* --------------------------------------------------------------------------
+   MOTION
+   Reveal-on-scroll driven by IntersectionObserver (see Reveal.tsx). The
+   reference shipped GSAP + ScrollTrigger + Lenis for this; three libraries and
+   ~120KB to fade elements in is not a trade worth making.
+   -------------------------------------------------------------------------- */
+.landingRoot [data-reveal] {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.6s var(--l-ease),
+    transform 0.6s var(--l-ease);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.landingRoot [data-reveal='shown'] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Honour the OS setting. Elements must still END visible — reveal is
+   progressive enhancement, never a gate on content. */
+@media (prefers-reduced-motion: reduce) {
+  .landingRoot *,
+  .landingRoot *::before,
+  .landingRoot *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .landingRoot [data-reveal] { opacity: 1; transform: none; }
+}

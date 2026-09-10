@@ -1,0 +1,197 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid transparent;
+  transition: background-color 0.4s ease, border-color 0.4s ease, backdrop-filter 0.4s ease;
+}
+
+/* Only commits to a solid ground once you've scrolled — over the hero it
+   stays transparent so the washes read through. */
+.scrolled {
+  background-color: rgba(250, 249, 247, 0.85);
+  border-bottom-color: var(--l-border-soft);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  height: 4.5rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  text-decoration: none;
+  color: inherit;
+  flex: none;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.45rem;
+  background: var(--l-ink);
+  color: var(--l-gold);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.brandName {
+  display: none;
+  font-family: 'Gloock', ui-serif, Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--l-ink);
+}
+
+@media (min-width: 480px) {
+  .brandName { display: block; }
+}
+
+/* The second brand line was pure texture next to a wordmark that already says
+   what this is. Removed. */
+
+.links {
+  display: none;
+  align-items: center;
+  gap: 2rem;
+  margin-left: auto;
+}
+
+@media (min-width: 1024px) {
+  .links { display: flex; }
+}
+
+/* Sentence case at body size. The dark build ran these as 0.6rem uppercase at
+   0.24em tracking, which made a five-item nav feel like a control panel. */
+.link {
+  position: relative;
+  font-size: 0.9rem;
+  color: var(--l-text-2);
+  text-decoration: none;
+  padding-block: 0.4rem;
+  transition: color 0.25s ease;
+}
+
+.link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.5px;
+  background: var(--l-gold-deep);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s var(--l-ease);
+}
+
+.link:hover { color: var(--l-ink); }
+.link:hover::after { transform: scaleX(1); }
+
+.linkActive { color: var(--l-ink); font-weight: 600; }
+.linkActive::after { transform: scaleX(1); }
+
+.actions {
+  display: none;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: 1.75rem;
+  padding-left: 1.75rem;
+  border-left: 1px solid var(--l-border);
+}
+
+@media (min-width: 1024px) {
+  .actions { display: flex; }
+}
+
+.signIn {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--l-text-2);
+  text-decoration: none;
+  padding: 0.5rem 0.25rem;
+  transition: color 0.25s ease;
+}
+
+.signIn:hover { color: var(--l-ink); }
+
+.navCta { padding: 0.62rem 1.1rem; font-size: 0.86rem; }
+
+/* ------------------------------------------------------------- mobile menu */
+
+.menuBtn {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: auto;
+  border: 1px solid var(--l-border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  background: var(--l-surface);
+  color: var(--l-ink);
+}
+
+@media (min-width: 1024px) {
+  .menuBtn { display: none; }
+}
+
+/* Two bars that cross into an X — cheaper and cleaner than shipping an icon
+   library for one glyph. */
+.menuBar {
+  display: block;
+  width: 1rem;
+  height: 1px;
+  background: currentColor;
+  transition: transform 0.35s var(--l-ease), opacity 0.2s ease;
+}
+
+.menuBar + .menuBar { margin-top: 0.3rem; }
+
+.menuOpen .menuBar:first-child { transform: translateY(0.155rem) rotate(45deg); }
+.menuOpen .menuBar:last-child { transform: translateY(-0.155rem) rotate(-45deg); }
+
+.mobilePanel {
+  display: block;
+  overflow: hidden;
+  border-top: 1px solid var(--l-border-soft);
+  background-color: var(--l-surface);
+}
+
+@media (min-width: 1024px) {
+  .mobilePanel { display: none; }
+}
+
+.mobileInner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-block: 1.25rem 1.75rem;
+}
+
+.mobileLink {
+  font-size: 1rem;
+  color: var(--l-text-2);
+  text-decoration: none;
+  padding-block: 0.9rem;
+  border-bottom: 1px solid var(--l-border-soft);
+}
+
+.mobileLink:hover { color: var(--l-ink); }
+
+.mobileActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 1.25rem;
+}

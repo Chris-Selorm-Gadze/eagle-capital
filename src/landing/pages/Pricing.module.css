@@ -1,0 +1,94 @@
+.tiers { margin-top: 3rem; display: grid; gap: 1.25rem; }
+
+@media (min-width: 900px) { .tiers { grid-template-columns: repeat(3, 1fr); } }
+
+.tier { padding: 2rem 1.75rem; display: flex; flex-direction: column; height: 100%; }
+
+/* The middle tier is marked by a darker border, not a glow or a fill. */
+.featured { border-color: rgba(22, 21, 15, 0.28); box-shadow: var(--l-shadow-lift); }
+
+.badge {
+  position: absolute;
+  top: -0.65rem;
+  left: 1.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--l-ink);
+  background: var(--l-gold);
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.25rem;
+}
+
+.name { font-size: 1.35rem; }
+
+.priceRow { margin-top: 1.25rem; display: flex; align-items: baseline; gap: 0.35rem; }
+
+.price {
+  font-family: 'Gloock', ui-serif, Georgia, serif;
+  font-size: 2.5rem;
+  line-height: 1;
+  color: var(--l-ink);
+}
+
+.period { font-size: 0.88rem; color: var(--l-text-3); }
+
+.forWho {
+  margin-top: 0.85rem;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--l-text-2);
+  min-height: 2.9rem;
+}
+
+.includes {
+  margin: 1.75rem 0 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--l-border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  flex: 1;
+}
+
+.item { display: flex; gap: 0.6rem; font-size: 0.9rem; line-height: 1.55; color: var(--l-text-2); }
+
+/* A hairline check, drawn in CSS — no icon dependency for one glyph. */
+.tick {
+  flex: none;
+  width: 0.6rem;
+  height: 0.35rem;
+  margin-top: 0.42rem;
+  border-left: 1.5px solid var(--l-gold-deep);
+  border-bottom: 1.5px solid var(--l-gold-deep);
+  transform: rotate(-45deg);
+}
+
+.tierCta { width: 100%; }
+
+/* -------------------------------------------------------------- notice */
+
+.notice {
+  margin-top: 2.5rem;
+  padding: 1.35rem 1.5rem;
+  border-left: 2px solid var(--l-gold);
+  border-radius: 0 0.5rem 0.5rem 0;
+  background: var(--l-surface-2);
+  max-width: 46rem;
+}
+
+.noticeTitle { font-size: 0.92rem; font-weight: 600; color: var(--l-ink); }
+
+.noticeBody { margin-top: 0.6rem; font-size: 0.92rem; line-height: 1.7; color: var(--l-text-2); }
+
+/* ----------------------------------------------------------------- faq */
+
+.faq { margin-top: 4rem; max-width: 46rem; }
+
+.faqItem { padding-block: 1.5rem; border-top: 1px solid var(--l-border-soft); }
+
+.faqItem:last-child { border-bottom: 1px solid var(--l-border-soft); }
+
+.faqQ { font-size: 1.02rem; font-weight: 600; color: var(--l-ink); }
+
+.faqA { margin-top: 0.6rem; font-size: 0.94rem; line-height: 1.75; color: var(--l-text-2); }

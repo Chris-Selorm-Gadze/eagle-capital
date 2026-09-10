@@ -1,0 +1,61 @@
+.list { max-width: 48rem; }
+
+.item { border-top: 1px solid var(--l-border-soft); }
+
+.item:last-child { border-bottom: 1px solid var(--l-border-soft); }
+
+.trigger {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.4rem 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  color: var(--l-ink);
+  font: inherit;
+  font-size: 1.02rem;
+  font-weight: 600;
+  transition: color 0.25s ease;
+}
+
+.trigger:hover { color: var(--l-ink); }
+
+/* Plus that rotates into a minus. Two spans, no icon dependency. */
+.sign { position: relative; width: 0.75rem; height: 0.75rem; flex: none; margin-top: 0.4rem; }
+
+.sign::before,
+.sign::after {
+  content: '';
+  position: absolute;
+  background: var(--l-text-3);
+  transition: transform 0.35s var(--l-ease), opacity 0.35s ease;
+}
+
+.sign::before { top: 50%; left: 0; width: 100%; height: 1px; transform: translateY(-50%); }
+.sign::after { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%); }
+
+.open .sign::after { transform: translateX(-50%) rotate(90deg); opacity: 0; }
+
+/* Grid-rows trick: animates to the content's natural height without needing
+   a measured pixel value. */
+.answer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s var(--l-ease);
+}
+
+.open .answer { grid-template-rows: 1fr; }
+
+.answerInner { overflow: hidden; }
+
+.answerText {
+  padding-bottom: 1.5rem;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  color: var(--l-text-2);
+  max-width: 44rem;
+}

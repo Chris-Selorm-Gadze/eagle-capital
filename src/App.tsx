@@ -5,6 +5,7 @@ import { downloadElementAsImage } from './utils/snapshot'
 import { todayISO } from './db/sessions'
 import { Sidebar, type NavKey } from './shared/layout/Sidebar'
 import { pathForNav, navForPath } from './shared/routing'
+import { notifyPathChange } from './landing/routes'
 import { TopBar } from './shared/layout/TopBar'
 import { TopNav } from './shared/layout/TopNav'
 import { AddTradeDialog } from './features/trades/components/AddTradeDialog'
@@ -61,6 +62,9 @@ export default function App() {
     const path = pathForNav(nav)
     if (window.location.pathname !== path) {
       window.history.pushState({ nav }, '', path)
+      // AuthGate subscribes to the path to pick which surface to render;
+      // pushState alone fires nothing, so tell it explicitly.
+      notifyPathChange()
     }
   }, [nav])
 
