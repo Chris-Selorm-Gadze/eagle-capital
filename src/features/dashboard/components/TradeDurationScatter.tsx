@@ -33,7 +33,7 @@ export function TradeDurationScatter({ trades }: { trades: Trade[] }) {
           <ZAxis range={[40, 40]} />
           <Tooltip
             cursor={{ strokeDasharray: '3 3' }}
-            formatter={(v: number, name: string) => (name === 'pnl' ? `$${v.toLocaleString()}` : formatDuration(v))}
+            formatter={(v, name) => (name === 'pnl' ? `$${Number(v).toLocaleString()}` : formatDuration(Number(v)))}
             contentStyle={TOOLTIP_CONTENT_STYLE}
             labelStyle={TOOLTIP_LABEL_STYLE}
             itemStyle={TOOLTIP_ITEM_STYLE}

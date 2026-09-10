@@ -25,24 +25,7 @@
   width: fit-content;
 }
 
-.mark {
-  display: grid;
-  place-items: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  border-radius: 0.45rem;
-  background: var(--l-ink);
-  color: var(--l-gold);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.brandName {
-  font-family: 'Gloock', ui-serif, Georgia, serif;
-  font-size: 1.05rem;
-  color: var(--l-ink);
-}
+.logo { height: 2.6rem; width: auto; max-width: none; display: block; object-fit: contain; }
 
 .formWrap {
   flex: 1;
@@ -79,10 +62,12 @@
 
 .input::placeholder { color: var(--l-text-4); }
 
+/* Focus reads in gold, not ink — the field never darkens. The indicator stays
+   because a text input with no visible focus state is unusable by keyboard. */
 .input:focus {
   outline: none;
-  border-color: var(--l-ink);
-  box-shadow: 0 0 0 3px rgba(22, 21, 15, 0.08);
+  border-color: var(--l-gold-deep);
+  box-shadow: 0 0 0 3px rgba(138, 106, 40, 0.12);
 }
 
 .submit { width: 100%; margin-top: 0.4rem; }
@@ -130,7 +115,7 @@
   width: fit-content;
 }
 
-.backLink:hover { color: var(--l-ink); }
+.backLink:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ------------------------------------------------------------ brand side */
 

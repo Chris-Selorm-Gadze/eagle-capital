@@ -44,7 +44,7 @@ export function TradeDirectionPie({ trades }: { trades: Trade[] }) {
               </Pie>
               {hasData && (
                 <Tooltip
-                  formatter={(value: number, name: string) => [`${value} trade${value === 1 ? '' : 's'}`, name]}
+                  formatter={(value, name) => [`${Number(value)} trade${Number(value) === 1 ? '' : 's'}`, String(name)]}
                   contentStyle={TOOLTIP_CONTENT_STYLE}
                   labelStyle={TOOLTIP_LABEL_STYLE}
                   itemStyle={TOOLTIP_ITEM_STYLE}

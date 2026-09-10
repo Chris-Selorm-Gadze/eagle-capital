@@ -82,8 +82,7 @@ export function AuthScreen({ mode }: { mode: 'signin' | 'signup' }) {
       <div className={`landingContent ${styles.split}`}>
         <div className={styles.formSide}>
           <Link to="/" className={styles.brandRow}>
-            <span className={styles.mark} aria-hidden="true">EC</span>
-            <span className={styles.brandName}>EagleCapital</span>
+            <img alt="EagleCapital" className={styles.logo} src="/eagle_logo.png" />
           </Link>
 
           <div className={styles.formWrap}>

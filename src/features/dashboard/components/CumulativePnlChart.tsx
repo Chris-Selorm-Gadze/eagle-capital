@@ -47,7 +47,7 @@ export function CumulativePnlChart({ daily }: { daily: DailyPnl[] }) {
             <YAxis domain={[yMin, yMax]} tick={AXIS_TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE}
               tickFormatter={(v) => `$${v.toLocaleString()}`} width={50} />
             <Tooltip
-              formatter={(v: number) => `$${v.toLocaleString()}`}
+              formatter={(v) => `$${Number(v).toLocaleString()}`}
               contentStyle={TOOLTIP_CONTENT_STYLE}
               labelStyle={TOOLTIP_LABEL_STYLE}
               itemStyle={TOOLTIP_ITEM_STYLE}

@@ -37,8 +37,7 @@ export function Nav() {
     <header className={`${styles.header} ${scrolled ? styles.scrolled : ''}`}>
       <div className={`shell ${styles.bar}`}>
         <Link to="/" className={styles.brand} aria-label="EagleCapital home">
-          <span className={styles.mark} aria-hidden="true">EC</span>
-          <span className={styles.brandName}>EagleCapital</span>
+          <img alt="EagleCapital" className={styles.logo} src="/eagle_logo.png" />
         </Link>
 
         <nav className={styles.links} aria-label="Primary">

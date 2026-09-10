@@ -45,7 +45,7 @@ export function AccountBalanceChart({ data, currentBalance }: { data: BalancePoi
               tickFormatter={(v) => `$${v.toLocaleString()}`} width={50}
             />
             <Tooltip
-              formatter={(v: number) => `$${v.toLocaleString()}`}
+              formatter={(v) => `$${Number(v).toLocaleString()}`}
               contentStyle={TOOLTIP_CONTENT_STYLE}
               labelStyle={TOOLTIP_LABEL_STYLE}
               itemStyle={TOOLTIP_ITEM_STYLE}

@@ -20,7 +20,7 @@ export function DailyPnlBarChart({ daily }: { daily: DailyPnl[] }) {
             tickFormatter={(v) => `$${v.toLocaleString()}`} width={50} />
           <Tooltip
             cursor={false}
-            formatter={(v: number) => `$${v.toLocaleString()}`}
+            formatter={(v) => `$${Number(v).toLocaleString()}`}
             contentStyle={TOOLTIP_CONTENT_STYLE}
             labelStyle={TOOLTIP_LABEL_STYLE}
             itemStyle={TOOLTIP_ITEM_STYLE}
@@ -55,7 +55,7 @@ export function DailyPnlBarChart({ daily }: { daily: DailyPnl[] }) {
           <YAxis domain={[-1, 1]} hide />
           <ReferenceLine y={0} stroke={COLOR_GRIDLINE} />
           <Tooltip
-            formatter={(v: number) => (v > 0 ? 'Win' : 'Loss')}
+            formatter={(v) => (Number(v) > 0 ? 'Win' : 'Loss')}
             contentStyle={TOOLTIP_CONTENT_STYLE}
             labelStyle={TOOLTIP_LABEL_STYLE}
             itemStyle={TOOLTIP_ITEM_STYLE}

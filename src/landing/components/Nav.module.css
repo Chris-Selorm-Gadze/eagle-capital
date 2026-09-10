@@ -31,30 +31,16 @@
   flex: none;
 }
 
-.mark {
-  display: grid;
-  place-items: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  border-radius: 0.45rem;
-  background: var(--l-ink);
-  color: var(--l-gold);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.brandName {
-  display: none;
-  font-family: 'Gloock', ui-serif, Georgia, serif;
-  font-size: 1.05rem;
-  line-height: 1;
-  color: var(--l-ink);
-}
-
-@media (min-width: 480px) {
-  .brandName { display: block; }
+/* The shipped lockup already pairs the mark with the wordmark, so the nav
+   shows it whole rather than rebuilding it from a square + text. */
+.logo {
+  /* The PNG's ink is only ~36%% of its canvas height, so the box has to be
+     roughly 2.7x the cap height you actually want to see. */
+  height: 2.6rem;
+  width: auto;
+  max-width: none;
+  display: block;
+  object-fit: contain;
 }
 
 /* The second brand line was pure texture next to a wordmark that already says
@@ -79,7 +65,6 @@
   color: var(--l-text-2);
   text-decoration: none;
   padding-block: 0.4rem;
-  transition: color 0.25s ease;
 }
 
 .link::after {
@@ -95,7 +80,7 @@
   transition: transform 0.35s var(--l-ease);
 }
 
-.link:hover { color: var(--l-ink); }
+/* No colour shift on hover — the gold underline is the whole affordance. */
 .link:hover::after { transform: scaleX(1); }
 
 .linkActive { color: var(--l-ink); font-weight: 600; }
@@ -120,10 +105,9 @@
   color: var(--l-text-2);
   text-decoration: none;
   padding: 0.5rem 0.25rem;
-  transition: color 0.25s ease;
 }
 
-.signIn:hover { color: var(--l-ink); }
+.signIn:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .navCta { padding: 0.62rem 1.1rem; font-size: 0.86rem; }
 
@@ -187,7 +171,7 @@
   border-bottom: 1px solid var(--l-border-soft);
 }
 
-.mobileLink:hover { color: var(--l-ink); }
+.mobileLink:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .mobileActions {
   display: flex;

@@ -36,8 +36,7 @@ export function Footer() {
       <div className={`shell ${styles.top}`}>
         <div className={styles.brandBlock}>
           <Link to="/" className={styles.brandRow}>
-            <span className={styles.mark} aria-hidden="true">EC</span>
-            <span className={styles.brandName}>EagleCapital</span>
+            <img alt="EagleCapital" className={styles.logo} src="/eagle_logo.png" />
           </Link>
           <p className={styles.tagline}>
             The trading desk for people who run more than one account.

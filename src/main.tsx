@@ -5,6 +5,7 @@ import { AuthProvider } from './features/auth/AuthContext'
 import { ErrorBoundary } from './shared/ui/ErrorBoundary'
 import { initSentry } from './lib/sentry'
 import { initPostHog } from './lib/posthog'
+import './index.css'
 import './theme.css'
 
 initSentry()

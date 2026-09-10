@@ -27,7 +27,7 @@ export function ScenarioChart({ actualFundedCapital, currentMonth }: { actualFun
             width={50}
           />
           <Tooltip
-            formatter={(v: number) => `$${v.toLocaleString()}`}
+            formatter={(v) => `$${Number(v).toLocaleString()}`}
             contentStyle={TOOLTIP_CONTENT_STYLE}
             labelStyle={TOOLTIP_LABEL_STYLE}
             itemStyle={TOOLTIP_ITEM_STYLE}

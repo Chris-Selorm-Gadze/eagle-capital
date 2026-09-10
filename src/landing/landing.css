@@ -72,6 +72,10 @@
 
 .landingContent { position: relative; }
 
+/* theme.css paints <body> in the dark app palette. Under the landing that
+   shows through on overscroll, so repaint it while a landing page is mounted. */
+:root:has(.landingRoot) body { background: #faf9f7; }
+
 /* --------------------------------------------------------------------------
    TYPE
    Two families. Gloock carries every headline; Manrope carries body and the
@@ -138,8 +142,7 @@
   letter-spacing: -0.005em;
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color 0.25s ease, border-color 0.25s ease,
-    color 0.25s ease, box-shadow 0.25s ease, transform 0.25s var(--l-ease);
+  transition: background-color 0.2s ease;
 }
 
 .landingRoot .btnInk {
@@ -154,19 +157,18 @@
   border-color: var(--l-border);
 }
 
+/* Hover stays flat: no lift, no shadow change, and nothing darkens. The ink
+   button lightens a step, the ghost button picks up the page tint. */
 @media (hover: hover) {
-  .landingRoot .btnInk:hover { background: #2c2a20; transform: translateY(-1px); box-shadow: var(--l-shadow-lift); }
-  .landingRoot .btnGhost:hover { border-color: rgba(22, 21, 15, 0.25); transform: translateY(-1px); }
+  .landingRoot .btnInk:hover { background: #2c2a20; }
+  .landingRoot .btnGhost:hover { background: var(--l-surface-2); }
 }
 
-.landingRoot .btnInk:active,
-.landingRoot .btnGhost:active { transform: translateY(0); }
-
 .landingRoot .btnInk:disabled,
-.landingRoot .btnGhost:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.landingRoot .btnGhost:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .landingRoot :is(a, button):focus-visible {
-  outline: 2px solid var(--l-ink);
+  outline: 2px solid var(--l-gold-deep);
   outline-offset: 3px;
   border-radius: 0.3rem;
 }

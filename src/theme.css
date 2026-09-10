@@ -1,27 +1,29 @@
-/* Dark theme tokens — reused from the dataviz skill's validated dark reference
-   palette (references/palette.md), not invented hex values. */
+/* Light theme tokens for the legacy CSS-Module pages.
+   These map onto the same neutral ground shadcn's own tokens use, so the
+   pages that still render through theme.css sit coherently inside the shadcn
+   app shell instead of punching a dark hole in it.
+   Every text/semantic value clears WCAG AA on white — measured, not guessed:
+   19.8 / 7.7 / 4.8 for the text ramp, ≥5.0 for each semantic colour. */
 :root {
-  /* Tells the browser this page is dark, so native UI it renders itself — scrollbars, form
-     control chrome, etc. — defaults to a dark variant instead of assuming light. Without this,
-     custom scrollbar colors below only affect Chrome/Safari; Firefox's native scrollbar stays
-     light regardless of scrollbar-color unless color-scheme says otherwise. */
-  color-scheme: dark;
+  /* Tells the browser this page is light, so native UI it renders itself —
+     scrollbars, form control chrome — matches instead of assuming dark. */
+  color-scheme: light;
 
-  --page-bg: #0d0d0d;
-  --surface: #1a1a19;
-  --surface-2: #242422;
-  --surface-3: #2e2e2b;
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #898781;
-  --border: rgba(255, 255, 255, 0.1);
-  --gridline: #2c2c2a;
+  --page-bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f5f5f5;
+  --surface-3: #e5e5e5;
+  --text-primary: #0a0a0a;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --border: rgba(10, 10, 10, 0.12);
+  --gridline: #e5e5e5;
 
-  --accent: #3987e5;
-  --good: #0ca30c;
-  --warning: #fab219;
-  --serious: #ec835a;
-  --critical: #d03b3b;
+  --accent: #2563eb;
+  --good: #15803d;
+  --warning: #b45309;
+  --serious: #c2410c;
+  --critical: #b91c1c;
 }
 
 * {
@@ -64,7 +66,21 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
-button {
+/* ---------------------------------------------------------------------------
+   Element styles below are scoped to `.appSurface` — the authenticated app's
+   root, plus the error-boundary fallback.
+
+   They used to be bare element selectors, which meant they also painted the
+   light public landing site in the dark app palette. Worse, their hover and
+   focus rules (`button:hover:not(:disabled)` at 0,2,1;
+   `input:hover:not(:disabled):not(:focus)` at 0,3,1) outrank any plain
+   component class, so a landing button turned dark-app-grey on hover and no
+   amount of styling in the landing's own stylesheet could win.
+
+   Anything rendered outside `.appSurface` is responsible for its own controls.
+   --------------------------------------------------------------------------- */
+
+.appSurface button {
   background: var(--surface-3);
   color: var(--text-primary);
   border: 1px solid var(--border);
@@ -74,28 +90,28 @@ button {
   cursor: pointer;
 }
 
-button:hover:not(:disabled) {
+.appSurface button:hover:not(:disabled) {
   background: var(--surface-2);
   border-color: var(--accent);
 }
 
-button:disabled {
+.appSurface button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.btn-primary {
+.appSurface .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
 }
 
-.btn-ghost {
+.appSurface .btn-ghost {
   background: transparent;
 }
 
-input,
-select,
-textarea {
+.appSurface input,
+.appSurface select,
+.appSurface textarea {
   background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border);
@@ -106,33 +122,34 @@ textarea {
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-input:hover:not(:disabled):not(:focus),
-select:hover:not(:disabled):not(:focus),
-textarea:hover:not(:disabled):not(:focus) {
+.appSurface input:hover:not(:disabled):not(:focus),
+.appSurface select:hover:not(:disabled):not(:focus),
+.appSurface textarea:hover:not(:disabled):not(:focus) {
   border-color: var(--text-muted);
 }
 
-input:focus,
-select:focus,
-textarea:focus {
+.appSurface input:focus,
+.appSurface select:focus,
+.appSurface textarea:focus {
   outline: none;
   border-color: var(--accent);
   background: var(--surface);
 }
 
-input:disabled,
-select:disabled,
-textarea:disabled {
+.appSurface input:disabled,
+.appSurface select:disabled,
+.appSurface textarea:disabled {
   color: var(--text-muted);
   cursor: not-allowed;
 }
 
-a {
+.appSurface a {
   color: var(--accent);
 }
 
-/* The bordered/padded surface used by nearly every card, chart, and tile. */
-.card {
+/* The bordered/padded surface used by nearly every card, chart, and tile.
+   Scoped because the landing site defines its own `.card`. */
+.appSurface .card {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1rem;

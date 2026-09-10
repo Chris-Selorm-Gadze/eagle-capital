@@ -161,14 +161,9 @@
   color: var(--l-text-2);
   font-size: 0.9rem;
   background: var(--l-surface);
-  transition: border-color 0.25s ease, color 0.25s ease, transform 0.25s var(--l-ease);
 }
 
-.featureNavLink:hover {
-  color: var(--l-ink);
-  border-color: rgba(22, 21, 15, 0.22);
-  transform: translateY(-1px);
-}
+.featureNavLink:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .featureNavArrow { color: var(--l-gold-deep); font-size: 0.85rem; }
 

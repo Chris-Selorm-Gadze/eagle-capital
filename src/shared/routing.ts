@@ -1,4 +1,10 @@
-import type { NavKey } from './layout/Sidebar'
+/** Every page the authenticated app can show. Owned here rather than by a
+ * layout component so the nav data, the router and the shell all agree. */
+export type NavKey =
+  | 'dashboard' | 'livepositions' | 'tradejournal' | 'tradermanagement'
+  | 'playbooks' | 'insights' | 'cockpit' | 'charting'
+  | 'calendar' | 'tradelog' | 'tradecopier' | 'brokers'
+
 
 const NAV_TO_PATH: Record<NavKey, string> = {
   dashboard: '/dashboard',

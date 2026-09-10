@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: '3rem', maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
+        <div className="appSurface" style={{ padding: '3rem', maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
           <h1 className="page-title" style={{ marginBottom: '0.75rem' }}>Something went wrong</h1>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
             {this.state.error.message || 'An unexpected error occurred.'}

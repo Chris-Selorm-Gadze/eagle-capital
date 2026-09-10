@@ -23,24 +23,7 @@
   color: inherit;
 }
 
-.mark {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.45rem;
-  background: var(--l-ink);
-  color: var(--l-gold);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.66rem;
-  font-weight: 700;
-}
-
-.brandName {
-  font-family: 'Gloock', ui-serif, Georgia, serif;
-  font-size: 1.05rem;
-  color: var(--l-ink);
-}
+.logo { height: 2.6rem; width: auto; max-width: none; display: block; object-fit: contain; }
 
 .tagline {
   margin-top: 1.1rem;
@@ -64,10 +47,9 @@
   color: var(--l-text-2);
   text-decoration: none;
   width: fit-content;
-  transition: color 0.25s ease;
 }
 
-.colLink:hover { color: var(--l-ink); }
+.colLink:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .bottom {
   border-top: 1px solid var(--l-border-soft);

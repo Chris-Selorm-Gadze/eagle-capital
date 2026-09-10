@@ -3,17 +3,15 @@ import { useAuth } from './features/auth/AuthContext'
 import { useSupabaseData } from './db/useSupabaseData'
 import { downloadElementAsImage } from './utils/snapshot'
 import { todayISO } from './db/sessions'
-import { Sidebar, type NavKey } from './shared/layout/Sidebar'
-import { pathForNav, navForPath } from './shared/routing'
+import { pathForNav, navForPath, type NavKey } from './shared/routing'
 import { notifyPathChange } from './landing/routes'
-import { TopBar } from './shared/layout/TopBar'
-import { TopNav } from './shared/layout/TopNav'
+import { AppShell } from './components/app-shell'
+import { DashboardActions } from './components/dashboard-actions'
 import { AddTradeDialog } from './features/trades/components/AddTradeDialog'
 import { ImportTradesDialog } from './features/trades/components/ImportTradesDialog'
 import { AddTradeChooserDialog } from './features/trades/components/AddTradeChooserDialog'
 import { AddAccountDialog } from './features/accounts/components/AddAccountDialog'
 import { posthog } from './lib/posthog'
-import styles from './App.module.css'
 
 // Route-level code splitting: each nav page becomes its own chunk instead of one shared bundle,
 // so e.g. visiting the Dashboard doesn't also download TradingView (Charting), jsPDF/docx
@@ -116,70 +114,79 @@ export default function App() {
   const dashboardAccounts = accountFilter === 'all' ? accounts : accounts.filter((a) => a.id === accountFilter)
   const filteredPayouts = accountFilter === 'all' ? payouts : payouts.filter((p) => p.accountId === accountFilter)
 
-  return (
-    <div className={styles.root}>
-      <TopNav />
-      <div className={styles.body}>
-        <Sidebar active={nav} onNavigate={handleNavigate} />
-        <div className={styles.content}>
-          {nav === 'dashboard' && (
-            <TopBar
-              accounts={accounts}
-              accountFilter={accountFilter}
-              onAccountFilterChange={setAccountFilter}
-              onAddTrade={() => setChoosingAddMethod(true)}
-              onAddAccount={() => setAddingAccount(true)}
-              onSnapshot={handleSnapshot}
-              onAccountDeleted={refresh}
-            />
-          )}
-          <main className={styles.main} ref={mainRef}>
-            <Suspense fallback={<p style={{ color: 'var(--text-muted)' }}>Loading…</p>}>
-              {nav === 'dashboard' && (
-                <DashboardPage
-                  trades={filteredTrades}
-                  accounts={dashboardAccounts}
-                  payouts={filteredPayouts}
-                  onOpenDateInJournal={handleOpenDateInJournal}
-                />
-              )}
-              {nav === 'cockpit' && (
-                <RiskCockpitPage
-                  accounts={accounts}
-                  payouts={payouts}
-                  rewards={rewards}
-                  sessionsByAccountId={sessionsByAccountId}
-                  userId={userId}
-                  onChanged={refresh}
-                />
-              )}
-              {nav === 'tradecopier' && <TradeCopierPage />}
-              {nav === 'livepositions' && <LivePositionsPage />}
-              {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
-              {nav === 'tradejournal' && (
-                <TradeJournalPage
-                  trades={trades}
-                  accounts={accounts}
-                  userId={userId}
-                  onChanged={refresh}
-                  initialDateFilter={pendingJournalDate}
-                />
-              )}
-              {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
-              {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
-              {nav === 'insights' && <InsightsPage trades={trades} accounts={accounts} userId={userId} />}
-              {nav === 'charting' && <ChartingPage trades={trades} />}
-              {nav === 'calendar' && <EconomicCalendarPage />}
-              {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}
-            </Suspense>
-          </main>
-        </div>
+  const headerActions =
+    nav === 'dashboard' ? (
+      <DashboardActions
+        accounts={accounts}
+        accountFilter={accountFilter}
+        onAccountFilterChange={setAccountFilter}
+        onAddTrade={() => setChoosingAddMethod(true)}
+        onAddAccount={() => setAddingAccount(true)}
+        onSnapshot={handleSnapshot}
+        onAccountDeleted={refresh}
+      />
+    ) : undefined
 
+  return (
+    <>
+      {/* `appSurface` keeps the legacy CSS-Module pages styled by theme.css.
+          The shell chrome sits outside it so shadcn's own styling isn't
+          overridden by those element-level rules. */}
+      <AppShell
+        active={nav}
+        navigate={handleNavigate}
+        onAddTrade={() => setChoosingAddMethod(true)}
+        headerActions={headerActions}
+        contentRef={mainRef}
+      >
+        <div className="appSurface contents">
+          <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
+            {nav === 'dashboard' && (
+              <DashboardPage
+                trades={filteredTrades}
+                accounts={dashboardAccounts}
+                payouts={filteredPayouts}
+                onOpenDateInJournal={handleOpenDateInJournal}
+              />
+            )}
+            {nav === 'cockpit' && (
+              <RiskCockpitPage
+                accounts={accounts}
+                payouts={payouts}
+                rewards={rewards}
+                sessionsByAccountId={sessionsByAccountId}
+                userId={userId}
+                onChanged={refresh}
+              />
+            )}
+            {nav === 'tradecopier' && <TradeCopierPage />}
+            {nav === 'livepositions' && <LivePositionsPage />}
+            {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
+            {nav === 'tradejournal' && (
+              <TradeJournalPage
+                trades={trades}
+                accounts={accounts}
+                userId={userId}
+                onChanged={refresh}
+                initialDateFilter={pendingJournalDate}
+              />
+            )}
+            {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
+            {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
+            {nav === 'insights' && <InsightsPage trades={trades} accounts={accounts} userId={userId} />}
+            {nav === 'charting' && <ChartingPage trades={trades} />}
+            {nav === 'calendar' && <EconomicCalendarPage />}
+            {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}
+          </Suspense>
+        </div>
+      </AppShell>
+
+      <div className="appSurface">
         {choosingAddMethod && (
           <AddTradeChooserDialog
             onSelectManual={() => { setChoosingAddMethod(false); setAddingTrade(true) }}
             onSelectImport={() => { setChoosingAddMethod(false); setImportingTrades(true) }}
-            onSelectBroker={() => { setChoosingAddMethod(false); navigate('brokers') }}
+            onSelectBroker={() => { setChoosingAddMethod(false); handleNavigate('brokers') }}
             onClose={() => setChoosingAddMethod(false)}
           />
         )}
@@ -193,6 +200,6 @@ export default function App() {
           <AddAccountDialog userId={userId} onClose={() => setAddingAccount(false)} onSaved={refresh} />
         )}
       </div>
-    </div>
+    </>
   )
 }

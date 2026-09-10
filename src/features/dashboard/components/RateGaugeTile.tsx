@@ -5,13 +5,16 @@ import styles from './RateGaugeTile.module.css'
 
 const RADIAN = Math.PI / 180
 
+// recharts 3 types every field on a Pie label renderer's props as optional
+// (and the radii as number | string), so these must be optional here too or the
+// renderer isn't assignable to `PieLabel`. Values are coerced at point of use.
 interface PieLabelProps {
-  cx: number
-  cy: number
-  midAngle: number
-  innerRadius: number
-  outerRadius: number
-  index: number
+  cx?: number | string
+  cy?: number | string
+  midAngle?: number
+  innerRadius?: number | string
+  outerRadius?: number | string
+  index?: number
 }
 
 // Places each slice's raw count directly on its own arc segment (at the slice's angular
@@ -19,11 +22,14 @@ interface PieLabelProps {
 // below the gauge — the number physically sits where its color actually appears.
 function renderCountLabel(counts: number[]) {
   return ({ cx, cy, midAngle, innerRadius, outerRadius, index }: PieLabelProps) => {
-    const value = counts[index]
+    const value = counts[index ?? 0]
     if (!value) return null
-    const radius = innerRadius + (outerRadius - innerRadius) / 2
-    const x = cx + radius * Math.cos(-midAngle * RADIAN)
-    const y = cy + radius * Math.sin(-midAngle * RADIAN)
+    const inner = Number(innerRadius ?? 0)
+    const outer = Number(outerRadius ?? 0)
+    const radius = inner + (outer - inner) / 2
+    const angle = Number(midAngle ?? 0)
+    const x = Number(cx ?? 0) + radius * Math.cos(-angle * RADIAN)
+    const y = Number(cy ?? 0) + radius * Math.sin(-angle * RADIAN)
     return (
       <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700} fill="var(--page-bg)">
         {value}

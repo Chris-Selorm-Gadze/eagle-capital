@@ -19,10 +19,7 @@
   font: inherit;
   font-size: 1.02rem;
   font-weight: 600;
-  transition: color 0.25s ease;
 }
-
-.trigger:hover { color: var(--l-ink); }
 
 /* Plus that rotates into a minus. Two spans, no icon dependency. */
 .sign { position: relative; width: 0.75rem; height: 0.75rem; flex: none; margin-top: 0.4rem; }

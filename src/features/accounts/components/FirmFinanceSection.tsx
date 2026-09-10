@@ -67,7 +67,7 @@ export function FirmFinanceSection({
                   </Pie>
                   {hasFinanceData && (
                     <Tooltip
-                      formatter={(value: number) => `$${value.toLocaleString()}`}
+                      formatter={(value) => `$${Number(value).toLocaleString()}`}
                       contentStyle={TOOLTIP_CONTENT_STYLE}
                       labelStyle={TOOLTIP_LABEL_STYLE}
                       itemStyle={TOOLTIP_ITEM_STYLE}
