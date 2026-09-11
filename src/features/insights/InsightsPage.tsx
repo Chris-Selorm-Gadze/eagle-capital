@@ -16,6 +16,7 @@ import { detectTradePatterns } from '../../utils/tradePatterns'
 import { errorMessage } from '../../utils/errors'
 import { todayISO } from '../../db/sessions'
 import styles from './InsightsPage.module.css'
+import { useConfirm } from '../../shared/ui/confirm'
 
 const RANGE_OPTIONS: { preset: InsightsRangePreset; label: string }[] = [
   { preset: 'last_30', label: '30 days' },
@@ -158,6 +159,7 @@ function DetectedPatternsSection({ trades, accounts }: { trades: Trade[]; accoun
 }
 
 export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; accounts: Account[]; userId: string }) {
+  const confirm = useConfirm()
   const [reportCards, setReportCards] = useState<Awaited<ReturnType<typeof listReportCards>>>([])
   const [playbooks, setPlaybooks] = useState<Awaited<ReturnType<typeof listPlaybooks>>>([])
   const [playbookExamples, setPlaybookExamples] = useState<Awaited<ReturnType<typeof listPlaybookExamples>>>([])
@@ -215,7 +217,7 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this insights digest?')) return
+    if (!(await confirm({ title: 'Delete this insights digest?', confirmLabel: 'Delete', destructive: true }))) return
     await deleteAiInsight(id)
     setHistory((h) => h.filter((i) => i.id !== id))
     if (current?.id === id) setCurrent(null)

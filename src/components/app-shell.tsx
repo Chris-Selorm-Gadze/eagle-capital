@@ -3,6 +3,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Toaster } from "@/components/ui/sonner";
 import { AppNavProvider } from "@/components/app-nav-context";
 import type { NavKey } from "@/shared/routing";
 
@@ -40,6 +41,7 @@ export function AppShell({
 							</div>
 						</SidebarInset>
 					</SidebarProvider>
+				<Toaster position="bottom-right" richColors />
 				</div>
 			</TooltipProvider>
 		</AppNavProvider>

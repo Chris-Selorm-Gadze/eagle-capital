@@ -285,3 +285,17 @@
   background: var(--surface-2);
   border-color: var(--accent);
 }
+
+/* "Fill from logged trades" sits directly under the section heading, so the
+   shortcut is visible before you start typing rather than after. */
+.fillRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+.fillHint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}

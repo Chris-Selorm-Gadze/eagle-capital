@@ -309,7 +309,7 @@
 }
 .tradeChip {
   font-size: 0.78rem;
-  font-family: monospace;
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
   background: var(--surface-3);
   padding: 0.15rem 0.5rem;

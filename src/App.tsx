@@ -6,6 +6,9 @@ import { todayISO } from './db/sessions'
 import { pathForNav, navForPath, type NavKey } from './shared/routing'
 import { notifyPathChange } from './landing/routes'
 import { AppShell } from './components/app-shell'
+import { ConfirmProvider } from './shared/ui/confirm'
+import { navItemFor } from './components/app-shared'
+import { DashboardSkeleton } from './features/dashboard/components/DashboardSkeleton'
 import { DashboardActions } from './components/dashboard-actions'
 import { AddTradeDialog } from './features/trades/components/AddTradeDialog'
 import { ImportTradesDialog } from './features/trades/components/ImportTradesDialog'
@@ -29,11 +32,12 @@ const InsightsPage = lazy(() => import('./features/insights/InsightsPage').then(
 const ChartingPage = lazy(() => import('./features/charting/ChartingPage').then((m) => ({ default: m.ChartingPage })))
 const EconomicCalendarPage = lazy(() => import('./features/calendar/EconomicCalendarPage').then((m) => ({ default: m.EconomicCalendarPage })))
 const BrokerConnectionsPage = lazy(() => import('./features/brokers/BrokerConnectionsPage').then((m) => ({ default: m.BrokerConnectionsPage })))
+const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
 export default function App() {
   const { user } = useAuth()
   const userId = user!.id
-  const { accounts, sessions, payouts, rewards, trades, refresh } = useSupabaseData(userId)
+  const { accounts, sessions, payouts, rewards, trades, loading, refresh } = useSupabaseData(userId)
 
   const [nav, setNavState] = useState<NavKey>(() => navForPath(window.location.pathname))
   const [accountFilter, setAccountFilter] = useState<string | 'all'>('all')
@@ -64,6 +68,14 @@ export default function App() {
       // pushState alone fires nothing, so tell it explicitly.
       notifyPathChange()
     }
+  }, [nav])
+
+  // Every app page used to share one <title> ("EagleCapital — dashboard"),
+  // which made browser history and a row of open tabs useless. The landing site
+  // already titles per route; this brings the app in line.
+  useEffect(() => {
+    const label = navItemFor(nav)?.title ?? 'Dashboard'
+    document.title = `${label} — EagleCapital`
   }, [nav])
 
   // Captured manually rather than relying on PostHog's autocapture history-detection — this app
@@ -128,7 +140,7 @@ export default function App() {
     ) : undefined
 
   return (
-    <>
+    <ConfirmProvider>
       {/* `appSurface` keeps the legacy CSS-Module pages styled by theme.css.
           The shell chrome sits outside it so shadcn's own styling isn't
           overridden by those element-level rules. */}
@@ -141,14 +153,19 @@ export default function App() {
       >
         <div className="appSurface contents">
           <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
-            {nav === 'dashboard' && (
-              <DashboardPage
-                trades={filteredTrades}
-                accounts={dashboardAccounts}
-                payouts={filteredPayouts}
-                onOpenDateInJournal={handleOpenDateInJournal}
-              />
-            )}
+            {nav === 'dashboard' &&
+              (loading ? (
+                <DashboardSkeleton />
+              ) : (
+                <DashboardPage
+                  trades={filteredTrades}
+                  accounts={dashboardAccounts}
+                  payouts={filteredPayouts}
+                  onOpenDateInJournal={handleOpenDateInJournal}
+                  onAddAccount={() => setAddingAccount(true)}
+                  onAddTrade={() => setChoosingAddMethod(true)}
+                />
+              ))}
             {nav === 'cockpit' && (
               <RiskCockpitPage
                 accounts={accounts}
@@ -179,6 +196,16 @@ export default function App() {
             {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}
           </Suspense>
         </div>
+
+        {/* Settings deliberately sits OUTSIDE `appSurface`. It's built from
+            shadcn components, and theme.css's element rules are unlayered —
+            which beats Tailwind's layered utilities no matter how low their
+            specificity — so inside the wrapper a `variant="destructive"`
+            button would still render in the legacy grey. Any new page built on
+            shadcn belongs out here too. */}
+        <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
+          {nav === 'settings' && <SettingsPage onChanged={refresh} />}
+        </Suspense>
       </AppShell>
 
       <div className="appSurface">
@@ -200,6 +227,6 @@ export default function App() {
           <AddAccountDialog userId={userId} onClose={() => setAddingAccount(false)} onSaved={refresh} />
         )}
       </div>
-    </>
+    </ConfirmProvider>
   )
 }

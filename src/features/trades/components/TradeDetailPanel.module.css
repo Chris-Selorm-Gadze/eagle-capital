@@ -159,7 +159,7 @@
 }
 .zoneBtnActive {
   background: var(--accent);
-  color: var(--text-primary);
+  color: var(--accent-fg);
   border-color: var(--accent);
 }
 .stars {

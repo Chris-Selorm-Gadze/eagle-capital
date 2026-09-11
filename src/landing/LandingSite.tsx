@@ -13,6 +13,7 @@ import { Security } from './pages/Security'
 import { About } from './pages/About'
 import { Faq } from './pages/Faq'
 import { Roadmap } from './pages/Roadmap'
+import { Privacy, Terms } from './pages/Legal'
 import { Disclaimer } from './pages/Disclaimer'
 import './landing.css'
 
@@ -47,6 +48,8 @@ const META: Record<string, { title: string; description: string }> = {
   faq: { title: 'FAQ — EagleCapital', description: 'Questions about brokers, prop firms, pattern detection and risk — answered straight.' },
   roadmap: { title: 'Roadmap — EagleCapital', description: 'What’s shipped, what’s next, and what we’re still considering.' },
   disclaimer: { title: 'Risk disclaimer — EagleCapital', description: 'EagleCapital is a tracking and journaling tool, not financial advice.' },
+  privacy: { title: 'Privacy — EagleCapital', description: 'What EagleCapital collects, who else processes it, and how to export or delete everything.' },
+  terms: { title: 'Terms of service — EagleCapital', description: 'The agreement between you and EagleCapital.' },
 }
 
 function useDocumentMeta(location: PublicLocation) {
@@ -85,6 +88,8 @@ function renderPage(location: PublicLocation) {
     case 'faq': return <Faq />
     case 'roadmap': return <Roadmap />
     case 'disclaimer': return <Disclaimer />
+    case 'privacy': return <Privacy />
+    case 'terms': return <Terms />
   }
 }
 

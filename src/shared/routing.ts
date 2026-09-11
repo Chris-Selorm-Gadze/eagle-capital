@@ -3,7 +3,7 @@
 export type NavKey =
   | 'dashboard' | 'livepositions' | 'tradejournal' | 'tradermanagement'
   | 'playbooks' | 'insights' | 'cockpit' | 'charting'
-  | 'calendar' | 'tradelog' | 'tradecopier' | 'brokers'
+  | 'calendar' | 'tradelog' | 'tradecopier' | 'brokers' | 'settings'
 
 
 const NAV_TO_PATH: Record<NavKey, string> = {
@@ -19,6 +19,7 @@ const NAV_TO_PATH: Record<NavKey, string> = {
   brokers: '/broker-connections',
   insights: '/ai-insights',
   livepositions: '/live-positions',
+  settings: '/settings',
 }
 
 const PATH_TO_NAV = Object.fromEntries(

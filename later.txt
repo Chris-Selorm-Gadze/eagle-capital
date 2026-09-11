@@ -1,0 +1,44 @@
+LATER — deferred implementations
+================================
+Deliberately postponed. Each line is a real gap found in the 2026-09-10 UI
+review, not a nice-to-have. Kept here so it isn't rediscovered as "new".
+
+
+1. WAITLIST
+   Pricing has two "Join the waitlist" CTAs (Connected, Desk) and both link to
+   /signup — see src/landing/pages/Pricing.tsx. There is no waitlist: clicking
+   creates a free account, and we capture no signal about who wants a paid
+   tier. Either build the capture or change the label; today it promises
+   something that doesn't exist.
+
+
+2. og:image
+   index.html sets og:title and og:description but no og:image, so every shared
+   link renders bare. Needs a 1200x630 image in public/ plus the og:image and
+   twitter:image tags.
+
+
+3. robots.txt + sitemap.xml
+   Neither exists; public/ holds only eagle_logo.png, icon.svg, manifest.json.
+   The 10 marketing routes are in STATIC_ROUTES in src/landing/routes.ts and
+   the feature slugs in FEATURE_PAGES in src/landing/content.ts, so a sitemap
+   can be generated from those rather than hand-maintained.
+
+
+4. CONTACT / SUPPORT
+   No contact route and no support address anywhere on the marketing site,
+   while the Connected tier sells "Priority support". Footer has room under
+   "Company".
+
+
+5. BROKER CONNECTIONS
+   Approach still to be decided. Two things are wrong today:
+     - the Broker dropdown DEFAULTS to Tradovate, which is blocked on a paid
+       API plan, while mt5 is the only broker with a real credential/sync path
+       (src/features/brokers/BrokerConnectionsPage.tsx)
+     - the empty state reads "Coming soon", which implies nothing works at all,
+       though MT5 does
+   The landing page's broker table (FEATURE_PAGES -> broker-connections ->
+   table in src/landing/content.ts) is currently MORE accurate than the app.
+   Per CLAUDE.md that table is the single place broker status is stated and
+   must be updated in the same change that wires up a broker.

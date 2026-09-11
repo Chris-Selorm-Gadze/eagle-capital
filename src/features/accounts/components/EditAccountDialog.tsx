@@ -5,6 +5,7 @@ import { Modal } from '../../../shared/ui/Modal'
 import { BREACH_REASONS } from '../breachReasons'
 import { errorMessage } from '../../../utils/errors'
 import styles from './AccountDialogs.module.css'
+import { useConfirm } from '../../../shared/ui/confirm'
 
 export function EditAccountDialog({
   account,
@@ -15,6 +16,7 @@ export function EditAccountDialog({
   onClose: () => void
   onSaved: () => void
 }) {
+  const confirm = useConfirm()
   const [balance, setBalance] = useState(String(account.balance))
   const [highestBalance, setHighestBalance] = useState(String(account.highestBalance))
   const [stage, setStage] = useState<Account['stage']>(account.stage)
@@ -62,7 +64,7 @@ export function EditAccountDialog({
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Delete ${account.label}? This also deletes all sessions, trades, payouts, and rewards logged against it. This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete ${account.label}?`, description: 'This also deletes all sessions, trades, payouts and rewards logged against it. This cannot be undone.', confirmLabel: 'Delete account', destructive: true }))) return
     setError(null)
     setDeleting(true)
     try {

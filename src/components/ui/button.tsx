@@ -40,20 +40,27 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  asChild = false,
-  ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
+// forwardRef, unlike the upstream shadcn source. shadcn targets React 19, where
+// `ref` is an ordinary prop on function components. This app is on React 18,
+// where React strips `ref` out of props — so any Radix `asChild` trigger
+// wrapping a plain function component silently fails to attach, and the popover
+// it controls never opens. That is what hid "Sign out" behind NavUser's
+// dropdown. Every component used as an `asChild` target needs this.
+const Button = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<"button"> &
+    VariantProps<typeof buttonVariants> & {
+      asChild?: boolean
+    }
+>(function Button(
+  { className, variant = "default", size = "default", asChild = false, ...props },
+  ref,
+) {
   const Comp = asChild ? Slot.Root : "button"
 
   return (
     <Comp
+      ref={ref}
       data-slot="button"
       data-variant={variant}
       data-size={size}
@@ -61,6 +68,6 @@ function Button({
       {...props}
     />
   )
-}
+})
 
 export { Button, buttonVariants }

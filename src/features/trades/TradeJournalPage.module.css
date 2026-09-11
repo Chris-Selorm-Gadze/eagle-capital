@@ -65,6 +65,22 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  /* The list scrolls inside its own pane instead of growing the page. With 90
+     trades it used to run several thousand pixels down while the detail and
+     chart panes stayed pinned at the top, so most of the screen was empty and
+     the trade you were reading scrolled out of view. */
+  max-height: calc(100svh - 11rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 900px) {
+  /* Stacked, the list is the page — an inner scroller there would mean two
+     nested scrollbars. */
+  .listPane {
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 
 .detailPane {

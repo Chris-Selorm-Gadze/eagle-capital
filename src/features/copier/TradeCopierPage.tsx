@@ -10,6 +10,7 @@ import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
 import { AddAccountDialog } from '../accounts/components/AddAccountDialog'
 import styles from './TradeCopierPage.module.css'
+import { useConfirm } from '../../shared/ui/confirm'
 
 function money(n: number): string {
   const sign = n < 0 ? '-' : ''
@@ -32,6 +33,7 @@ function accountLabel(accounts: DeltaAccount[], id: string): string {
 }
 
 function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => void }) {
+  const confirm = useConfirm()
   const [busyId, setBusyId] = useState<string | null>(null)
 
   async function run(id: string, action: () => Promise<unknown>) {
@@ -44,18 +46,18 @@ function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => 
     }
   }
 
-  function handleToggle(f: FollowerStats) {
-    if (!f.isEnabled && !window.confirm(`Enable copying from ${group.master.label} to ${f.label}? This mirrors real orders immediately.`)) return
+  async function handleToggle(f: FollowerStats) {
+    if (!f.isEnabled && !(await confirm({ title: `Enable copying from ${group.master.label} to ${f.label}?`, description: 'This mirrors real orders immediately.', confirmLabel: 'Enable copying', destructive: true }))) return
     run(f.copierId, () => (f.isEnabled ? disableCopier(f.copierId) : enableCopier(f.copierId)))
   }
 
-  function handleRemoveFollower(f: FollowerStats) {
-    if (!window.confirm(`Remove ${f.label} from this copy group?`)) return
+  async function handleRemoveFollower(f: FollowerStats) {
+    if (!(await confirm({ title: `Remove ${f.label} from this copy group?`, confirmLabel: 'Remove', destructive: true }))) return
     run(f.copierId, () => deleteCopier(f.copierId))
   }
 
-  function handleFlatten(connectionId: string, label: string) {
-    if (!window.confirm(`Flatten all open positions on ${label}? This closes real positions immediately.`)) return
+  async function handleFlatten(connectionId: string, label: string) {
+    if (!(await confirm({ title: `Flatten all open positions on ${label}?`, description: 'This closes real positions immediately.', confirmLabel: 'Flatten positions', destructive: true }))) return
     run(connectionId, () => flattenPositions(connectionId))
   }
 
@@ -65,15 +67,15 @@ function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => 
     run('group', () => Promise.all(toEnable.map((f) => enableCopier(f.copierId))))
   }
 
-  function handleDisableAll() {
+  async function handleDisableAll() {
     const toDisable = group.followers.filter((f) => f.isEnabled)
     if (toDisable.length === 0) return
-    if (!window.confirm(`Disable all ${toDisable.length} active followers copying from ${group.master.label}?`)) return
+    if (!(await confirm({ title: `Disable all ${toDisable.length} active followers copying from ${group.master.label}?`, confirmLabel: 'Disable all', destructive: true }))) return
     run('group', () => Promise.all(toDisable.map((f) => disableCopier(f.copierId))))
   }
 
-  function handleDeleteGroup() {
-    if (!window.confirm(`Delete this entire copy group? All ${group.followers.length} follower relations will be removed.`)) return
+  async function handleDeleteGroup() {
+    if (!(await confirm({ title: 'Delete this entire copy group?', description: `All ${group.followers.length} follower relations will be removed.`, confirmLabel: 'Delete group', destructive: true }))) return
     run('group', () => Promise.all(group.followers.map((f) => deleteCopier(f.copierId))))
   }
 

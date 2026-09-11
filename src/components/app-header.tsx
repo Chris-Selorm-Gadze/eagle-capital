@@ -6,6 +6,7 @@ import { AppBreadcrumbs } from "@/components/app-breadcrumbs";
 import { CustomSidebarTrigger } from "@/components/custom-sidebar-trigger";
 import { navGroupLabelFor, navItemFor } from "@/components/app-shared";
 import { useAppNav } from "@/components/app-nav-context";
+import { HeaderUserMenu } from "@/components/nav-user";
 
 /** `actions` is the per-page slot on the right — the dashboard puts its
  * account filter and buttons there; most pages pass nothing. */
@@ -27,7 +28,10 @@ export function AppHeader({ actions }: { actions?: ReactNode }) {
 					section={groupLabel}
 				/>
 			</div>
-			{actions && <div className="flex items-center gap-2">{actions}</div>}
+			<div className="flex items-center gap-2">
+				{actions}
+				<HeaderUserMenu />
+			</div>
 		</header>
 	);
 }

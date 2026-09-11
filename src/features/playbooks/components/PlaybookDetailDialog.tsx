@@ -7,6 +7,7 @@ import { PlaybookStats } from './PlaybookStats'
 import { exportPlaybookPdf, exportPlaybookDocx } from '../exportPlaybook'
 import styles from '../PlaybooksPage.module.css'
 import { errorMessage } from '../../../utils/errors'
+import { useConfirm } from '../../../shared/ui/confirm'
 
 function tradeChipLabel(trade: Trade): string {
   const sign = trade.pnl >= 0 ? '+' : '-'
@@ -28,6 +29,7 @@ export function PlaybookDetailDialog({
   onClose: () => void
   onChanged: () => void
 }) {
+  const confirm = useConfirm()
   const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([])
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
@@ -106,7 +108,7 @@ export function PlaybookDetailDialog({
   }
 
   async function handleDeleteExample(id: string) {
-    if (!confirm('Delete this example?')) return
+    if (!(await confirm({ title: 'Delete this example?', confirmLabel: 'Delete', destructive: true }))) return
     setError(null)
     try {
       await deletePlaybookExample(id)

@@ -6,6 +6,8 @@ import { PROP_FIRMS } from '../propFirms'
 import { deleteAccount } from '../../../db/accounts'
 import { errorMessage } from '../../../utils/errors'
 import styles from './AccountCard.module.css'
+import { useConfirm } from '../../../shared/ui/confirm'
+import { toast } from 'sonner'
 
 const STAGE_LABEL: Record<Account['stage'], string> = {
   challenge: 'Challenge',
@@ -53,6 +55,7 @@ export function AccountCard({
   onScalingTracker?: () => void
   onDeleted: () => void
 }) {
+  const confirm = useConfirm()
   const firm = PROP_FIRMS.find((f) => f.id === account.firmId)
   const firmName = account.stage === 'live'
     ? 'Live account'
@@ -77,13 +80,13 @@ export function AccountCard({
 
   async function handleDelete() {
     setMenuOpen(false)
-    if (!window.confirm(`Delete ${account.label}? This also deletes all sessions, trades, payouts, and rewards logged against it. This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete ${account.label}?`, description: 'This also deletes all sessions, trades, payouts and rewards logged against it. This cannot be undone.', confirmLabel: 'Delete account', destructive: true }))) return
     setDeleting(true)
     try {
       await deleteAccount(account.id!)
       onDeleted()
     } catch (err) {
-      alert(errorMessage(err))
+      toast.error(errorMessage(err))
       setDeleting(false)
     }
   }

@@ -8,6 +8,7 @@ import { FEATURE_PAGES } from './content'
 export type PublicPageKind =
   | 'home' | 'features' | 'feature' | 'how-it-works' | 'pricing'
   | 'security' | 'about' | 'faq' | 'roadmap' | 'disclaimer'
+  | 'privacy' | 'terms'
 
 export interface PublicLocation {
   kind: PublicPageKind
@@ -15,7 +16,7 @@ export interface PublicLocation {
   slug?: string
 }
 
-export const AUTH_PATHS = ['/signin', '/signup'] as const
+export const AUTH_PATHS = ['/signin', '/signup', '/forgot-password', '/reset-password'] as const
 export type AuthPath = (typeof AUTH_PATHS)[number]
 
 const STATIC_ROUTES: Record<string, PublicPageKind> = {
@@ -28,6 +29,8 @@ const STATIC_ROUTES: Record<string, PublicPageKind> = {
   '/faq': 'faq',
   '/roadmap': 'roadmap',
   '/disclaimer': 'disclaimer',
+  '/privacy': 'privacy',
+  '/terms': 'terms',
 }
 
 /** Trailing slashes are tolerated so a pasted "/pricing/" doesn't 404. */

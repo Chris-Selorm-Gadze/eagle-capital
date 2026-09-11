@@ -56,7 +56,8 @@
   color-scheme: light;
   background-color: var(--l-bg);
   color: var(--l-text-2);
-  font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Manrope Variable is bundled (see index.css); 'Manrope' stays as a fallback. */
+  font-family: 'Manrope Variable', 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;

@@ -11,12 +11,15 @@ import type { Account } from "@/db/schema";
 import { deleteAccount } from "@/db/accounts";
 import { errorMessage } from "@/utils/errors";
 import {
+	BriefcaseIcon,
 	BuildingIcon,
 	CameraIcon,
 	ChevronDownIcon,
 	PlusIcon,
 	Trash2Icon,
 } from "lucide-react";
+import { toast } from "sonner";
+import { useConfirm } from "@/shared/ui/confirm";
 
 /* The dashboard's header slot: which account you're looking at, plus the three
  * actions that used to live in the old TopBar. */
@@ -38,22 +41,26 @@ export function DashboardActions({
 	onSnapshot?: () => void;
 	onAccountDeleted: () => void;
 }) {
+	const confirm = useConfirm();
+
 	async function handleDeleteAccount(a: Account, e: React.MouseEvent) {
 		e.preventDefault();
 		e.stopPropagation();
-		if (
-			!window.confirm(
-				`Delete ${a.label}? This also deletes all sessions, trades, payouts, and rewards logged against it. This cannot be undone.`
-			)
-		) {
-			return;
-		}
+		const ok = await confirm({
+			title: `Delete ${a.label}?`,
+			description:
+				"This also deletes all sessions, trades, payouts and rewards logged against it. This cannot be undone.",
+			confirmLabel: "Delete account",
+			destructive: true,
+		});
+		if (!ok) return;
 		try {
 			await deleteAccount(a.id!);
 			if (accountFilter === a.id) onAccountFilterChange("all");
 			onAccountDeleted();
+			toast.success(`${a.label} deleted`);
 		} catch (err) {
-			alert(errorMessage(err));
+			toast.error(errorMessage(err));
 		}
 	}
 
@@ -106,11 +113,14 @@ export function DashboardActions({
 					<CameraIcon />
 				</Button>
 			)}
-			<Button onClick={onAddAccount} size="sm" variant="outline">
-				<PlusIcon />
+			{/* Both labels are hidden below sm, which used to leave two identical
+			    "+" buttons side by side. The icons carry the meaning at that width,
+			    and the aria-labels carry it for screen readers at every width. */}
+			<Button aria-label="Add account" onClick={onAddAccount} size="sm" variant="outline">
+				<BriefcaseIcon />
 				<span className="hidden sm:inline">Account</span>
 			</Button>
-			<Button onClick={onAddTrade} size="sm">
+			<Button aria-label="Log a trade" onClick={onAddTrade} size="sm">
 				<PlusIcon />
 				<span className="hidden sm:inline">Trade</span>
 			</Button>

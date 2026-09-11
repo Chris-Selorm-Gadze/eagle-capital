@@ -29,9 +29,14 @@ export function AuthGate() {
   // A signed-in user has no business on /signin or /signup — bounce them to
   // the app. Done in an effect so it's a real navigation, not a render-time
   // side effect.
+  //
+  // /reset-password is exempt: arriving from a recovery email *is* a signed-in
+  // state (Supabase creates a recovery session from the link), so bouncing
+  // would make the password form unreachable — the exact thing it's there for.
+  const onResetRoute = path === '/reset-password'
   useEffect(() => {
-    if (!loading && user && onAuthRoute) navigate(pathForNav('dashboard'))
-  }, [loading, user, onAuthRoute])
+    if (!loading && user && onAuthRoute && !onResetRoute) navigate(pathForNav('dashboard'))
+  }, [loading, user, onAuthRoute, onResetRoute])
 
   // Equally, an app route with no session goes to sign-in rather than
   // rendering App and letting it crash on `user!.id`. Scoped to real app paths
@@ -50,7 +55,9 @@ export function AuthGate() {
     if (publicLocation) return <LandingSite location={publicLocation} />
 
     if (onAuthRoute) {
+      if (onResetRoute) return <AuthScreen mode="reset" />
       if (user) return null // redirecting to the app
+      if (path === '/forgot-password') return <AuthScreen mode="forgot" />
       return <AuthScreen mode={path === '/signup' ? 'signup' : 'signin'} />
     }
 

@@ -11,6 +11,7 @@ import { FiveWhysSection } from './components/FiveWhysSection'
 import { LedgerSection } from './components/LedgerSection'
 import { TradeLinkSection } from './components/TradeLinkSection'
 import styles from './ReportCardPage.module.css'
+import { useConfirm } from '../../shared/ui/confirm'
 
 const SECTIONS = [
   { id: 'sec-scoreboard', label: 'Scoreboard' },
@@ -91,6 +92,7 @@ export function ReportCardPage({
   onClose?: () => void
   onSaved?: () => void
 }) {
+  const confirm = useConfirm()
   const [card, setCard] = useState<ReportCard>(() => openedCard ?? blankCard(todayISO()))
   const [savedMessage, setSavedMessage] = useState('')
   const [rules, setRules] = useState<TradingRule[]>([])
@@ -142,8 +144,8 @@ export function ReportCardPage({
     URL.revokeObjectURL(a.href)
   }
 
-  function handleClear() {
-    if (!confirm('Clear the form? Unsaved entries are lost.')) return
+  async function handleClear() {
+    if (!(await confirm({ title: 'Clear the form?', description: 'Unsaved entries are lost.', confirmLabel: 'Clear form', destructive: true }))) return
     setCard(blankCard(card.date))
   }
 
@@ -195,7 +197,7 @@ export function ReportCardPage({
           <button type="button" className="btn-ghost" onClick={handleClear}>Clear form</button>
         </nav>
 
-        <ScoreboardSection card={card} onChange={patch} />
+        <ScoreboardSection card={card} trades={trades} onChange={patch} />
         <ExecutionChecklist card={card} rules={rules} onChange={patch} />
         <GradeSection card={card} onChange={patch} />
         <FiveWhysSection card={card} onChange={patch} />

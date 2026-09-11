@@ -21,6 +21,7 @@ export function RecentTradesTable({
   return (
     <div className="card">
       <div className={styles.title}>{title}</div>
+      <div className={styles.scroller}>
       <table className={styles.table}>
         <thead>
           <tr className={styles.headerRow}>
@@ -57,6 +58,7 @@ export function RecentTradesTable({
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

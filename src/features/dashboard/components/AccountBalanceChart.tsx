@@ -5,6 +5,7 @@ import {
   COLOR_ACCENT, COLOR_CRITICAL, COLOR_GRIDLINE,
 } from '../../../utils/chartTheme'
 import styles from './AccountBalanceChart.module.css'
+import { formatDate } from '../../../components/formater'
 
 const TICK_STYLE = { fontSize: 10, fill: 'var(--text-muted)' }
 
@@ -37,15 +38,26 @@ export function AccountBalanceChart({ data, currentBalance }: { data: BalancePoi
       </div>
       <div className={styles.chartArea}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+          {/* left margin clears the widest Y tick ("$200,000"), which was being
+              cut off at the plot edge. */}
+          <LineChart data={data} margin={{ top: 5, right: 10, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRIDLINE} />
-            <XAxis dataKey="date" tick={TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE} />
+            {/* Same "Jun 1" formatting the dashboard's other two charts use —
+                this one was printing raw ISO dates (2026-06-15) beside them. */}
+            <XAxis
+              dataKey="date"
+              tick={TICK_STYLE}
+              tickFormatter={(v) => formatDate(String(v), 'day-month')}
+              axisLine={AXIS_LINE_STYLE}
+              tickLine={AXIS_LINE_STYLE}
+            />
             <YAxis
               tick={TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE}
-              tickFormatter={(v) => `$${v.toLocaleString()}`} width={50}
+              tickFormatter={(v) => `$${v.toLocaleString()}`} width={68}
             />
             <Tooltip
               formatter={(v) => `$${Number(v).toLocaleString()}`}
+              labelFormatter={(v) => formatDate(String(v), 'full')}
               contentStyle={TOOLTIP_CONTENT_STYLE}
               labelStyle={TOOLTIP_LABEL_STYLE}
               itemStyle={TOOLTIP_ITEM_STYLE}

@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext'
 import { supabaseConfigured } from '../../lib/supabaseClient'
 import { Link } from '../../landing/components/Link'
 import { navigate } from '../../landing/routes'
+import { pathForNav } from '../../shared/routing'
 import '../../landing/landing.css'
 import styles from './AuthScreen.module.css'
 
@@ -10,7 +11,27 @@ import styles from './AuthScreen.module.css'
  * rendered AuthPage directly). Auth now lives at its own /signin and /signup
  * routes, so the landing site is what a new visitor actually lands on. */
 
+const PATH_AFTER_RESET = pathForNav('dashboard')
+
 const COPY = {
+  forgot: {
+    title: 'Reset your password',
+    sub: 'We’ll email you a link to set a new one.',
+    submit: 'Send reset link',
+    switchText: 'Remembered it?',
+    switchCta: 'Sign in',
+    switchTo: '/signin',
+    meta: 'Reset your password — EagleCapital',
+  },
+  reset: {
+    title: 'Choose a new password',
+    sub: 'This replaces the password on your account.',
+    submit: 'Save new password',
+    switchText: 'Changed your mind?',
+    switchCta: 'Sign in',
+    switchTo: '/signin',
+    meta: 'Choose a new password — EagleCapital',
+  },
   signin: {
     title: 'Welcome back',
     sub: 'Sign in to your desk.',
@@ -38,9 +59,16 @@ const POINTS = [
   'No firm’s rules hardcoded',
 ]
 
-export function AuthScreen({ mode }: { mode: 'signin' | 'signup' }) {
-  const { signUp, signIn } = useAuth()
+export type AuthMode = 'signin' | 'signup' | 'forgot' | 'reset'
+
+export function AuthScreen({ mode }: { mode: AuthMode }) {
+  const { signUp, signIn, requestPasswordReset, updatePassword } = useAuth()
   const copy = COPY[mode]
+
+  // 'forgot' collects an email and no password; 'reset' collects a password and
+  // no email. Everything else collects both.
+  const wantsEmail = mode !== 'reset'
+  const wantsPassword = mode !== 'forgot'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -64,16 +92,39 @@ export function AuthScreen({ mode }: { mode: 'signin' | 'signup' }) {
     setError(null)
     setSuccess(null)
     setSubmitting(true)
-    const result = mode === 'signup' ? await signUp(email, password) : await signIn(email, password)
+    const result = await runSubmit()
     setSubmitting(false)
 
     if (result.error) {
       setError(result.error)
-    } else if (mode === 'signup') {
+      return
+    }
+    if (mode === 'signup') {
       setSuccess('Account created — check your email to confirm, then sign in.')
+    } else if (mode === 'forgot') {
+      // Deliberately the same message whether or not the address has an
+      // account — saying "no such user" would turn this form into a way to
+      // test which emails are registered.
+      setSuccess('If that email has an account, a reset link is on its way.')
+    } else if (mode === 'reset') {
+      setSuccess('Password updated. Taking you to your desk…')
+      setTimeout(() => navigate(PATH_AFTER_RESET), 1200)
     }
     // On a successful sign-in AuthGate swaps to the app on its own once the
     // session lands; no navigation needed here.
+  }
+
+  function runSubmit() {
+    switch (mode) {
+      case 'signup':
+        return signUp(email, password)
+      case 'forgot':
+        return requestPasswordReset(email)
+      case 'reset':
+        return updatePassword(password)
+      default:
+        return signIn(email, password)
+    }
   }
 
   return (
@@ -97,34 +148,47 @@ export function AuthScreen({ mode }: { mode: 'signin' | 'signup' }) {
             ) : (
               <>
                 <form className={styles.form} onSubmit={submit}>
-                  <div className={styles.field}>
-                    <label className={styles.label} htmlFor="auth-email">Email</label>
-                    <input
-                      id="auth-email"
-                      className={styles.input}
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      autoComplete="email"
-                      required
-                    />
-                  </div>
+                  {wantsEmail && (
+                    <div className={styles.field}>
+                      <label className={styles.label} htmlFor="auth-email">Email</label>
+                      <input
+                        id="auth-email"
+                        className={styles.input}
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        autoComplete="email"
+                        required
+                      />
+                    </div>
+                  )}
 
-                  <div className={styles.field}>
-                    <label className={styles.label} htmlFor="auth-password">Password</label>
-                    <input
-                      id="auth-password"
-                      className={styles.input}
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
-                      autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                      minLength={mode === 'signup' ? 8 : undefined}
-                      required
-                    />
-                  </div>
+                  {wantsPassword && (
+                    <div className={styles.field}>
+                      <div className={styles.labelRow}>
+                        <label className={styles.label} htmlFor="auth-password">
+                          {mode === 'reset' ? 'New password' : 'Password'}
+                        </label>
+                        {mode === 'signin' && (
+                          <Link className={styles.forgotLink} to="/forgot-password">
+                            Forgot password?
+                          </Link>
+                        )}
+                      </div>
+                      <input
+                        id="auth-password"
+                        className={styles.input}
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder={mode === 'signin' ? '••••••••' : 'At least 8 characters'}
+                        autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                        minLength={mode === 'signin' ? undefined : 8}
+                        required
+                      />
+                    </div>
+                  )}
 
                   {error && <div className={`${styles.message} ${styles.error}`}>{error}</div>}
                   {success && <div className={`${styles.message} ${styles.success}`}>{success}</div>}
@@ -132,7 +196,9 @@ export function AuthScreen({ mode }: { mode: 'signin' | 'signup' }) {
                   <button
                     type="submit"
                     className={`btnInk ${styles.submit}`}
-                    disabled={submitting || !email || !password}
+                    disabled={
+                      submitting || (wantsEmail && !email) || (wantsPassword && !password)
+                    }
                   >
                     {submitting ? 'Working…' : copy.submit}
                   </button>
@@ -152,6 +218,7 @@ export function AuthScreen({ mode }: { mode: 'signin' | 'signup' }) {
                 {mode === 'signup' && (
                   <p className={styles.legal}>
                     By creating an account you agree to our{' '}
+                    <Link to="/terms">terms</Link>, <Link to="/privacy">privacy policy</Link> and{' '}
                     <Link to="/disclaimer">risk disclaimer</Link>. EagleCapital is a tracking and
                     journaling tool, not financial advice.
                   </p>

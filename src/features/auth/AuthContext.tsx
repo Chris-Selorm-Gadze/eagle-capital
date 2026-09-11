@@ -10,6 +10,13 @@ interface AuthContextValue {
   signUp: (email: string, password: string) => Promise<{ error: string | null }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
+  /** Sends the recovery email. Supabase returns success even for an unknown
+   * address, deliberately — so the caller must not report whether the account
+   * exists. */
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>
+  /** Sets a new password for the session Supabase creates from the recovery
+   * link. Only meaningful while that recovery session is active. */
+  updatePassword: (password: string) => Promise<{ error: string | null }>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -51,8 +58,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  async function requestPasswordReset(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    return { error: error?.message ?? null }
+  }
+
+  async function updatePassword(password: string) {
+    const { error } = await supabase.auth.updateUser({ password })
+    return { error: error?.message ?? null }
+  }
+
   return (
-    <AuthContext.Provider value={{ user: session?.user ?? null, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{
+        user: session?.user ?? null,
+        session,
+        loading,
+        signUp,
+        signIn,
+        signOut,
+        requestPasswordReset,
+        updatePassword,
+      }}>
       {children}
     </AuthContext.Provider>
   )

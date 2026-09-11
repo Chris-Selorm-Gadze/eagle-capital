@@ -174,3 +174,22 @@
   color: rgba(255, 255, 255, 0.5);
   max-width: 34rem;
 }
+
+/* Sits the "Forgot password?" link on the same line as the Password label,
+   which is where people look for it. */
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.forgotLink {
+  font-size: 0.8rem;
+  color: var(--l-text-3);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.forgotLink:hover {
+  color: var(--l-text-1);
+  border-bottom-color: var(--l-text-3);
+}

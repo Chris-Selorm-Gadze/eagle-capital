@@ -73,3 +73,38 @@ describe('nav <-> path mapping', () => {
     expect(pathForNav('dashboard')).toBe('/dashboard')
   })
 })
+
+describe('legal pages', () => {
+  it('resolves /privacy and /terms as marketing pages', () => {
+    expect(publicLocationFor('/privacy')).toEqual({ kind: 'privacy' })
+    expect(publicLocationFor('/terms')).toEqual({ kind: 'terms' })
+  })
+
+  it('does not treat them as app routes', () => {
+    expect(isAppPath('/privacy')).toBe(false)
+    expect(isAppPath('/terms')).toBe(false)
+  })
+})
+
+describe('password-recovery routes', () => {
+  it('treats them as auth routes, not marketing or app routes', () => {
+    for (const path of ['/forgot-password', '/reset-password']) {
+      expect(isAuthPath(path)).toBe(true)
+      expect(publicLocationFor(path)).toBeNull()
+      expect(isAppPath(path)).toBe(false)
+    }
+  })
+
+  it('keeps the original auth routes working', () => {
+    expect(isAuthPath('/signin')).toBe(true)
+    expect(isAuthPath('/signup')).toBe(true)
+  })
+})
+
+describe('settings route', () => {
+  it('is an app route and round-trips', () => {
+    expect(isAppPath('/settings')).toBe(true)
+    expect(navForPath('/settings')).toBe('settings')
+    expect(pathForNav('settings')).toBe('/settings')
+  })
+})

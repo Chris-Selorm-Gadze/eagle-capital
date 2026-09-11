@@ -30,5 +30,5 @@
 .tabActive {
   background: var(--accent);
   border-color: var(--accent);
-  color: var(--text-primary);
+  color: var(--accent-fg);
 }

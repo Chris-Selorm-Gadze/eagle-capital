@@ -10,6 +10,7 @@ import { AccountBalanceChart } from './components/AccountBalanceChart'
 import { TradeTimeScatter } from './components/TradeTimeScatter'
 import { TradeDurationScatter } from './components/TradeDurationScatter'
 import { RecentTradesTable } from '../trades/components/RecentTradesTable'
+import { EmptyDesk } from './components/EmptyDesk'
 import styles from './DashboardPage.module.css'
 
 export function DashboardPage({
@@ -17,12 +18,28 @@ export function DashboardPage({
   accounts,
   payouts,
   onOpenDateInJournal,
+  onAddAccount,
+  onAddTrade,
 }: {
   trades: Trade[]
   accounts: Account[]
   payouts: Payout[]
   onOpenDateInJournal: (date: string) => void
+  onAddAccount: () => void
+  onAddTrade: () => void
 }) {
+  // With nothing logged there is no dashboard to draw — every tile would render
+  // a zero or an empty frame. Show the way in instead.
+  if (trades.length === 0) {
+    return (
+      <EmptyDesk
+        hasAccounts={accounts.length > 0}
+        onAddAccount={onAddAccount}
+        onAddTrade={onAddTrade}
+      />
+    )
+  }
+
   const daily = dailyPnlSeries(trades)
   const tradedAccountIds = new Set(trades.map((t) => t.accountId))
   const startingBalance = accounts

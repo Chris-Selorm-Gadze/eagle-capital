@@ -30,7 +30,7 @@
 .rangeChipActive {
   background: var(--accent);
   border-color: var(--accent);
-  color: var(--text-primary);
+  color: var(--accent-fg);
 }
 
 .preview {
@@ -178,7 +178,7 @@
 .findingTabActive {
   background: var(--accent);
   border-color: var(--accent);
-  color: var(--text-primary);
+  color: var(--accent-fg);
 }
 .findingTabCount {
   opacity: 0.75;

@@ -1,3 +1,4 @@
+import { Link } from '../components/Link'
 import { Reveal } from '../components/Reveal'
 import { PageHeader } from '../components/PageHeader'
 import { DISCLAIMER_BODY } from '../content'
@@ -29,6 +30,9 @@ export function Disclaimer() {
                 password unless you connect an account. Analytics identify you by user ID only,
                 with no session replay. You can export everything and delete your account whenever
                 you want.
+              </p>
+              <p className={styles.asideBody}>
+                <Link to="/privacy">Read the full privacy policy</Link>.
               </p>
             </div>
           </Reveal>

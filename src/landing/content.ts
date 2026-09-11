@@ -392,3 +392,143 @@ export const DISCLAIMER_BODY = [
   'Trading carries a substantial risk of loss and is not suitable for everyone. Past performance does not indicate future results. You may lose more than your initial deposit on leveraged products.',
   'EagleCapital is not affiliated with, endorsed by, or partnered with any prop firm or broker named in this product.',
 ]
+
+/* Privacy and Terms.
+ *
+ * Written to describe what the code actually does, in the same way the broker
+ * support table is (see the note in CLAUDE.md). If a data flow changes — a new
+ * sub-processor, a new bucket, a new thing sent to an LLM — this is the place
+ * that has to change with it.
+ *
+ * Not lawyer-reviewed. Accurate, but get it checked before you take money. */
+
+export interface LegalSection {
+  heading: string
+  paragraphs: string[]
+}
+
+export const PRIVACY_UPDATED = '10 September 2026'
+
+export const PRIVACY_SECTIONS: LegalSection[] = [
+  {
+    heading: 'What we collect',
+    paragraphs: [
+      'An email address and a password, so you can sign in. Passwords are hashed by our authentication provider and are never visible to us.',
+      'Everything you choose to log: trading accounts and their sizes and limits, trades, sessions, payouts, rewards, playbooks, trading rules and daily report cards. You type this in, or import it from a CSV, or sync it from a broker account you connect.',
+      'Images you upload to playbooks and report cards.',
+      'Basic product analytics — which pages you open and which actions you take — identified by your user ID. No session replay, and no third-party advertising or tracking pixels.',
+      'Error diagnostics when something breaks, so we can fix it.',
+    ],
+  },
+  {
+    heading: 'How your data is separated',
+    paragraphs: [
+      'Every table is protected by row-level security scoped to your authenticated user ID. That check runs in the database, not in the app, so one user\u2019s query cannot return another user\u2019s rows even if the front-end asks it to.',
+    ],
+  },
+  {
+    heading: 'Who else processes it',
+    paragraphs: [
+      'Supabase — database, authentication and file storage. This is where your data lives.',
+      'Groq and Anthropic — only when you press "Generate Insights" on the AI Insights page. That sends a summary of the trades in the range you selected to a language model to write the digest. Nothing is sent automatically, and nothing is sent unless you press the button. If you never use that page, your trades never reach either provider.',
+      'PostHog — product analytics, keyed to your user ID.',
+      'Sentry — error monitoring.',
+      'We do not sell your data, and we do not share it with prop firms or brokers.',
+    ],
+  },
+  {
+    heading: 'Images you upload',
+    paragraphs: [
+      'Playbook and report-card images are stored under a randomly generated address in a bucket that serves files over public URLs. The address is not guessable and is not listed anywhere, but anyone you give the link to can open the image without signing in. Treat these the way you would treat an unlisted link: fine for a chart screenshot, not the place for anything you would not want forwarded.',
+    ],
+  },
+  {
+    heading: 'Broker credentials',
+    paragraphs: [
+      'If you connect a broker account, the credentials are used to establish that connection and are not written into our own database tables from the browser. We never ask for a password to an account you have not chosen to connect, and connecting a broker is always optional — the journal, dashboard and prop tracker work entirely without one.',
+    ],
+  },
+  {
+    heading: 'Getting your data out, and deleting it',
+    paragraphs: [
+      'Settings has two exports: your trades as a CSV, and everything as JSON. Neither costs anything and neither is gated behind a plan.',
+      'The same page deletes every record you have logged. Deletion is immediate and cannot be undone, so export first if you want a copy. Reclaiming the underlying login record is a manual step on our side today — ask and we will remove it.',
+      'You can do both without talking to us, and we would rather you left cleanly than stayed because leaving was hard.',
+    ],
+  },
+  {
+    heading: 'Cookies',
+    paragraphs: [
+      'A session cookie keeps you signed in. Analytics use a first-party identifier. There are no advertising cookies and nothing is shared with an ad network.',
+    ],
+  },
+]
+
+export const TERMS_UPDATED = '10 September 2026'
+
+export const TERMS_SECTIONS: LegalSection[] = [
+  {
+    heading: 'What this service is',
+    paragraphs: [
+      'EagleCapital records and analyses trading activity you enter or connect. It is a record-keeping and review tool. It is not financial advice, not investment advice, not a broker, and not a substitute for your own judgment.',
+    ],
+  },
+  {
+    heading: 'Your account',
+    paragraphs: [
+      'You are responsible for keeping your password secure and for everything done through your account. Tell us promptly if you believe someone else has access to it.',
+      'You must be old enough to enter a contract where you live, and you must not use the service where doing so would break local law.',
+    ],
+  },
+  {
+    heading: 'Your data belongs to you',
+    paragraphs: [
+      'You keep ownership of everything you log. You grant us only the permission needed to store it, show it back to you, and operate the features you use.',
+      'You can export it or delete it at any time from Settings.',
+    ],
+  },
+  {
+    heading: 'No prop firm rules are encoded',
+    paragraphs: [
+      'The product does not implement, verify or enforce any prop firm\u2019s rules. Drawdown limits, daily loss limits, profit targets and trading-day requirements are values you type in yourself. We do not check them against any firm\u2019s terms, and passing or failing an evaluation is between you and that firm.',
+    ],
+  },
+  {
+    heading: 'The Trade Copier places real orders',
+    paragraphs: [
+      'When you enable copying, the service submits real orders to real accounts you have connected. You are responsible for every order placed. Test with minimal size before pointing it at a funded account.',
+      'Order routing depends on your broker, your connection and third-party systems. Orders can be delayed, rejected or filled at prices you did not expect. We do not guarantee that any order is placed, placed on time, or placed at any particular price.',
+    ],
+  },
+  {
+    heading: 'Availability',
+    paragraphs: [
+      'The service is provided as-is. We do not promise it will be uninterrupted or error-free, and features may change. We will not intentionally remove your ability to export your own data.',
+    ],
+  },
+  {
+    heading: 'Limitation of liability',
+    paragraphs: [
+      'To the fullest extent the law allows, we are not liable for trading losses, lost profits, missed opportunities, or any indirect or consequential loss arising from your use of the service — including losses connected to an order the Trade Copier placed or failed to place.',
+      'Nothing here limits liability that cannot be limited by law.',
+    ],
+  },
+  {
+    heading: 'Payment',
+    paragraphs: [
+      'The free tier is free. Paid tiers are not yet available and nothing is charged today. If that changes, prices and terms will be published before anyone is billed.',
+    ],
+  },
+  {
+    heading: 'Ending your use',
+    paragraphs: [
+      'You can stop at any time and delete your data from Settings. We may suspend an account that is being used to break these terms or the law.',
+    ],
+  },
+  {
+    heading: 'Not affiliated',
+    paragraphs: [
+      'EagleCapital is not affiliated with, endorsed by, or partnered with any prop firm or broker named anywhere in this product.',
+    ],
+  },
+]

@@ -20,6 +20,18 @@
   --gridline: #e5e5e5;
 
   --accent: #2563eb;
+  /* Primary ACTIONS are near-black, matching the shadcn shell's primary button.
+     --accent stays blue because it means something different: it's the data and
+     link colour (the equity curve, hyperlinks, focus rings). Before these were
+     separated, every legacy page's primary button was blue while every shell
+     button was black, on the same screen. */
+  --btn-primary: oklch(0.205 0 0);
+  --btn-primary-hover: oklch(0.30 0 0);
+  --btn-primary-fg: oklch(0.985 0 0);
+  /* Text on an --accent fill. These rules were written for the dark palette,
+     where --text-primary was near-white; after the light flip they became
+     near-black on blue (4.06:1, under AA). White is 4.66:1. */
+  --accent-fg: #ffffff;
   --good: #15803d;
   --warning: #b45309;
   --serious: #c2410c;
@@ -63,7 +75,11 @@ body {
   margin: 0;
   background: var(--page-bg);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* No font-family here on purpose. `html { @apply font-sans }` in index.css is
+     the single source of truth (Manrope), and a declaration on `body` would beat
+     that inherited value outright — specificity never enters into it. That's how
+     the app ended up on system-ui while only shadcn's `font-heading` titles got
+     the webfont. The landing site sets its own family under `.landingRoot`. */
 }
 
 /* ---------------------------------------------------------------------------
@@ -78,9 +94,17 @@ body {
    amount of styling in the landing's own stylesheet could win.
 
    Anything rendered outside `.appSurface` is responsible for its own controls.
+
+   The element rules are wrapped in `:where()`, which contributes ZERO
+   specificity. That makes them a floor rather than a ceiling: a page's own
+   `.tabActive { background: … }` (0,1,0) now wins instead of losing to
+   `.appSurface button` (0,1,1). Several pages already shipped active-state
+   classes — the AI Insights range chips, the Trader Management tabs, the
+   calendar filter chips — that were being silently overridden, so every chip in
+   a group rendered identically and you couldn't tell which was selected.
    --------------------------------------------------------------------------- */
 
-.appSurface button {
+:where(.appSurface) button {
   background: var(--surface-3);
   color: var(--text-primary);
   border: 1px solid var(--border);
@@ -90,28 +114,34 @@ body {
   cursor: pointer;
 }
 
-.appSurface button:hover:not(:disabled) {
+:where(.appSurface button:hover:not(:disabled)) {
   background: var(--surface-2);
   border-color: var(--accent);
 }
 
-.appSurface button:disabled {
+:where(.appSurface) button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 .appSurface .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--btn-primary);
+  border-color: var(--btn-primary);
+  color: var(--btn-primary-fg);
+}
+
+.appSurface .btn-primary:hover:not(:disabled) {
+  background: var(--btn-primary-hover);
+  border-color: var(--btn-primary-hover);
 }
 
 .appSurface .btn-ghost {
   background: transparent;
 }
 
-.appSurface input,
-.appSurface select,
-.appSurface textarea {
+:where(.appSurface) input,
+:where(.appSurface) select,
+:where(.appSurface) textarea {
   background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border);
@@ -122,9 +152,9 @@ body {
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.appSurface input:hover:not(:disabled):not(:focus),
-.appSurface select:hover:not(:disabled):not(:focus),
-.appSurface textarea:hover:not(:disabled):not(:focus) {
+:where(.appSurface input:hover:not(:disabled):not(:focus)),
+:where(.appSurface select:hover:not(:disabled):not(:focus)),
+:where(.appSurface textarea:hover:not(:disabled):not(:focus)) {
   border-color: var(--text-muted);
 }
 

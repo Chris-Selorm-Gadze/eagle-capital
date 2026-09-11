@@ -4,6 +4,7 @@ import { deleteTrade, deleteTrades } from '../../db/trades'
 import { errorMessage } from '../../utils/errors'
 import { RecentTradesTable } from './components/RecentTradesTable'
 import { AddTradeDialog } from './components/AddTradeDialog'
+import { useConfirm } from '../../shared/ui/confirm'
 
 export function TradeLogPage({
   trades,
@@ -16,6 +17,7 @@ export function TradeLogPage({
   userId: string
   onChanged: () => void
 }) {
+  const confirm = useConfirm()
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +30,7 @@ export function TradeLogPage({
   async function handleDeleteAll() {
     const count = trades.length
     if (count === 0) return
-    if (!confirm(`Delete all ${count} trade${count === 1 ? '' : 's'} shown here? This cannot be undone.`)) return
+    if (!(await confirm({ title: `Delete all ${count} trade${count === 1 ? '' : 's'} shown here?`, description: 'This cannot be undone.', confirmLabel: 'Delete all', destructive: true }))) return
     setError(null)
     setDeleting(true)
     try {

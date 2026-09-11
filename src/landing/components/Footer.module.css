@@ -10,7 +10,14 @@
 }
 
 @media (min-width: 768px) {
-  .top { grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 2.5rem; }
+  /* Brand block plus two link columns; the remaining two wrap beneath at this
+     width rather than being squeezed. */
+  .top { grid-template-columns: 1.4fr 1fr 1fr; gap: 2.5rem; }
+}
+
+@media (min-width: 1024px) {
+  /* Brand block plus the four link columns (Product, Company, Account, Legal). */
+  .top { grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; gap: 2.5rem; }
 }
 
 .brandBlock { max-width: 22rem; }

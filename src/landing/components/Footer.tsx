@@ -25,6 +25,13 @@ const COLUMNS = [
     links: [
       { to: '/signin', label: 'Sign in' },
       { to: '/signup', label: 'Create account' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { to: '/privacy', label: 'Privacy' },
+      { to: '/terms', label: 'Terms' },
       { to: '/disclaimer', label: 'Risk disclaimer' },
     ],
   },

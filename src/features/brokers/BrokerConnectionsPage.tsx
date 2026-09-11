@@ -16,6 +16,7 @@ import { BROKERS } from './brokerCatalog'
 import { MetaApiCredentialFields } from './MetaApiCredentialFields'
 import type { Account } from '../../types'
 import styles from './BrokerConnectionsPage.module.css'
+import { useConfirm } from '../../shared/ui/confirm'
 
 const BADGE_CLASS: Record<BrokerConnection['status'], string> = {
   pending: styles.badgePending,
@@ -221,6 +222,7 @@ function ImportTradovateAccountsDialog({
 }
 
 export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[]; userId: string }) {
+  const confirm = useConfirm()
   const { user, loading } = useAuth()
   const [connections, setConnections] = useState<BrokerConnection[]>([])
   const [fetching, setFetching] = useState(true)
@@ -346,7 +348,7 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this broker connection?')) return
+    if (!(await confirm({ title: 'Delete this broker connection?', confirmLabel: 'Delete', destructive: true }))) return
     setError(null)
     try {
       await deleteBrokerConnection(id)

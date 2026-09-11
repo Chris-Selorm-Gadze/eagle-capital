@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import {
 	LayoutGridIcon, ZapIcon, NotebookPenIcon, UserCogIcon, BookOpenIcon,
 	BrainIcon, BriefcaseIcon, CandlestickChartIcon, CalendarDaysIcon,
-	TableIcon, CopyIcon, PlugIcon,
+	TableIcon, CopyIcon, PlugIcon, SettingsIcon,
 } from "lucide-react";
 import type { NavKey } from "@/shared/routing";
 
@@ -55,6 +55,10 @@ export const navGroups: SidebarNavGroup[] = [
 			{ title: "Broker Connections", key: "brokers", icon: <PlugIcon /> },
 			{ title: "Trade Copier", key: "tradecopier", icon: <CopyIcon /> },
 		],
+	},
+	{
+		label: "You",
+		items: [{ title: "Settings", key: "settings", icon: <SettingsIcon /> }],
 	},
 ];
 

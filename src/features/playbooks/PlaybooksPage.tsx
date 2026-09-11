@@ -7,6 +7,7 @@ import { PlaybookDetailDialog } from './components/PlaybookDetailDialog'
 import styles from './PlaybooksPage.module.css'
 import { errorMessage } from '../../utils/errors'
 import { computePlaybookStats, playbookLinkedTrades } from './playbookStats'
+import { useConfirm } from '../../shared/ui/confirm'
 
 const GRADE_CLASS: Record<PlaybookGrade, string> = {
   'A+': styles.gradeAPlus,
@@ -31,6 +32,7 @@ function fmtR(v: number): string {
 }
 
 export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: string }) {
+  const confirm = useConfirm()
   const [playbooks, setPlaybooks] = useState<Playbook[]>([])
   const [examples, setExamples] = useState<PlaybookExample[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,7 +52,7 @@ export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: str
   }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this playbook and all its examples?')) return
+    if (!(await confirm({ title: 'Delete this playbook?', description: 'All of its examples are deleted too.', confirmLabel: 'Delete', destructive: true }))) return
     setError(null)
     try {
       await deletePlaybook(id)

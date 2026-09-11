@@ -3,8 +3,10 @@ import type { TradingRule } from '../../types'
 import { listTradingRules, addTradingRule, updateTradingRule, deleteTradingRule } from '../../db/tradingRules'
 import { errorMessage } from '../../utils/errors'
 import styles from './RulesPage.module.css'
+import { useConfirm } from '../../shared/ui/confirm'
 
 export function RulesPage({ userId }: { userId: string }) {
+  const confirm = useConfirm()
   const [rules, setRules] = useState<TradingRule[]>([])
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState('')
@@ -43,7 +45,7 @@ export function RulesPage({ userId }: { userId: string }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this rule?')) return
+    if (!(await confirm({ title: 'Delete this rule?', confirmLabel: 'Delete', destructive: true }))) return
     setError(null)
     try {
       await deleteTradingRule(id)

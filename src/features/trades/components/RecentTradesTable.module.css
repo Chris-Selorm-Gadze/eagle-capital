@@ -4,10 +4,20 @@
   margin-bottom: 0.6rem;
 }
 
+/* The table's own scroller. Without it the Edit/Delete column was simply cut
+   off below ~700px — the row was unreachable rather than merely cramped. */
+.scroller {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+  /* Stops the date column wrapping to three lines before the table decides to
+     scroll. */
+  min-width: 34rem;
 }
 
 .headerRow {

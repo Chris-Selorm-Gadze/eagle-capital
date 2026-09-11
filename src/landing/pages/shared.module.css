@@ -168,3 +168,22 @@
 .featureNavArrow { color: var(--l-gold-deep); font-size: 0.85rem; }
 
 .current { border-color: rgba(22, 21, 15, 0.22); color: var(--l-ink); font-weight: 600; }
+
+/* Legal pages: Privacy and Terms. Narrower measure than the marketing pages —
+   this is text to be read, not scanned. */
+.legalUpdated {
+  font-size: 0.82rem;
+  color: var(--l-text-3);
+  margin: 0 0 2.5rem;
+}
+.legalSection {
+  max-width: 44rem;
+  margin-bottom: 2.75rem;
+}
+.legalHeading {
+  font-family: 'Gloock', ui-serif, Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 400;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.01em;
+}
