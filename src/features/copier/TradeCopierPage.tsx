@@ -9,7 +9,7 @@ import {
 } from '../../db/copier'
 import {
   createCopierLink, setCopierEnabled, deleteCopierLink,
-  unlockRiskProfile, flattenAccount, testConnection,
+  unlockRiskProfile, flattenAccount, testConnection, disconnectAccount,
 } from '../../db/copierActions'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
@@ -19,6 +19,7 @@ import { sharesTerminal } from './brokerPresets'
 import { WorkerStatus } from './components/WorkerStatus'
 import { ExecutionLog } from './components/ExecutionLog'
 import { AddCopierAccountDialog } from './components/AddCopierAccountDialog'
+import { FixCredentialsDialog } from './components/FixCredentialsDialog'
 import styles from './TradeCopierPage.module.css'
 
 /* Trade Copier.
@@ -270,6 +271,7 @@ function TradeCopierWorkspace() {
   // feels broken and one the user knows is in flight.
   const [notice, setNotice] = useState<string | null>(null)
   const [addingAccount, setAddingAccount] = useState(false)
+  const [fixingAccount, setFixingAccount] = useState<TradingAccount | null>(null)
 
   const [masterId, setMasterId] = useState('')
   const [followerId, setFollowerId] = useState('')
@@ -407,6 +409,39 @@ function TradeCopierWorkspace() {
     }
   }
 
+  /* Deleting the row cascades: copy links, symbol mappings and risk profiles
+   * for this account go with it. Execution history survives (those columns are
+   * ON DELETE SET NULL) but loses its link to the account. None of that is
+   * recoverable, so the confirmation says what goes rather than asking "are you
+   * sure" — and a mistyped password does not need any of it, which is what the
+   * second line is for. */
+  async function handleRemoveAccount(account: TradingAccount) {
+    const linked = relations.filter(
+      (r) => r.masterAccountId === account.id || r.followerAccountId === account.id,
+    ).length
+    const ok = await confirm({
+      title: `Remove ${accountName(account)}?`,
+      description:
+        (linked > 0
+          ? `This also deletes ${linked} copy link${linked === 1 ? '' : 's'}, plus any `
+          : 'This also deletes any ')
+        + 'symbol mappings and risk limits for this account. Copy history is kept. '
+        + 'If you only need to correct a password or server, use Fix credentials instead — '
+        + 'that keeps everything.',
+      confirmLabel: 'Remove account',
+      destructive: true,
+    })
+    if (!ok) return
+    setActionError(null)
+    try {
+      await disconnectAccount(account.id)
+      setNotice(`${accountName(account)} removed.`)
+      await load()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   if (!loaded) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
   if (loadError) return <LoadError message={loadError} onRetry={load} />
 
@@ -527,6 +562,12 @@ function TradeCopierWorkspace() {
                       <button onClick={() => handleTestConnection(a)} disabled={testing}>
                         {testing ? 'Queued…' : 'Test connection'}
                       </button>
+                      <button onClick={() => setFixingAccount(a)} className="btn-ghost">
+                        Fix credentials
+                      </button>
+                      <button onClick={() => handleRemoveAccount(a)} className="btn-ghost">
+                        Remove
+                      </button>
                     </div>
                     {/* The worker writes the broker's own words here when a test
                         fails. It was previously a `title` tooltip only, which is
@@ -586,6 +627,18 @@ function TradeCopierWorkspace() {
         <AddCopierAccountDialog
           onClose={() => setAddingAccount(false)}
           onSaved={() => { setAddingAccount(false); load() }}
+        />
+      )}
+
+      {fixingAccount && (
+        <FixCredentialsDialog
+          account={fixingAccount}
+          onClose={() => setFixingAccount(null)}
+          onSaved={() => {
+            setFixingAccount(null)
+            setNotice('Credentials saved. Test the connection to check them.')
+            load()
+          }}
         />
       )}
     </div>

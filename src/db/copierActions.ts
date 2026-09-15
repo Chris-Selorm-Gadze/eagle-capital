@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabaseClient'
-import { createAccount as createAccountViaGateway } from '../lib/copierGateway'
+import {
+  createAccount as createAccountViaGateway,
+  updateCredentials as updateCredentialsViaGateway,
+} from '../lib/copierGateway'
 import type { RiskMode } from './copier'
 
 /* Everything the Trade Copier page changes.
@@ -95,6 +98,27 @@ export async function updateAccount(
   if (error) throw error
 }
 
+export interface CredentialFix {
+  password: string
+  brokerServer?: string
+  terminalPath?: string | null
+}
+
+/** Fixes a mistyped password (and the server, which fails the same way).
+ *
+ * Through the gateway, like creation, because the password has to be encrypted
+ * server-side. Deleting and re-adding the account would also work and is what
+ * you had to do before this existed — but it cascades, taking the account's copy
+ * links, symbol mappings and risk limits with it. */
+export async function fixCredentials(accountId: string, input: CredentialFix): Promise<void> {
+  await updateCredentialsViaGateway(accountId, {
+    password: input.password,
+    broker_server: input.brokerServer,
+    terminal_path: input.terminalPath,
+  })
+}
+
+/** Deletes the account row. Cascades — see the confirmation text in the UI. */
 export async function disconnectAccount(accountId: string): Promise<void> {
   const { error } = await supabase.from('trading_accounts').delete().eq('id', accountId)
   if (error) throw error

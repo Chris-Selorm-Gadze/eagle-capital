@@ -75,6 +75,31 @@ export async function createAccount(input: GatewayAccountInput): Promise<Gateway
   return body as GatewayAccount
 }
 
+export interface GatewayCredentialsInput {
+  password: string
+  broker_server?: string
+  terminal_path?: string | null
+}
+
+/** Re-encrypts an account's credentials. Goes through the gateway for the same
+ * reason creating one does: the password must be encrypted with a key the
+ * browser can never hold. */
+export async function updateCredentials(
+  accountId: string, input: GatewayCredentialsInput,
+): Promise<void> {
+  if (!copierGatewayConfigured) throw new Error('Supabase is not configured.')
+
+  const res = await fetch(`${gatewayUrl}/accounts/${accountId}/credentials`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(messageFrom(res.status, body))
+  }
+}
+
 /** Liveness of the gateway itself, for diagnostics. Deliberately unauthenticated
  * and side-effect free. */
 export async function gatewayHealth(): Promise<boolean> {

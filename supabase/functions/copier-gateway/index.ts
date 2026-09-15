@@ -624,14 +624,68 @@ async function updateBalances(body: Record<string, any>): Promise<Response> {
 /** The only user-facing route here, because it is the only one that needs the
  * encryption key. Everything else the browser does — creating links, arming
  * them, queueing a flatten — is an RLS-scoped write it can make directly. */
-async function createAccount(req: Request, body: Record<string, any>): Promise<Response> {
-  const authHeader = req.headers.get('authorization') ?? ''
-  const token = authHeader.replace(/^Bearer\s+/i, '')
-  if (!token) return json({ detail: 'Not authenticated' }, 401)
+/** The signed-in user behind a browser request, or null. */
+async function browserUser(req: Request): Promise<string | null> {
+  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
+  if (!token) return null
+  const { data, error } = await admin.auth.getUser(token)
+  if (error || !data?.user) return null
+  return data.user.id
+}
 
-  const { data: userData, error: userErr } = await admin.auth.getUser(token)
-  if (userErr || !userData?.user) return json({ detail: 'Invalid session' }, 401)
-  const userId = userData.user.id
+/** Re-encrypt an account's credentials in place.
+ *
+ * Without this a mistyped password was unfixable: encrypted_password was
+ * written once at creation and never again, so the only remedy was deleting the
+ * account -- which cascades, taking its copy links, symbol mappings and risk
+ * limits with it. Fixing a typo should not cost you your configuration.
+ *
+ * broker_server is accepted alongside it because a wrong server reads as a
+ * rejected login, so it is the other half of the same mistake.
+ */
+async function updateCredentials(
+  req: Request, body: Record<string, any>, accountId: string,
+): Promise<Response> {
+  const userId = await browserUser(req)
+  if (!userId) return json({ detail: 'Not authenticated' }, 401)
+
+  const password = String(body.password ?? '')
+  if (!password) return json({ detail: 'A password is required' }, 422)
+
+  // Scoped to the caller: admin bypasses RLS, so ownership is checked here.
+  const { data: existing } = await admin
+    .from('trading_accounts').select('id')
+    .eq('id', accountId).eq('user_id', userId).maybeSingle()
+  if (!existing) return json({ detail: 'Account not found' }, 404)
+
+  let encrypted: string
+  try {
+    encrypted = await encryptPassword(password)
+  } catch (e) {
+    return json({ detail: e instanceof Error ? e.message : String(e) }, 500)
+  }
+
+  // The old verdict no longer applies to these credentials, so it is cleared
+  // rather than left to claim "Login rejected" about a password that is gone.
+  const update: Record<string, unknown> = {
+    encrypted_password: encrypted,
+    connection_status: 'disconnected',
+    last_error: null,
+  }
+  const server = String(body.broker_server ?? '').trim()
+  if (server) update.broker_server = server
+  if (body.terminal_path !== undefined) {
+    update.terminal_path = body.terminal_path ? String(body.terminal_path).trim() : null
+  }
+
+  const { error } = await admin.from('trading_accounts').update(update).eq('id', accountId)
+  if (error) return json({ detail: error.message }, 500)
+  return json({ status: 'ok' })
+}
+
+async function createAccount(req: Request, body: Record<string, any>): Promise<Response> {
+  const userId = await browserUser(req)
+  if (!userId) return json({ detail: 'Not authenticated' }, 401)
 
   const accountNumber = String(body.account_number ?? '').trim()
   const brokerServer = String(body.broker_server ?? '').trim()
@@ -705,6 +759,9 @@ Deno.serve(async (req) => {
     }
 
     if (path === '/accounts' && method === 'POST') return createAccount(req, body)
+
+    const creds = path.match(/^\/accounts\/([^/]+)\/credentials$/)
+    if (creds && method === 'POST') return updateCredentials(req, body, creds[1])
 
     if (path.startsWith('/internal/')) {
       const authFail = workerAuthError(req)
