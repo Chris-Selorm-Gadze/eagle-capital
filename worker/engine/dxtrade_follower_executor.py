@@ -151,12 +151,19 @@ class DXtradeFollowerExecutor:
         latency_ms = int((time.perf_counter() - t0) * 1000)
 
         if result is None:
+            # Same defect as the MT5 path had: a failed row with no symbol and no
+            # reason tells a trader only that something went wrong.
             append_event(
                 {
                     "status": "failed",
                     "copier_id": copier.id,
                     "master_ticket": signal.ticket,
                     "platform": "dxtrade",
+                    "symbol_master": signal.symbol,
+                    "symbol_follower": follower_symbol,
+                    "side": getattr(signal, "side", None),
+                    "error_message": "DXtrade order request returned nothing",
+                    "latency_ms": latency_ms,
                 }
             )
             return False

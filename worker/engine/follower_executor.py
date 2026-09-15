@@ -212,12 +212,22 @@ class FollowerExecutor:
         latency_ms = int((time.perf_counter() - t0) * 1000)
 
         if result is None:
+            # This used to emit a row with no symbol and no reason, which is the
+            # least useful thing a copier can say: the trade did not happen and
+            # nothing records why. The connector holds MetaTrader's own answer.
             self._emit(
                 {
                     "status": "failed",
                     "copier_id": copier.id,
                     "event_type": signal.event_type,
                     "master_ticket": signal.ticket,
+                    "symbol_master": signal.symbol,
+                    "symbol_follower": follower_symbol,
+                    "side": getattr(signal, "side", None),
+                    "requested_lot": lot,
+                    "error_message": getattr(
+                        self.follower.connector, "last_send_error", None
+                    ) or "order_send returned nothing",
                     **self._timing(latency_ms),
                 }
             )

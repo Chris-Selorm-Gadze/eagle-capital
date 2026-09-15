@@ -18,6 +18,33 @@ except ImportError:
 logger = structlog.get_logger()
 
 
+# What MetaTrader means by the codes it returns when order_send() gives back
+# None. The raw pair -- e.g. (-8, 'AutoTrading disabled by client terminal') --
+# is accurate but tells a trader nothing about what to go and do, and this is the
+# message that ends up in front of them on the dashboard.
+_MT5_ERROR_HELP = {
+    -8: "AutoTrading is switched off in this terminal. Click the AutoTrading "
+        "button in its toolbar (Ctrl+E) -- everything else is working.",
+    -6: "The terminal rejected the login. Check the password and server on this "
+        "account.",
+    -4: "The terminal could not find the symbol. It may need adding to Market "
+        "Watch on this broker.",
+    -10003: "The terminal lost its connection to the broker.",
+    -10004: "The terminal timed out talking to the broker.",
+    -10002: "The terminal is not initialised -- it may have been closed.",
+}
+
+
+def _describe_mt5_error(err: Optional[Tuple[int, str]]) -> str:
+    """Render an MT5 error as something a person can act on."""
+    if not err:
+        return "order_send returned nothing and MetaTrader reported no reason"
+    code, text = (err[0], err[1]) if len(err) >= 2 else (err[0], "")
+    help_text = _MT5_ERROR_HELP.get(code)
+    base = f"{text} (MT5 {code})" if text else f"MT5 error {code}"
+    return f"{base}. {help_text}" if help_text else base
+
+
 class MT5Connector:
     def __init__(self, login: int, password: str, server: str, terminal_path: Optional[str] = None):
         self.login = login
@@ -233,11 +260,17 @@ class MT5Connector:
 
         last_result = None
         stops_stripped = False
+        # order_send() returning None is the one failure that used to reach the
+        # dashboard as a blank row: logged here, never sent anywhere. Hold the
+        # reason so the executor can put it on the execution event.
+        self.last_send_error: Optional[str] = None
         for filling in self._filling_candidates(symbol):
             request["type_filling"] = filling
             result = mt5.order_send(request)
             if result is None:
-                logger.error("mt5_order_send_none", symbol=symbol, error=mt5.last_error())
+                err = mt5.last_error()
+                self.last_send_error = _describe_mt5_error(err)
+                logger.error("mt5_order_send_none", symbol=symbol, error=err)
                 continue
             last_result = result
 
@@ -254,7 +287,9 @@ class MT5Connector:
                 stops_stripped = True
                 result = mt5.order_send(request)
                 if result is None:
-                    logger.error("mt5_order_send_none", symbol=symbol, error=mt5.last_error())
+                    err = mt5.last_error()
+                    self.last_send_error = _describe_mt5_error(err)
+                    logger.error("mt5_order_send_none", symbol=symbol, error=err)
                     continue
                 last_result = result
 
