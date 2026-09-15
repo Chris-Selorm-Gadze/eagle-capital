@@ -269,6 +269,47 @@ async function getRuntimeConfig(userId: string): Promise<Response> {
   })
 }
 
+/* ── /internal/whoami ─────────────────────────────────────────────────────── */
+
+/** Diagnostic: what does this worker's user id actually own?
+ *
+ * runtime-config answers 404 whenever nothing is armed — and it answers exactly
+ * the same 404 for a user id that does not exist at all. So the single most
+ * common setup mistake (pointing a worker at the wrong user) is invisible until
+ * someone arms a live copy link to find out, which is the worst possible moment
+ * to discover it.
+ *
+ * This is read-only, returns counts and labels rather than credentials, and is
+ * called by show_config.py. The worker itself never calls it.
+ */
+async function whoami(userId: string): Promise<Response> {
+  const { data: user } = await admin
+    .from('tc_users').select('id, email').eq('id', userId).maybeSingle()
+
+  const { data: accounts } = await admin
+    .from('trading_accounts')
+    .select('account_label, account_number, platform, connection_status, terminal_path')
+    .eq('user_id', userId)
+
+  const { data: relations } = await admin
+    .from('copier_relations').select('is_enabled').eq('user_id', userId)
+
+  const rels = relations ?? []
+  return json({
+    user_id: userId,
+    known_user: Boolean(user),
+    email: user?.email ?? null,
+    accounts: (accounts ?? []).map((a) => ({
+      label: a.account_label || String(a.account_number),
+      platform: a.platform,
+      connection_status: a.connection_status,
+      terminal_path: a.terminal_path,
+    })),
+    relations: rels.length,
+    enabled_relations: rels.filter((r) => r.is_enabled).length,
+  })
+}
+
 /* ── /internal/open-links ─────────────────────────────────────────────────── */
 
 /** Rebuilds still-open master→follower ticket pairs from execution history so a
@@ -671,6 +712,7 @@ Deno.serve(async (req) => {
 
       // Routes that act on one user's book need to know which.
       const needsUser = path === '/internal/runtime-config'
+        || path === '/internal/whoami'
         || path === '/internal/open-links'
         || path === '/internal/worker-commands'
         || path === '/internal/execution-events'
@@ -681,6 +723,7 @@ Deno.serve(async (req) => {
         return json({ detail: [{ type: 'missing', loc: ['header', 'X-User-Id'], msg: 'Field required' }] }, 422)
       }
 
+      if (path === '/internal/whoami' && method === 'GET') return whoami(userId!)
       if (path === '/internal/runtime-config' && method === 'GET') return getRuntimeConfig(userId!)
       if (path === '/internal/open-links' && method === 'GET') return getOpenLinks(userId!)
       if (path === '/internal/worker-commands' && method === 'GET') return pendingCommands(userId!)

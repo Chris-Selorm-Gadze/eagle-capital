@@ -68,6 +68,53 @@ def main() -> int:
         print("\nSet DELTA_CONFIG_SOURCE=api in .env to use dashboard copiers.")
         return 1
 
+    # Identity first. runtime-config answers 404 both when nothing is armed AND
+    # when the user id does not exist, so asking it "who am I" is useless -- and
+    # a wrong WORKER_USER_ID is the mistake that otherwise stays hidden until a
+    # live copy link is armed.
+    from engine.api_client import get_api_client
+
+    client = get_api_client()
+    try:
+        me = client.whoami()
+    except Exception as exc:
+        print(f"\nFAILED: cannot reach the control plane: {exc}")
+        print("Check API_URL, then that WORKER_API_KEY matches the Supabase secret.")
+        return 1
+
+    if not me.get("known_user"):
+        print("\nFAILED: no user with this WORKER_USER_ID.")
+        print("It is your EagleCapital auth.users id, not a delta_engine one:")
+        print("  select id, email from auth.users where email = 'you@example.com';")
+        return 1
+
+    print(f"\nSigned in as: {me.get('email') or me['user_id']}")
+
+    remote_accounts = me.get("accounts") or []
+    if not remote_accounts:
+        print("\nNo accounts connected to this user.")
+        print("Connect one in the dashboard: Trade Copier -> Connect an account.")
+        print("Make sure the browser is signed in as the SAME user shown above.")
+        return 1
+
+    print(f"\nAccounts ({len(remote_accounts)}):")
+    for a in remote_accounts:
+        print(f"  {a['label']:<24} {a['platform']:<8} {a['connection_status']:<22} "
+              f"{a.get('terminal_path') or 'no terminal path'}")
+
+    enabled = me.get("enabled_relations", 0)
+    total = me.get("relations", 0)
+    print(f"\nCopy links: {total} total, {enabled} armed")
+
+    if enabled == 0:
+        # Not a failure. This is the correct state before the first link is
+        # armed, and the worker is designed to idle through it.
+        print("\nOK -- everything is configured. Nothing is armed yet, which is")
+        print("expected at this stage and is NOT an error.")
+        print("\nNext: .\\test-connections.ps1, then press Test connection in the")
+        print("dashboard on each account above.")
+        return 0
+
     try:
         accounts = load_accounts()
         copiers = load_copiers()

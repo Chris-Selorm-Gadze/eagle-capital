@@ -126,6 +126,12 @@ class ControlApiClient:
         )
         raise last_exc
 
+    def whoami(self) -> dict[str, Any]:
+        """Diagnostic only: what this worker's user id owns. Never called by the
+        copier itself -- see scripts/show_config.py."""
+        response = self._request("GET", "/internal/whoami")
+        return response.json()
+
     def fetch_runtime_config(self) -> dict[str, Any]:
         attempts = int(os.environ.get("WORKER_API_RETRY_ATTEMPTS", "4"))
         response = self._request(
