@@ -22,7 +22,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useAuth } from '../auth/AuthContext'
 import { ensureProfile, updateUsername, type Profile } from '../../db/profiles'
-import { deleteAllUserData, downloadFile, exportAllData, tradesToCsv } from '../../db/userData'
+import { downloadFile, exportAllData, tradesToCsv } from '../../db/userData'
+import {
+  cancelAccountDeletion, daysUntilPurge, getDeletionRequest, requestAccountDeletion,
+  RETENTION_DAYS, type DeletionRequest,
+} from '../../db/accountDeletion'
 import { errorMessage } from '../../utils/errors'
 import { todayISO } from '../../db/sessions'
 
@@ -30,6 +34,10 @@ import { todayISO } from '../../db/sessions'
  * app was a username field buried in the sidebar user menu, and there was no
  * way to get your data out or to leave — both of which the marketing site
  * promises. */
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+}
 
 export function SettingsPage({ onChanged }: { onChanged: () => void }) {
   const { user, signOut } = useAuth()
@@ -40,15 +48,23 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [pendingDeletion, setPendingDeletion] = useState<DeletionRequest | null>(null)
 
   useEffect(() => {
     if (!user) return
     let cancelled = false
-    ensureProfile(user.id, user.email).then((p) => {
-      if (cancelled) return
-      setProfile(p)
-      setUsername(p.username)
-    })
+    ensureProfile(user.id, user.email)
+      .then((p) => {
+        if (cancelled) return
+        setProfile(p)
+        setUsername(p.username)
+      })
+      .catch((err) => !cancelled && toast.error(errorMessage(err)))
+    getDeletionRequest()
+      .then((r) => !cancelled && setPendingDeletion(r))
+      .catch(() => {
+        /* the settings page still works without knowing; the shell banner reports it too */
+      })
     return () => {
       cancelled = true
     }
@@ -73,7 +89,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
   async function handleExport(format: 'json' | 'csv') {
     setExporting(true)
     try {
-      const bundle = await exportAllData()
+      const bundle = await exportAllData(user!.id)
       if (format === 'csv') {
         const csv = tradesToCsv(bundle.tables.trades as Record<string, unknown>[])
         if (!csv) {
@@ -100,11 +116,28 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
     if (!user) return
     setDeleting(true)
     try {
-      await deleteAllUserData(user.id)
-      toast.success('Your data has been deleted.')
+      const request = await requestAccountDeletion(user.id)
+      setPendingDeletion(request)
+      setConfirmingDelete(false)
+      toast.success(`Deletion scheduled for ${formatDate(request.purgeAfter)}.`)
       await signOut()
     } catch (err) {
       toast.error(errorMessage(err))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function handleCancelDeletion() {
+    if (!user) return
+    setDeleting(true)
+    try {
+      await cancelAccountDeletion(user.id)
+      setPendingDeletion(null)
+      toast.success('Deletion cancelled. Nothing was removed.')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
       setDeleting(false)
     }
   }
@@ -174,32 +207,58 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
       {/* Destructive, so it's visually separated and gated behind typing the word. */}
       <Card className="border-destructive/40">
         <CardHeader>
-          <CardTitle className="text-destructive">Delete your data</CardTitle>
+          <CardTitle className="text-destructive">
+            {pendingDeletion ? 'Deletion scheduled' : 'Delete your account'}
+          </CardTitle>
           <CardDescription>
-            Permanently deletes every account, trade, session, payout, playbook and report card
-            you&rsquo;ve logged. This cannot be undone — export first if you want a copy.
+            {pendingDeletion ? (
+              <>
+                Everything you&rsquo;ve logged will be permanently erased on{' '}
+                <span className="font-medium text-foreground">
+                  {formatDate(pendingDeletion.purgeAfter)}
+                </span>{' '}
+                ({daysUntilPurge(pendingDeletion.purgeAfter)} day
+                {daysUntilPurge(pendingDeletion.purgeAfter) === 1 ? '' : 's'} from now). Until
+                then nothing has been removed and you can change your mind.
+              </>
+            ) : (
+              <>
+                Your account is held for {RETENTION_DAYS} days, then permanently erased — every
+                account, trade, session, payout, playbook, report card and uploaded screenshot,
+                plus your sign-in itself. You can cancel at any point during those{' '}
+                {RETENTION_DAYS} days by signing back in. Export first if you want a copy.
+              </>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button
-            onClick={() => {
-              setDeleteConfirmText('')
-              setConfirmingDelete(true)
-            }}
-            variant="destructive"
-          >
-            Delete everything
-          </Button>
+          {pendingDeletion ? (
+            <Button disabled={deleting} onClick={handleCancelDeletion}>
+              {deleting ? 'Cancelling…' : 'Cancel deletion'}
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                setDeleteConfirmText('')
+                setConfirmingDelete(true)
+              }}
+              variant="destructive"
+            >
+              Delete my account
+            </Button>
+          )}
         </CardContent>
       </Card>
 
       <AlertDialog onOpenChange={setConfirmingDelete} open={confirmingDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete all your data?</AlertDialogTitle>
+            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes every account, trade, session, payout, reward, playbook, report card
-              and broker connection on your account. It cannot be undone.
+              You&rsquo;ll be signed out now. Your data stays untouched for {RETENTION_DAYS} days
+              — sign back in before then and one click calls it off. After that it is erased for
+              good: every account, trade, session, payout, reward, playbook, report card, broker
+              connection, uploaded screenshot, and your sign-in itself.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="grid gap-2">
@@ -214,7 +273,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Keep my account</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-white hover:bg-destructive/90"
               disabled={deleting || deleteConfirmText !== 'DELETE'}
@@ -223,7 +282,7 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
                 void handleDelete()
               }}
             >
-              {deleting ? 'Deleting…' : 'Delete everything'}
+              {deleting ? 'Scheduling…' : `Delete in ${RETENTION_DAYS} days`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

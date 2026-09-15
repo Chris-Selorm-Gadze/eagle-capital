@@ -39,6 +39,12 @@ export function PlaybookFormDialog({
 
   const canSave = name.trim() !== ''
 
+  const dirty =
+    name !== (playbook?.name ?? '') ||
+    description !== (playbook?.description ?? '') ||
+    grade !== playbook?.grade ||
+    imageFiles.length > 0
+
   useEffect(() => {
     const urls = imageFiles.map((f) => URL.createObjectURL(f))
     setPreviewUrls(urls)
@@ -85,6 +91,7 @@ export function PlaybookFormDialog({
     <Modal
       title={playbook ? 'Edit playbook' : 'New playbook'}
       onClose={onClose}
+      dirty={dirty && !saving}
       minWidth={860}
       footer={
         <>

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { selectAll } from './paginate'
 import type { ReportCard } from '../types'
 
 function fromRow(row: Record<string, any>): ReportCard {
@@ -90,10 +91,5 @@ export async function saveReportCard(userId: string, card: ReportCard): Promise<
 
 /** Every saved report card for the signed-in user, most recent first. */
 export async function listReportCards(): Promise<ReportCard[]> {
-  const { data, error } = await supabase
-    .from('report_cards')
-    .select('*')
-    .order('date', { ascending: false })
-  if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (await selectAll('report_cards', { orderBy: 'date', ascending: false })).map(fromRow)
 }

@@ -5,9 +5,12 @@ import type { ReportCard, Trade } from '../../types'
 import { ReportCardPage } from '../reportcard/ReportCardPage'
 import { CompletedReportCardsPage } from '../reportcard/CompletedReportCardsPage'
 import { RulesPage } from './RulesPage'
+import { useUrlTab } from '../../shared/useUrlTab'
 import styles from './TraderManagementPage.module.css'
 
 type SubTab = 'reportcard' | 'completed' | 'rules'
+
+const SUB_TAB_KEYS = ['reportcard', 'completed', 'rules'] as const
 
 const SUB_TABS: { key: SubTab; label: string; icon: typeof faFileLines }[] = [
   { key: 'reportcard', label: 'Daily Report Card', icon: faFileLines },
@@ -16,7 +19,8 @@ const SUB_TABS: { key: SubTab; label: string; icon: typeof faFileLines }[] = [
 ]
 
 export function TraderManagementPage({ userId, trades }: { userId: string; trades: Trade[] }) {
-  const [tab, setTab] = useState<SubTab>('reportcard')
+  // In the URL, so Rules can be linked to and Back steps between tabs.
+  const [tab, setTab] = useUrlTab<SubTab>(SUB_TAB_KEYS, 'reportcard', 'tradermanagement')
   const [openedCard, setOpenedCard] = useState<ReportCard | null>(null)
   const [resetToken, setResetToken] = useState(0)
 

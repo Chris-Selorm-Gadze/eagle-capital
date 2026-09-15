@@ -91,3 +91,31 @@ describe('weekday aggregation (mostActive/mostProfitable/leastProfitableWeekday)
     expect(leastProfitableWeekday([])).toBeNull()
   })
 })
+
+describe('malformed dates', () => {
+  // tradingDayOf returns '' for an instant it can't read. Such a row must not
+  // become a nameless bucket in the charts, and must never reach
+  // WEEKDAY_NAMES[NaN] — which rendered the string "undefined" as a weekday.
+  it('drops trades with an unreadable date instead of bucketing them', () => {
+    const series = dailyPnlSeries([
+      { date: '2026-03-09', pnl: 100 },
+      { date: '', pnl: 50 },
+      { date: 'not-a-date', pnl: 25 },
+    ])
+    expect(series).toEqual([{ date: '2026-03-09', pnl: 100, tradeCount: 1 }])
+  })
+
+  it('never reports an undefined weekday', () => {
+    const stats = weekdayStats([
+      { date: '2026-03-09', pnl: 100, tradeCount: 1 },
+      { date: '', pnl: 50, tradeCount: 1 },
+    ])
+    expect(stats).toHaveLength(1)
+    expect(stats[0].weekday).toBe('Monday')
+    expect(stats.every((s) => typeof s.weekday === 'string')).toBe(true)
+  })
+
+  it('returns null from the weekday pickers when nothing is usable', () => {
+    expect(mostActiveWeekday([{ date: '', pnl: 1, tradeCount: 1 }])).toBeNull()
+  })
+})

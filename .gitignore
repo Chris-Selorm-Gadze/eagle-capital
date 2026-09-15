@@ -6,3 +6,12 @@ dist
 .env
 .env.local
 .env.*.local
+
+# Ad-hoc browser smoke scripts — scratch work, never part of the build.
+.pt-smoke-*.mjs
+
+# Local record of server-side Edge Function secrets — never commit.
+.secrets.local
+
+# Artifact of local `deno check` on the edge functions.
+deno.lock

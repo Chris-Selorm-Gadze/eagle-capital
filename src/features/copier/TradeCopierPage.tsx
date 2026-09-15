@@ -1,108 +1,186 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  copierConfigured,
-  listAccounts, createCopier, enableCopier, disableCopier, deleteCopier,
-  listRiskProfiles, unlockRiskProfile, flattenPositions,
-  type DeltaAccount, type CopierGroup, type FollowerStats, type DeltaRiskProfile, type RiskMode,
-} from '../../lib/copierClient'
-import { subscribeCopierGroups } from '../../lib/copierGroupsSocket'
+  listTradingAccounts, listCopierRelations, listRiskProfiles,
+  listWorkerNodes, listRecentExecutionEvents, listPendingCommands,
+  buildCopierGroups, unlinkedAccounts, isRelationLive, hasPendingTest, anyWorkerLive,
+  type TradingAccount, type CopierRelation, type RiskProfile,
+  type WorkerNode, type ExecutionEvent, type CopierGroup, type CopierFollower, type RiskMode,
+  type PendingCommand,
+} from '../../db/copier'
+import {
+  createCopierLink, setCopierEnabled, deleteCopierLink,
+  unlockRiskProfile, flattenAccount, testConnection,
+} from '../../db/copierActions'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
-import { AddAccountDialog } from '../accounts/components/AddAccountDialog'
-import styles from './TradeCopierPage.module.css'
+import { LoadError } from '../../shared/ui/LoadError'
 import { useConfirm } from '../../shared/ui/confirm'
+import { sharesTerminal } from './brokerPresets'
+import { WorkerStatus } from './components/WorkerStatus'
+import { ExecutionLog } from './components/ExecutionLog'
+import { AddCopierAccountDialog } from './components/AddCopierAccountDialog'
+import styles from './TradeCopierPage.module.css'
 
-function money(n: number): string {
+/* Trade Copier.
+ *
+ * Reads come from Supabase (db/copier.ts) and writes go there too
+ * (db/copierActions.ts) — RLS scopes both to the signed-in user, so there is no
+ * API layer in between. Anything the WORKER has to do is queued as a
+ * worker_command and picked up on its next outbound poll. The worker's own
+ * liveness sits at the top of the page; without it, none of the rest means
+ * anything. */
+
+function money(n: number | null): string {
+  if (n === null) return '—'
   const sign = n < 0 ? '-' : ''
   return `${sign}$${Math.round(Math.abs(n)).toLocaleString()}`
 }
 
-function pnlClass(n: number): string {
-  if (n > 0) return styles.pnlGood
-  if (n < 0) return styles.pnlBad
-  return styles.pnlNeutral
+/** `C:\\Program Files\\FTMO ... \\terminal64.exe` -> `FTMO ...`. The folder is
+ * what tells you which broker's build this is; the full path is in the title. */
+function terminalFolder(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean)
+  return parts.length >= 2 ? (parts[parts.length - 2] as string) : path
 }
 
-function copyRateLabel(f: FollowerStats): string {
-  return f.riskMode === 'risk_percent' ? `${f.multiplier}% risk` : `${f.multiplier}×`
+function accountName(a: TradingAccount): string {
+  return a.label || `${a.platform} · ${a.accountNumber}`
 }
 
-function accountLabel(accounts: DeltaAccount[], id: string): string {
-  const a = accounts.find((x) => x.id === id)
-  return a ? (a.account_label || `${a.platform} · ${a.account_number}`) : id
+function copyRateLabel(r: CopierRelation): string {
+  if (r.riskMode === 'risk_percent') return `${r.multiplier}% risk`
+  if (r.riskMode === 'fixed_lot') return `${r.fixedLotSize} lots`
+  if (r.riskMode === 'equity_ratio') return 'equity ratio'
+  return `${r.multiplier}×`
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  connected: 'Connected',
+  disconnected: 'Disconnected',
+  auth_failed: 'Login rejected',
+  terminal_unavailable: 'Terminal not running',
+  broker_unavailable: 'Broker unreachable',
+  disabled: 'Disabled',
+  locked: 'Locked',
+}
+
+/* "Disconnected" is the schema default, and nothing but a worker can change it:
+ * the browser cannot reach a broker and neither can the gateway. So a brand new
+ * account reads Disconnected whether the credentials are wrong, right, or never
+ * tried — and the only way to tell is whether a test is still in the queue. */
+function ConnectionPill({ account, pending }: { account: TradingAccount; pending?: boolean }) {
+  if (pending) {
+    return <span className={styles.badgePending} title="Queued for the worker">Testing…</span>
+  }
+  const connected = account.connectionStatus === 'connected'
+  return (
+    <span
+      className={connected ? styles.badgeOn : styles.badgeOff}
+      title={account.lastError ?? undefined}
+    >
+      {STATUS_LABEL[account.connectionStatus] ?? account.connectionStatus}
+    </span>
+  )
 }
 
 function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => void }) {
   const confirm = useConfirm()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   async function run(id: string, action: () => Promise<unknown>) {
     setBusyId(id)
+    setError(null)
     try {
       await action()
       onChanged()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setBusyId(null)
     }
   }
 
-  async function handleToggle(f: FollowerStats) {
-    if (!f.isEnabled && !(await confirm({ title: `Enable copying from ${group.master.label} to ${f.label}?`, description: 'This mirrors real orders immediately.', confirmLabel: 'Enable copying', destructive: true }))) return
-    run(f.copierId, () => (f.isEnabled ? disableCopier(f.copierId) : enableCopier(f.copierId)))
+  /* Arming is always an explicit, named confirmation. Creating a link and
+   * turning it on are separate acts on purpose — the second one starts placing
+   * real orders, and it should never be one stray click away. */
+  async function handleToggle(f: CopierFollower) {
+    if (!f.relation.isEnabled) {
+      const ok = await confirm({
+        title: `Start copying ${accountName(group.master)} → ${accountName(f.account)}?`,
+        description: 'Orders on the master will be mirrored to this account with real money from now on.',
+        confirmLabel: 'Start copying',
+        destructive: true,
+      })
+      if (!ok) return
+    }
+    run(f.relation.id, () => setCopierEnabled(f.relation.id, group.master.id, !f.relation.isEnabled))
   }
 
-  async function handleRemoveFollower(f: FollowerStats) {
-    if (!(await confirm({ title: `Remove ${f.label} from this copy group?`, confirmLabel: 'Remove', destructive: true }))) return
-    run(f.copierId, () => deleteCopier(f.copierId))
+  async function handleRemove(f: CopierFollower) {
+    const ok = await confirm({
+      title: `Remove ${accountName(f.account)} from this copy group?`,
+      confirmLabel: 'Remove',
+      destructive: true,
+    })
+    if (ok) run(f.relation.id, () => deleteCopierLink(f.relation.id, group.master.id))
   }
 
-  async function handleFlatten(connectionId: string, label: string) {
-    if (!(await confirm({ title: `Flatten all open positions on ${label}?`, description: 'This closes real positions immediately.', confirmLabel: 'Flatten positions', destructive: true }))) return
-    run(connectionId, () => flattenPositions(connectionId))
-  }
-
-  function handleEnableAll() {
-    const toEnable = group.followers.filter((f) => !f.isEnabled)
-    if (toEnable.length === 0) return
-    run('group', () => Promise.all(toEnable.map((f) => enableCopier(f.copierId))))
+  async function handleFlatten(account: TradingAccount) {
+    const ok = await confirm({
+      title: `Close every open position on ${accountName(account)}?`,
+      description: 'This closes real positions at market. The worker picks it up within a couple of seconds.',
+      confirmLabel: 'Flatten now',
+      destructive: true,
+    })
+    if (ok) run(account.id, () => flattenAccount(account.id))
   }
 
   async function handleDisableAll() {
-    const toDisable = group.followers.filter((f) => f.isEnabled)
-    if (toDisable.length === 0) return
-    if (!(await confirm({ title: `Disable all ${toDisable.length} active followers copying from ${group.master.label}?`, confirmLabel: 'Disable all', destructive: true }))) return
-    run('group', () => Promise.all(toDisable.map((f) => disableCopier(f.copierId))))
+    const armed = group.followers.filter((f) => f.relation.isEnabled)
+    if (armed.length === 0) return
+    const ok = await confirm({
+      title: `Stop all ${armed.length} active copy link${armed.length === 1 ? '' : 's'} from ${accountName(group.master)}?`,
+      confirmLabel: 'Stop copying',
+      destructive: true,
+    })
+    if (ok) run('group', () => Promise.all(armed.map((f) => setCopierEnabled(f.relation.id, group.master.id, false))))
   }
 
-  async function handleDeleteGroup() {
-    if (!(await confirm({ title: 'Delete this entire copy group?', description: `All ${group.followers.length} follower relations will be removed.`, confirmLabel: 'Delete group', destructive: true }))) return
-    run('group', () => Promise.all(group.followers.map((f) => deleteCopier(f.copierId))))
-  }
-
-  const totalCapital = group.master.balance + group.followers.reduce((s, f) => s + f.balance, 0)
-  const totalDaily = (group.master.dailyPnl ?? 0) + group.followers.reduce((s, f) => s + (f.dailyPnl ?? 0), 0)
-  const totalUnrealized = group.master.unrealizedPnl + group.followers.reduce((s, f) => s + f.unrealizedPnl, 0)
-  const enabledCount = group.followers.filter((f) => f.isEnabled).length
+  const armedCount = group.followers.filter((f) => f.relation.isEnabled).length
+  const liveCount = group.followers.filter((f) => isRelationLive(f.relation, group.master, f.account)).length
+  const groupCapital = (group.master.balance ?? 0) + group.followers.reduce((s, f) => s + (f.account.balance ?? 0), 0)
 
   return (
     <div className={`card ${styles.group}`}>
       <div className={styles.groupHeader}>
         <div className={styles.groupTitle}>
           <span className={styles.masterBadge}>MASTER</span>
-          <span className={styles.masterLabel}>{group.master.label}</span>
+          <span className={styles.masterLabel}>{accountName(group.master)}</span>
+          <ConnectionPill account={group.master} />
           <span className={styles.followerCount}>
-            {group.followers.length} follower{group.followers.length === 1 ? '' : 's'} · {enabledCount} copying
+            {group.followers.length} follower{group.followers.length === 1 ? '' : 's'} · {liveCount} copying now
           </span>
         </div>
         <div className={styles.groupActions}>
-          <button onClick={handleEnableAll} disabled={busyId === 'group'}>Enable all</button>
-          <button onClick={handleDisableAll} disabled={busyId === 'group'}>Disable all</button>
-          <button onClick={() => handleFlatten(group.master.connectionId, group.master.label)} className="btn-ghost" disabled={busyId === group.master.connectionId}>
+          <button onClick={handleDisableAll} disabled={busyId === 'group' || armedCount === 0}>Stop all</button>
+          <button onClick={() => handleFlatten(group.master)} className="btn-ghost" disabled={busyId === group.master.id}>
             Flatten master
           </button>
-          <button onClick={handleDeleteGroup} className="btn-ghost" disabled={busyId === 'group'}>Delete group</button>
         </div>
       </div>
+
+      {/* Armed but not actually running is the dangerous middle state: the link
+          says on, and nothing is being mirrored. Say so rather than showing a
+          green toggle over a dead connection. */}
+      {armedCount > liveCount && (
+        <div className={styles.warnStrip}>
+          {armedCount - liveCount} link{armedCount - liveCount === 1 ? ' is' : 's are'} switched on but not copying —
+          an account in the pair is not connected.
+        </div>
+      )}
+
+      {error && <div className={styles.error}>{error}</div>}
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -110,75 +188,87 @@ function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => 
             <tr>
               <th>Account</th>
               <th>Balance</th>
-              <th>Positions</th>
-              <th>Daily P&L</th>
-              <th>Unrealized</th>
+              <th>Equity</th>
               <th>Copy rate</th>
-              <th>Status</th>
-              <th></th>
+              <th>Connection</th>
+              <th>Copying</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             <tr className={styles.masterRow}>
               <td>
-                {group.master.label}
-                <span className={styles.rowMeta}>Master · {group.master.broker}</span>
+                {accountName(group.master)}
+                <span className={styles.rowMeta}>{group.master.brokerServer}</span>
               </td>
               <td>{money(group.master.balance)}</td>
-              <td>{group.master.openPositions}</td>
-              <td className={pnlClass(group.master.dailyPnl ?? 0)}>{group.master.dailyPnl !== null ? money(group.master.dailyPnl) : '—'}</td>
-              <td className={pnlClass(group.master.unrealizedPnl)}>{money(group.master.unrealizedPnl)}</td>
+              <td>{money(group.master.equity)}</td>
               <td>—</td>
+              <td><ConnectionPill account={group.master} /></td>
               <td>—</td>
-              <td className={styles.rowActions}>
-                <button onClick={() => handleFlatten(group.master.connectionId, group.master.label)} className="btn-ghost" disabled={busyId === group.master.connectionId}>
-                  Flatten
-                </button>
-              </td>
+              <td />
             </tr>
-            {group.followers.map((f) => (
-              <tr key={f.copierId}>
-                <td>
-                  {f.label}
-                  <span className={styles.rowMeta}>Follower · {f.broker}</span>
-                </td>
-                <td>{money(f.balance)}</td>
-                <td>{f.openPositions}</td>
-                <td className={pnlClass(f.dailyPnl ?? 0)}>{f.dailyPnl !== null ? money(f.dailyPnl) : '—'}</td>
-                <td className={pnlClass(f.unrealizedPnl)}>{money(f.unrealizedPnl)}</td>
-                <td>{copyRateLabel(f)}</td>
-                <td>
-                  <span className={f.isEnabled ? styles.badgeOn : styles.badgeOff}>{f.isEnabled ? 'copying' : 'paused'}</span>
-                </td>
-                <td className={styles.rowActions}>
-                  <button onClick={() => handleToggle(f)} disabled={busyId === f.copierId}>{f.isEnabled ? 'Disable' : 'Enable'}</button>
-                  <button onClick={() => handleFlatten(f.connectionId, f.label)} className="btn-ghost" disabled={busyId === f.copierId || busyId === f.connectionId}>Flatten</button>
-                  <button onClick={() => handleRemoveFollower(f)} className="btn-ghost" disabled={busyId === f.copierId}>Remove</button>
-                </td>
-              </tr>
-            ))}
+            {group.followers.map((f) => {
+              const live = isRelationLive(f.relation, group.master, f.account)
+              return (
+                <tr key={f.relation.id}>
+                  <td>
+                    {accountName(f.account)}
+                    <span className={styles.rowMeta}>{f.account.brokerServer}</span>
+                  </td>
+                  <td>{money(f.account.balance)}</td>
+                  <td>{money(f.account.equity)}</td>
+                  <td>{copyRateLabel(f.relation)}</td>
+                  <td><ConnectionPill account={f.account} /></td>
+                  <td>
+                    <span className={live ? styles.badgeOn : styles.badgeOff}>
+                      {live ? 'Live' : f.relation.isEnabled ? 'Armed, not live' : 'Off'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.rowActions}>
+                      <button onClick={() => handleToggle(f)} disabled={busyId === f.relation.id}>
+                        {f.relation.isEnabled ? 'Stop' : 'Start'}
+                      </button>
+                      <button onClick={() => handleFlatten(f.account)} className="btn-ghost" disabled={busyId === f.account.id}>
+                        Flatten
+                      </button>
+                      <button onClick={() => handleRemove(f)} className="btn-ghost" disabled={busyId === f.relation.id}>
+                        Remove
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
       <div className={styles.groupFooter}>
-        <span>{group.followers.length} follower account{group.followers.length === 1 ? '' : 's'}</span>
-        <span>Group capital (master + followers): {money(totalCapital)}</span>
-        <span className={pnlClass(totalUnrealized)}>Unrealized: {money(totalUnrealized)}</span>
-        <span className={pnlClass(totalDaily)}>Daily P&L: {money(totalDaily)}</span>
+        <span>Group capital {money(groupCapital)}</span>
+        <span>{armedCount} of {group.followers.length} armed</span>
       </div>
     </div>
   )
 }
 
-function TradeCopierWorkspace({ userId }: { userId: string }) {
-  const [accounts, setAccounts] = useState<DeltaAccount[]>([])
-  const [groups, setGroups] = useState<CopierGroup[] | null>(null)
-  // null = "not loaded yet", distinct from "loaded, zero rows" — lets the Risk profiles section
-  // show its own loading state without blocking the rest of the page.
-  const [riskProfiles, setRiskProfiles] = useState<DeltaRiskProfile[] | null>(null)
-  const [accountsLoaded, setAccountsLoaded] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+function TradeCopierWorkspace() {
+  const confirm = useConfirm()
+
+  const [accounts, setAccounts] = useState<TradingAccount[]>([])
+  const [relations, setRelations] = useState<CopierRelation[]>([])
+  const [riskProfiles, setRiskProfiles] = useState<RiskProfile[]>([])
+  const [workers, setWorkers] = useState<WorkerNode[]>([])
+  const [events, setEvents] = useState<ExecutionEvent[]>([])
+  const [pending, setPending] = useState<PendingCommand[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  // A queued worker command succeeds instantly at the database and then takes a
+  // moment to actually happen. Saying so is the difference between a button that
+  // feels broken and one the user knows is in flight.
+  const [notice, setNotice] = useState<string | null>(null)
   const [addingAccount, setAddingAccount] = useState(false)
 
   const [masterId, setMasterId] = useState('')
@@ -187,178 +277,313 @@ function TradeCopierWorkspace({ userId }: { userId: string }) {
   const [riskMode, setRiskMode] = useState<RiskMode>('multiplier')
   const [multiplier, setMultiplier] = useState('1.0')
 
-  // Accounts is cheap (plain Supabase queries) — loads first and gates the page shell. Risk
-  // profiles is NOT cheap: the backend makes live CopyFactory API calls (getStopouts +
-  // getSubscriber) per follower on every request, with no caching. Loading it separately means a
-  // slow risk-profiles fetch only blocks that one section instead of the whole page. Group data
-  // (which needs a live MetaApi call per account) comes from the copier-groups WebSocket below,
-  // so the page never re-fetches that from scratch on every visit either.
-  async function loadAccounts() {
-    setError(null)
+  /* One load for everything. These are six small, RLS-scoped reads against the
+   * same database the rest of the app already talks to, so there is nothing to
+   * gain from staging them — and a partial page is harder to reason about than
+   * one that either loaded or didn't. */
+  const load = useCallback(async () => {
+    setLoadError(null)
     try {
-      const a = await listAccounts()
-      setAccounts(a.accounts)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const [a, r, p, w, e, c] = await Promise.all([
+        listTradingAccounts(),
+        listCopierRelations(),
+        listRiskProfiles(),
+        listWorkerNodes(),
+        listRecentExecutionEvents(),
+        listPendingCommands(),
+      ])
+      setAccounts(a)
+      setRelations(r)
+      setRiskProfiles(p)
+      setWorkers(w)
+      setEvents(e)
+      setPending(c)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : String(err))
     } finally {
-      setAccountsLoaded(true)
+      setLoaded(true)
     }
-  }
-
-  async function loadRiskProfiles() {
-    try {
-      const r = await listRiskProfiles()
-      setRiskProfiles(r.profiles)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-  }
-
-  function load() {
-    loadAccounts()
-    loadRiskProfiles()
-  }
-
-  useEffect(() => { load() }, [])
-
-  useEffect(() => {
-    const unsubscribe = subscribeCopierGroups(setGroups, (message) => setError(message))
-    return unsubscribe
   }, [])
 
-  // Separate from load() so re-applying the default master pick can't clobber a selection the
-  // user has already made.
+  useEffect(() => { load() }, [load])
+
+  /* Worker heartbeats and balances change without anything happening in this
+   * tab, so the page refreshes itself. Thirty seconds matches the worker's own
+   * heartbeat interval — polling faster would only re-read rows that cannot have
+   * moved yet. */
+  useEffect(() => {
+    const id = setInterval(() => { load() }, 30_000)
+    return () => clearInterval(id)
+  }, [load])
+
+  /* Recomputed on every 30s refresh, so a worker that dies mid-session flips the
+   * page's language without a reload. */
+  const workerOnline = useMemo(() => anyWorkerLive(workers), [workers])
+
+  const groups = useMemo(() => buildCopierGroups(accounts, relations), [accounts, relations])
+  const unlinked = useMemo(() => unlinkedAccounts(accounts, relations), [accounts, relations])
+
+  /* Accounts grouped by the MT5 install they open with, keeping only the groups
+   * with more than one member — those are the pairs paying a login swap. */
+  const sharedTerminalGroups = useMemo(() => {
+    const withPath = accounts.filter((a) => a.terminalPath)
+    const groups: { path: string; names: string[] }[] = []
+    for (const account of withPath) {
+      const existing = groups.find((g) => sharesTerminal(g.path, account.terminalPath))
+      if (existing) existing.names.push(accountName(account))
+      else groups.push({ path: account.terminalPath as string, names: [accountName(account)] })
+    }
+    return groups.filter((g) => g.names.length > 1)
+  }, [accounts])
+
   useEffect(() => {
     if (!masterId && accounts[0]) setMasterId(accounts[0].id)
   }, [accounts, masterId])
 
   async function handleCreateCopier() {
     if (!masterId || !followerId || masterId === followerId) return
-    setError(null)
+    setActionError(null)
     try {
-      await createCopier({
-        master_account_id: masterId,
-        follower_account_id: followerId,
+      await createCopierLink({
+        masterAccountId: masterId,
+        followerAccountId: followerId,
         label: label.trim() || undefined,
-        risk_mode: riskMode,
+        riskMode: riskMode,
         multiplier: Number(multiplier),
       })
       setLabel('')
+      setFollowerId('')
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setActionError(e instanceof Error ? e.message : String(e))
     }
   }
 
-  async function handleUnlock(p: DeltaRiskProfile) {
-    setError(null)
+  async function handleUnlock(p: RiskProfile) {
+    const account = accounts.find((a) => a.id === p.accountId)
+    const ok = await confirm({
+      title: `Unlock ${account ? accountName(account) : 'this account'}?`,
+      description: p.lockedReason
+        ? `It was locked because: ${p.lockedReason}. Unlocking lets it trade again immediately.`
+        : 'Unlocking lets it trade again immediately.',
+      confirmLabel: 'Unlock',
+      destructive: true,
+    })
+    if (!ok) return
+    setActionError(null)
     try {
       await unlockRiskProfile(p.id)
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setActionError(e instanceof Error ? e.message : String(e))
     }
   }
 
-  if (!accountsLoaded) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  /* The queue write always succeeds — it is a row in this user's own table. What
+   * it does NOT tell you is whether anything will ever read it. Promising that
+   * "the worker will report back" when no worker is running is how an account
+   * sits on Disconnected looking like a credentials problem when the real answer
+   * is that nothing is listening. */
+  async function handleTestConnection(account: TradingAccount) {
+    setActionError(null)
+    try {
+      const result = await testConnection(account.id)
+      const live = anyWorkerLive(workers)
+      if (!live) {
+        setNotice(
+          `Test queued for ${accountName(account)}, but no worker is online to run it — ` +
+          'so nothing will happen yet. Start the worker on the Windows machine and it picks ' +
+          'this up on its next poll. Until then the account stays on Disconnected, which is ' +
+          'not a verdict on the credentials.',
+        )
+      } else if (result === 'already-pending') {
+        setNotice(`A test for ${accountName(account)} is already queued — waiting on the worker.`)
+      } else {
+        setNotice(`Connection test queued for ${accountName(account)} — the worker will report back within a few seconds.`)
+      }
+      await load()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e))
+    }
+  }
 
-  const groupsLoaded = groups !== null
-  const safeGroups = groups ?? []
-  const linkedAccountIds = new Set(safeGroups.flatMap((g) => [g.master.connectionId, ...g.followers.map((f) => f.connectionId)]))
-  const unlinkedAccounts = accounts.filter((a) => !linkedAccountIds.has(a.id))
+  if (!loaded) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  if (loadError) return <LoadError message={loadError} onRetry={load} />
 
-  const grandCapital = safeGroups.reduce((s, g) => s + g.master.balance + g.followers.reduce((s2, f) => s2 + f.balance, 0), 0)
-  const grandDaily = safeGroups.reduce((s, g) => s + (g.master.dailyPnl ?? 0) + g.followers.reduce((s2, f) => s2 + (f.dailyPnl ?? 0), 0), 0)
-  const grandFollowers = safeGroups.reduce((s, g) => s + g.followers.length, 0)
+  const lockedProfiles = riskProfiles.filter((p) => p.isLocked)
 
   return (
     <div>
-      {error && <div className={styles.error}>{error}</div>}
+      <WorkerStatus workers={workers} loading={false} />
 
-      {groupsLoaded && safeGroups.length > 0 && (
-        <div className={styles.summaryRow}>
-          <span><strong>{safeGroups.length}</strong> master{safeGroups.length === 1 ? '' : 's'}</span>
-          <span><strong>{grandFollowers}</strong> follower{grandFollowers === 1 ? '' : 's'}</span>
-          <span>Total capital <strong>{money(grandCapital)}</strong></span>
-          <span className={pnlClass(grandDaily)}>Today <strong>{money(grandDaily)}</strong></span>
+      {actionError && <div className={styles.error}>{actionError}</div>}
+      {notice && <div className={styles.notice}>{notice}</div>}
+
+      {lockedProfiles.length > 0 && (
+        <div className={styles.warnStrip}>
+          {lockedProfiles.length} account{lockedProfiles.length === 1 ? ' is' : 's are'} locked by their risk
+          rules and will not take new trades until unlocked.
         </div>
       )}
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>
-          <h2>Copy trading groups</h2>
-          <button onClick={() => setAddingAccount(true)} className="btn-primary">+ Connect an account to copy</button>
+          <h2>Copy groups</h2>
+          <button onClick={() => setAddingAccount(true)} className="btn-primary">+ Connect an account</button>
         </div>
-        {!groupsLoaded ? (
-          <p style={{ color: 'var(--text-muted)' }}>Loading live account data…</p>
-        ) : safeGroups.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No copy trading groups yet — add one below.</p>
+
+        {groups.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }}>
+            {accounts.length === 0
+              ? 'No accounts connected yet. Connect a master and at least one follower to start copying.'
+              : 'No copy links yet — pair a master with a follower below.'}
+          </p>
         ) : (
           <div className={styles.groupList}>
-            {safeGroups.map((g) => <GroupCard key={g.master.connectionId} group={g} onChanged={load} />)}
+            {groups.map((g) => (
+              <GroupCard key={g.master.id} group={g} onChanged={load} />
+            ))}
           </div>
         )}
 
-        {unlinkedAccounts.length > 0 && (
+        {unlinked.length > 0 && (
           <div className={styles.unlinkedNotice}>
-            Not yet in a copy group: {unlinkedAccounts.map((a) => a.account_label || a.account_number).join(', ')}
+            Connected but not in a copy group: {unlinked.map(accountName).join(', ')}
           </div>
         )}
 
-        <div className={`card ${styles.addRow}`}>
-          <label className="flex-1">Master
-            <select value={masterId} onChange={(e) => setMasterId(e.target.value)}>
-              {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_label || a.account_number}</option>)}
-            </select>
-          </label>
-          <label className="flex-1">Follower
-            <select value={followerId} onChange={(e) => setFollowerId(e.target.value)}>
-              <option value="">Select…</option>
-              {accounts.filter((a) => a.id !== masterId).map((a) => <option key={a.id} value={a.id}>{a.account_label || a.account_number}</option>)}
-            </select>
-          </label>
-          <label className="flex-1">Label
-            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="optional" />
-          </label>
-          <label className="flex-1">Risk mode
-            <select value={riskMode} onChange={(e) => setRiskMode(e.target.value as RiskMode)}>
-              <option value="multiplier">Multiplier</option>
-              <option value="risk_percent">Risk percent</option>
-            </select>
-          </label>
-          <label className="flex-1">{riskMode === 'risk_percent' ? 'Max risk per trade (%)' : 'Multiplier'}
-            <input type="number" step="0.01" value={multiplier} onChange={(e) => setMultiplier(e.target.value)} />
-          </label>
-          <button className="btn-primary" onClick={handleCreateCopier} disabled={!masterId || !followerId}>Add follower</button>
-        </div>
+        {accounts.length >= 2 && (
+          <div className={`card ${styles.addRow}`}>
+            <label className="flex-1">Master
+              <select value={masterId} onChange={(e) => setMasterId(e.target.value)}>
+                {accounts.map((a) => <option key={a.id} value={a.id}>{accountName(a)}</option>)}
+              </select>
+            </label>
+            <label className="flex-1">Follower
+              <select value={followerId} onChange={(e) => setFollowerId(e.target.value)}>
+                <option value="">Select…</option>
+                {accounts.filter((a) => a.id !== masterId).map((a) => (
+                  <option key={a.id} value={a.id}>{accountName(a)}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex-1">Label
+              <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="optional" />
+            </label>
+            <label className="flex-1">Risk mode
+              <select value={riskMode} onChange={(e) => setRiskMode(e.target.value as RiskMode)}>
+                <option value="multiplier">Multiplier</option>
+                <option value="fixed_lot">Fixed lot</option>
+                <option value="equity_ratio">Equity ratio</option>
+                <option value="risk_percent">Risk percent</option>
+              </select>
+            </label>
+            <label className="flex-1">{riskMode === 'risk_percent' ? 'Max risk per trade (%)' : 'Multiplier'}
+              <input type="number" step="0.01" value={multiplier} onChange={(e) => setMultiplier(e.target.value)} />
+            </label>
+            <button className="btn-primary" onClick={handleCreateCopier} disabled={!masterId || !followerId}>
+              Create link
+            </button>
+          </div>
+        )}
+      </section>
+
+      <section className={styles.section}>
+        <h2>Connected accounts</h2>
+        {accounts.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }}>No accounts connected yet.</p>
+        ) : (
+          <>
+            {/* Accounts sharing an MT5 install get ONE pool worker with
+                max_workers=1, so their copies queue rather than run in
+                parallel — the worker logs into each in turn. The cost is
+                therefore per-follower, not flat: the last one in the queue
+                waits for every switch before it. Accounts at different brokers
+                already have separate terminals and cost nothing. */}
+            {sharedTerminalGroups.length > 0 && (
+              <div className={styles.warnStrip}>
+                {sharedTerminalGroups.map((g) => (
+                  <div key={g.path}>
+                    {g.names.join(', ')} share one MT5 install, so their copies run
+                    <strong> one after another</strong> — the worker logs into each in turn.
+                    With {g.names.length} accounts the last one waits for {g.names.length - 1}{' '}
+                    login switch{g.names.length - 1 === 1 ? '' : 'es'} before its order is placed.
+                    Give each its own portable copy of that broker’s terminal to run them in parallel.
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className={`card ${styles.list}`}>
+              {accounts.map((a) => {
+                const testing = hasPendingTest(pending, a.id)
+                return (
+                  <div key={a.id} className={styles.accountEntry}>
+                    <div className={styles.row}>
+                      <span className={styles.cell}>{accountName(a)}</span>
+                      <ConnectionPill account={a} pending={testing} />
+                      {a.terminalPath
+                        ? <span className={styles.cellMuted} title={a.terminalPath}>{terminalFolder(a.terminalPath)}</span>
+                        : <span className={styles.badgeOff}>no terminal path</span>}
+                      <button onClick={() => handleTestConnection(a)} disabled={testing}>
+                        {testing ? 'Queued…' : 'Test connection'}
+                      </button>
+                    </div>
+                    {/* The worker writes the broker's own words here when a test
+                        fails. It was previously a `title` tooltip only, which is
+                        invisible on touch and easy to miss — so "Login rejected"
+                        arrived with no reason attached. */}
+                    {!testing && a.lastError && (
+                      <p className={styles.rowError}>{a.lastError}</p>
+                    )}
+                    {testing && !workerOnline && (
+                      <p className={styles.rowError}>
+                        Queued, but no worker is online to run it.
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </section>
 
       <section className={styles.section}>
         <h2>Risk profiles</h2>
-        {riskProfiles === null ? (
-          <p style={{ color: 'var(--text-muted)' }}>Loading risk profiles…</p>
-        ) : riskProfiles.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No risk profiles yet — these appear once a copier relation exists.</p>
+        {riskProfiles.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }}>
+            No risk profiles yet — one is created per account when you set loss limits on it.
+          </p>
         ) : (
           <div className={`card ${styles.list}`}>
-            {riskProfiles.map((p) => (
-              <div key={p.id} className={styles.row}>
-                <span className={styles.cell}>{accountLabel(accounts, p.account_id)}</span>
-                <span className={p.is_locked ? styles.badgeOff : styles.badgeOn}>
-                  {p.is_locked ? (p.locked_reason || 'locked') : 'unlocked'}
-                </span>
-                {p.is_locked && <button onClick={() => handleUnlock(p)}>Unlock</button>}
-              </div>
-            ))}
+            {riskProfiles.map((p) => {
+              const account = accounts.find((a) => a.id === p.accountId)
+              return (
+                <div key={p.id} className={styles.row}>
+                  <span className={styles.cell}>{account ? accountName(account) : 'deleted account'}</span>
+                  <span className={styles.cellMuted}>
+                    {p.maxDailyLoss !== null ? `daily loss cap ${money(p.maxDailyLoss)}` : 'no daily cap'}
+                    {' · '}
+                    {p.dailyTradesCount} trade{p.dailyTradesCount === 1 ? '' : 's'} today
+                  </span>
+                  <span className={p.isLocked ? styles.badgeOff : styles.badgeOn}>
+                    {p.isLocked ? (p.lockedReason || 'locked') : 'active'}
+                  </span>
+                  {p.isLocked && <button onClick={() => handleUnlock(p)}>Unlock</button>}
+                </div>
+              )
+            })}
           </div>
         )}
       </section>
 
+      <section className={styles.section}>
+        <h2>Copy log</h2>
+        <ExecutionLog events={events} accounts={accounts} />
+      </section>
+
       {addingAccount && (
-        <AddAccountDialog
-          userId={userId}
-          forceKind="live"
-          forceLiveCategory="cfd"
+        <AddCopierAccountDialog
           onClose={() => setAddingAccount(false)}
           onSaved={() => { setAddingAccount(false); load() }}
         />
@@ -376,19 +601,13 @@ export function TradeCopierPage() {
     <div>
       <h1 className="page-title">Trade Copier</h1>
 
-      {!copierConfigured && (
-        <p className={styles.configNotice}>
-          Broker sync isn't configured yet — set VITE_BROKER_SYNC_API_URL in .env.local for this page to actually work.
-        </p>
-      )}
-
       {!user ? (
         <>
           <p style={{ color: 'var(--text-secondary)' }}>Sign in to manage trade copiers.</p>
           <AuthPage />
         </>
       ) : (
-        <TradeCopierWorkspace userId={user.id} />
+        <TradeCopierWorkspace />
       )}
     </div>
   )

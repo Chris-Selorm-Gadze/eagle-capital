@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { STAGE_OPTIONS, type Account } from '../../../db/schema'
+import type { AccountLedger } from '../../../utils/ledger'
 import { updateAccount, deleteAccount } from '../../../db/accounts'
 import { Modal } from '../../../shared/ui/Modal'
 import { BREACH_REASONS } from '../breachReasons'
@@ -9,16 +10,23 @@ import { useConfirm } from '../../../shared/ui/confirm'
 
 export function EditAccountDialog({
   account,
+  ledger,
   onClose,
   onSaved,
 }: {
   account: Account
+  /** Derived balance/peak, shown read-only. */
+  ledger?: AccountLedger
   onClose: () => void
   onSaved: () => void
 }) {
   const confirm = useConfirm()
-  const [balance, setBalance] = useState(String(account.balance))
-  const [highestBalance, setHighestBalance] = useState(String(account.highestBalance))
+  // Starting size is the one capital figure a user can set. Current balance and
+  // peak used to be editable text inputs writing straight to `accounts.balance`
+  // / `highest_balance`; both are derived from trades, sessions and payouts now
+  // (utils/ledger.ts), so an input for them would be a field that silently
+  // reverts the moment anything is logged.
+  const [size, setSize] = useState(String(account.size))
   const [stage, setStage] = useState<Account['stage']>(account.stage)
   const [active, setActive] = useState(account.active)
   const [blownReason, setBlownReason] = useState(account.blownReason ?? '')
@@ -42,8 +50,7 @@ export function EditAccountDialog({
     setSaving(true)
     try {
       await updateAccount(account.id!, {
-        balance: Number(balance),
-        highestBalance: Number(highestBalance),
+        size: Number(size),
         stage,
         active,
         maxDrawdown: !isLive && maxDrawdown ? Number(maxDrawdown) : undefined,
@@ -97,15 +104,23 @@ export function EditAccountDialog({
         </>
       }
     >
-      <div className="field-row">
-        <label className="flex-1">
-          Balance ($)
-          <input type="number" value={balance} onChange={(e) => setBalance(e.target.value)} />
-        </label>
-        <label className="flex-1">
-          Highest Balance ($)
-          <input type="number" value={highestBalance} onChange={(e) => setHighestBalance(e.target.value)} />
-        </label>
+      <label className="field">
+        Starting size ($)
+        <input type="number" value={size} onChange={(e) => setSize(e.target.value)} />
+      </label>
+
+      <div className={styles.derivedRow}>
+        <div>
+          <div className={styles.derivedLabel}>Current balance</div>
+          <div className={styles.derivedValue}>${(ledger?.balance ?? account.size).toLocaleString()}</div>
+        </div>
+        <div>
+          <div className={styles.derivedLabel}>Peak balance</div>
+          <div className={styles.derivedValue}>${(ledger?.peakBalance ?? account.size).toLocaleString()}</div>
+        </div>
+        <p className={styles.derivedHint}>
+          Calculated from your logged trades, sessions and payouts — correct those to change these.
+        </p>
       </div>
 
       <label className="field">

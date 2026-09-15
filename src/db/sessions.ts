@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
-import { updateAccount } from './accounts'
-import type { Account, SessionLog } from '../types'
+import { selectAll } from './paginate'
+import { todayTradingDay } from '../utils/tradingDay'
+import type { SessionLog } from '../types'
 
 export type SessionInput = Omit<SessionLog, 'id' | 'accountId'>
 
@@ -31,38 +32,44 @@ export function toRow(s: SessionLog): Record<string, unknown> {
 }
 
 export async function listSessions(): Promise<SessionLog[]> {
-  const { data, error } = await supabase.from('sessions').select('*').order('date', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (await selectAll('sessions', { orderBy: 'date' })).map(fromRow)
 }
 
-/** Upsert today's (or any date's) session for an account and roll the pnl into balance/highestBalance. */
-export async function logSession(userId: string, account: Account, input: SessionInput): Promise<void> {
+/** Upserts a session for an account on a given date.
+ *
+ * This no longer writes back to `accounts.balance`. It used to read the
+ * account's stored balance, add the P&L delta, and update the row — a
+ * read-modify-write from the browser with no transaction, on a column that
+ * logging a *trade* never touched. Balance is derived from trades, sessions and
+ * payouts now (see utils/ledger.ts), so there's one number and nothing to keep
+ * in sync. */
+export async function logSession(userId: string, accountId: string, input: SessionInput): Promise<void> {
   const { data: existing, error: findError } = await supabase
     .from('sessions')
-    .select('id, pnl')
-    .eq('account_id', account.id!)
+    .select('id')
+    .eq('account_id', accountId)
     .eq('date', input.date)
     .maybeSingle()
   if (findError) throw findError
 
-  const pnlDelta = input.pnl - (existing?.pnl ?? 0)
-  const newBalance = account.balance + pnlDelta
-  const newHighest = Math.max(account.highestBalance, newBalance, input.highestUnrealized ?? 0)
-
-  const row = toRow({ ...input, id: existing?.id, accountId: account.id! })
+  const row = toRow({ ...input, id: existing?.id, accountId })
 
   if (existing) {
     const { error } = await supabase.from('sessions').update(row).eq('id', existing.id)
     if (error) throw error
   } else {
-    const { error } = await supabase.from('sessions').insert({ user_id: userId, account_id: account.id!, ...row })
+    const { error } = await supabase.from('sessions').insert({ user_id: userId, account_id: accountId, ...row })
     if (error) throw error
   }
-
-  await updateAccount(account.id!, { balance: newBalance, highestBalance: newHighest })
 }
 
+export async function deleteSession(id: string): Promise<void> {
+  const { error } = await supabase.from('sessions').delete().eq('id', id)
+  if (error) throw error
+}
+
+/** Today, in the trader's local zone. Was `toISOString().slice(0, 10)`, which
+ * returns tomorrow's date for anyone east of UTC late in their evening. */
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
+  return todayTradingDay()
 }

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { selectAll } from './paginate'
 import type { TradingRule } from '../types'
 
 function fromRow(row: Record<string, any>): TradingRule {
@@ -10,9 +11,7 @@ function fromRow(row: Record<string, any>): TradingRule {
 }
 
 export async function listTradingRules(): Promise<TradingRule[]> {
-  const { data, error } = await supabase.from('trading_rules').select('*').order('created_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (await selectAll('trading_rules', { orderBy: 'created_at' })).map(fromRow)
 }
 
 export async function addTradingRule(userId: string, rule: TradingRule): Promise<void> {

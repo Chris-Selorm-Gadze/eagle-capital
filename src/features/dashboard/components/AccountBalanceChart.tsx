@@ -1,5 +1,5 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import type { BalancePoint } from '../../../utils/accountBalance'
+import type { LedgerPoint } from '../../../utils/ledger'
 import {
   AXIS_LINE_STYLE, TOOLTIP_CONTENT_STYLE, TOOLTIP_LABEL_STYLE, TOOLTIP_ITEM_STYLE,
   COLOR_ACCENT, COLOR_CRITICAL, COLOR_GRIDLINE,
@@ -9,21 +9,25 @@ import { formatDate } from '../../../components/formater'
 
 const TICK_STYLE = { fontSize: 10, fill: 'var(--text-muted)' }
 
-export function AccountBalanceChart({ data, currentBalance }: { data: BalancePoint[]; currentBalance: number }) {
+export function AccountBalanceChart({ data, currentBalance }: { data: LedgerPoint[]; currentBalance: number }) {
   return (
     <div className={`card ${styles.root}`}>
       <div className={styles.headerRow}>
         <div className={styles.title}>
           Account balance
           <span
+            aria-label="Starting allocation + everything you've logged, minus what you've withdrawn. Deposits / Withdrawals tracks cumulative payouts received."
             className="info-icon"
-            data-tooltip="Starting allocation + cumulative trade P&L. Deposits / Withdrawals tracks cumulative payouts received."
+            data-tooltip="Starting allocation + everything you've logged − what you've withdrawn. Deposits / Withdrawals tracks cumulative payouts received."
+            role="note"
+            tabIndex={0}
           >
             i
           </span>
         </div>
-        {/* Whatever the top-bar account filter currently selects — one account's own balance, or
-            the sum across all accounts when "All accounts" is picked (see DashboardPage.tsx). */}
+        {/* The same ledger the line is drawn from, summed across whatever the
+            top-bar account filter currently selects — so this figure and the
+            end of the curve are always the same number. */}
         <div className={styles.currentValue}>${currentBalance.toLocaleString()}</div>
       </div>
       <div className={styles.legend}>

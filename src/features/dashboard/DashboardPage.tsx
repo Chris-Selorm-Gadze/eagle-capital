@@ -1,6 +1,6 @@
-import type { Account, Payout, Trade } from '../../db/schema'
+import type { Account, Payout, SessionLog, Trade } from '../../db/schema'
 import { dailyPnlSeries } from '../../utils/tradeAggregates'
-import { accountBalanceSeries } from '../../utils/accountBalance'
+import { balanceSeries, totalBalance, type AccountLedger } from '../../utils/ledger'
 import { StatsRow } from './components/StatsRow'
 import { EquityChart } from './components/EquityChart'
 import { DailyPnlChart } from './components/DailyPnlChart'
@@ -17,6 +17,8 @@ export function DashboardPage({
   trades,
   accounts,
   payouts,
+  sessions,
+  ledgers,
   onOpenDateInJournal,
   onAddAccount,
   onAddTrade,
@@ -24,6 +26,8 @@ export function DashboardPage({
   trades: Trade[]
   accounts: Account[]
   payouts: Payout[]
+  sessions: SessionLog[]
+  ledgers: Map<string, AccountLedger>
   onOpenDateInJournal: (date: string) => void
   onAddAccount: () => void
   onAddTrade: () => void
@@ -41,16 +45,13 @@ export function DashboardPage({
   }
 
   const daily = dailyPnlSeries(trades)
-  const tradedAccountIds = new Set(trades.map((t) => t.accountId))
-  const startingBalance = accounts
-    .filter((a) => a.id !== undefined && tradedAccountIds.has(a.id))
-    .reduce((sum, a) => sum + a.size, 0)
-  const relevantPayouts = payouts.filter((p) => tradedAccountIds.has(p.accountId))
-  const balance = accountBalanceSeries(daily, startingBalance, relevantPayouts)
-  // `accounts` here is already scoped by the header's account filter (one account, or all of
-  // them) — summing balance works for both: it's just that one account's balance when a single
-  // account is selected, or the real total when "All accounts" is picked.
-  const currentBalance = accounts.reduce((sum, a) => sum + a.balance, 0)
+  // Both of these now come from the same ledger (utils/ledger.ts). They used to
+  // be computed two different ways — the curve from "size + trade P&L" over
+  // only the accounts that had traded, the figure from the stored
+  // `accounts.balance` column over every account in the filter — so the line
+  // and the number above it routinely disagreed.
+  const balance = balanceSeries(accounts, trades, sessions, payouts)
+  const currentBalance = totalBalance(accounts, ledgers)
 
   return (
     <div className="flex flex-col gap-6">

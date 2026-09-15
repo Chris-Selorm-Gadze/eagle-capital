@@ -1,13 +1,14 @@
 import { supabase } from './supabaseClient'
+import { isUsableApiUrl, unreachableBackendWarning } from './apiUrl'
 
 // Backed by eaglecapital-broker-sync's /api/live-positions + /ws/live-positions — same backend/
-// API URL as copierClient.ts and brokerSyncClient.ts. Broker-agnostic on the backend (any
+// API URL as brokerSyncClient.ts. Broker-agnostic on the backend (any
 // connected account, not just ones in a copier relationship); today only MT5 actually returns
 // real positions, other brokers report a clear per-account error instead of fake data.
 
 const apiUrl = import.meta.env.VITE_BROKER_SYNC_API_URL
 
-export const livePositionsConfigured = Boolean(apiUrl)
+export const livePositionsConfigured = isUsableApiUrl(apiUrl, import.meta.env.PROD)
 
 export interface LivePosition {
   connectionId: string
@@ -42,7 +43,20 @@ async function authHeader(): Promise<Record<string, string>> {
  * livePositionsSocket.ts so it doesn't pay for a live round-trip per account on every page view. */
 export async function getLivePositions(): Promise<{ accounts: LiveAccountPositions[] }> {
   const headers = { 'Content-Type': 'application/json', ...(await authHeader()) }
-  const res = await fetch(`${apiUrl}/api/live-positions`, { headers })
+  let res: Response
+  try {
+    res = await fetch(`${apiUrl}/api/live-positions`, { headers })
+  } catch (err) {
+    // Same fault as brokerSyncClient: a refused connection surfaced as a bare
+    // "Failed to fetch" on a page that looked ready.
+    if (err instanceof TypeError) {
+      throw new Error(
+        `Live positions are served by the broker sync service, which isn't reachable at ${apiUrl}. ` +
+        'It is a separate backend and is not currently deployed.',
+      )
+    }
+    throw err
+  }
   if (!res.ok) throw new Error(`Live positions API failed: ${res.status} ${await res.text()}`)
   return res.json()
 }

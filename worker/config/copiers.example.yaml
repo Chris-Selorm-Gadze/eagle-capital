@@ -1,0 +1,15 @@
+# Copy to copiers.yaml
+
+copiers:
+  - id: copier-1
+    master_id: master-1
+    follower_id: follower-1
+    enabled: true
+    risk_mode: multiplier   # multiplier | fixed_lot
+    multiplier: 1.0
+    fixed_lot_size: 0.01
+    copy_sl: true
+    copy_tp: true
+    copy_closes: true
+    copy_modifications: true
+    max_signal_age_ms: 3000

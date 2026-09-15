@@ -407,7 +407,7 @@ export interface LegalSection {
   paragraphs: string[]
 }
 
-export const PRIVACY_UPDATED = '10 September 2026'
+export const PRIVACY_UPDATED = '11 September 2026'
 
 export const PRIVACY_SECTIONS: LegalSection[] = [
   {
@@ -430,7 +430,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     heading: 'Who else processes it',
     paragraphs: [
       'Supabase — database, authentication and file storage. This is where your data lives.',
-      'Groq and Anthropic — only when you press "Generate Insights" on the AI Insights page. That sends a summary of the trades in the range you selected to a language model to write the digest. Nothing is sent automatically, and nothing is sent unless you press the button. If you never use that page, your trades never reach either provider.',
+      'Groq and Anthropic — only when you press "Generate Insights" on the AI Insights page. That sends a summary of the trades in the range you selected to a language model to write the digest. Nothing is sent automatically, and nothing is sent unless you press the button, and there is a daily cap on how many times it can run. If you never use that page, your trades never reach either provider.',
       'PostHog — product analytics, keyed to your user ID.',
       'Sentry — error monitoring.',
       'We do not sell your data, and we do not share it with prop firms or brokers.',
@@ -440,6 +440,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     heading: 'Images you upload',
     paragraphs: [
       'Playbook and report-card images are stored under a randomly generated address in a bucket that serves files over public URLs. The address is not guessable and is not listed anywhere, but anyone you give the link to can open the image without signing in. Treat these the way you would treat an unlisted link: fine for a chart screenshot, not the place for anything you would not want forwarded.',
+      'Deleting a playbook, an example, or your whole account deletes the underlying image files too, not just the rows pointing at them.',
     ],
   },
   {
@@ -449,11 +450,18 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     ],
   },
   {
-    heading: 'Getting your data out, and deleting it',
+    heading: 'Getting your data out',
     paragraphs: [
-      'Settings has two exports: your trades as a CSV, and everything as JSON. Neither costs anything and neither is gated behind a plan.',
-      'The same page deletes every record you have logged. Deletion is immediate and cannot be undone, so export first if you want a copy. Reclaiming the underlying login record is a manual step on our side today — ask and we will remove it.',
-      'You can do both without talking to us, and we would rather you left cleanly than stayed because leaving was hard.',
+      'Settings has two exports: your trades as a CSV, and everything as JSON. The JSON bundle includes every table plus the addresses of every image you have uploaded. Neither costs anything and neither is gated behind a plan.',
+      'You can do this without talking to us, and we would rather you left cleanly than stayed because leaving was hard.',
+    ],
+  },
+  {
+    heading: 'Deleting your account',
+    paragraphs: [
+      'Deleting your account from Settings schedules it. For 30 days nothing is removed: sign back in at any point in that window and one click calls it off. We hold the data during those 30 days for exactly one reason — so that a mis-click, or a decision made on a bad day, is recoverable.',
+      'After 30 days the erasure is permanent and automatic. It removes every account, trade, session, payout, reward, playbook, report card, trading rule, saved insight and broker connection; every image you uploaded; and the sign-in record itself. Nothing is retained, and there is no way for us to restore it afterwards.',
+      'If you want a copy, export before the window closes — exports still work for the whole 30 days.',
     ],
   },
   {
@@ -464,7 +472,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   },
 ]
 
-export const TERMS_UPDATED = '10 September 2026'
+export const TERMS_UPDATED = '11 September 2026'
 
 export const TERMS_SECTIONS: LegalSection[] = [
   {
@@ -484,7 +492,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
     heading: 'Your data belongs to you',
     paragraphs: [
       'You keep ownership of everything you log. You grant us only the permission needed to store it, show it back to you, and operate the features you use.',
-      'You can export it or delete it at any time from Settings.',
+      'You can export it at any time from Settings. Deleting your account starts a 30-day window during which nothing is removed and you can reverse it; after that it is erased permanently.',
     ],
   },
   {
@@ -522,7 +530,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
   {
     heading: 'Ending your use',
     paragraphs: [
-      'You can stop at any time and delete your data from Settings. We may suspend an account that is being used to break these terms or the law.',
+      'You can stop at any time and delete your account from Settings. Deletion is held for 30 days and is reversible during that window; after it, the erasure is permanent. We may suspend an account that is being used to break these terms or the law.',
     ],
   },
   {

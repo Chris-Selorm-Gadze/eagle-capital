@@ -11,7 +11,7 @@ function wsUrl(token: string): string {
   return url.toString()
 }
 
-/** Same shape as copierGroupsSocket.ts's subscribeCopierGroups — the backend pushes a fresh
+/** The backend pushes a fresh
  * snapshot on its own poll timer, so this page never re-fetches on its own. Reconnects with
  * backoff on drop, returns an unsubscribe function. */
 export function subscribeLivePositions(onUpdate: (accounts: LiveAccountPositions[]) => void, onError?: (message: string) => void): () => void {

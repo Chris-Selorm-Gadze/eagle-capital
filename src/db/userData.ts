@@ -6,15 +6,16 @@ import { supabase } from '../lib/supabaseClient'
  * leave? Yes. Your data is yours." — so they live here rather than being
  * scattered across the feature pages that happen to own each table. */
 
-/** Every table holding user rows, child-first.
- *
- * Order matters for deletion: `playbook_examples` references `playbooks` and
- * `broker_connection_accounts` references `broker_connections`, so children are
- * removed before parents. If the schema ever gains ON DELETE CASCADE this stays
- * correct, just redundant. */
+/** Every table holding user rows. Ordered child-first so the same list can be
+ * reused by the purge job, where deleting a parent before its children would
+ * fail on any FK that isn't ON DELETE CASCADE. */
 const USER_TABLES = [
   'playbook_examples',
   'broker_connection_accounts',
+  // `copier_links` was missing from this list, so it never appeared in an
+  // export. (Deletion still reached it, but only incidentally, via the cascade
+  // from broker_connections.)
+  'copier_links',
   'trades',
   'sessions',
   'payouts',
@@ -34,21 +35,45 @@ export interface ExportBundle {
   /** Rows keyed by table name. Empty tables are still present, so the shape of
    * the export doesn't change depending on what the user happens to have. */
   tables: Record<string, unknown[]>
+  /** Public URLs of every uploaded screenshot referenced by those rows. */
+  imageUrls: string[]
 }
 
 /** Reads every user-owned table. RLS already scopes each query to auth.uid(),
  * so there's no user filter here — the same reason the rest of src/db doesn't
  * pass one either. */
-export async function exportAllData(): Promise<ExportBundle> {
+export async function exportAllData(userId: string): Promise<ExportBundle> {
   const tables: Record<string, unknown[]> = {}
   for (const table of USER_TABLES) {
     const { data, error } = await supabase.from(table).select('*')
     if (error) throw error
     tables[table] = data ?? []
   }
-  const { data: profile } = await supabase.from('eaglecapital_profiles').select('*')
+  const { data: profile, error: profileError } = await supabase
+    .from('eaglecapital_profiles')
+    .select('*')
+    .eq('user_id', userId)
+  if (profileError) throw profileError
   tables.profile = profile ?? []
-  return { exportedAt: new Date().toISOString(), tables }
+
+  return { exportedAt: new Date().toISOString(), tables, imageUrls: collectImageUrls(tables) }
+}
+
+/** Uploaded screenshots are files, not rows, so an export of the tables alone
+ * would hand someone their notes without their charts. The bundle lists every
+ * URL so they can be fetched; the bucket is public, so no signing is needed. */
+function collectImageUrls(tables: Record<string, unknown[]>): string[] {
+  const urls = new Set<string>()
+  for (const row of tables.playbook_examples ?? []) {
+    const url = (row as { image_url?: string | null }).image_url
+    if (url) urls.add(url)
+  }
+  for (const row of tables.report_cards ?? []) {
+    for (const url of (row as { image_urls?: string[] | null }).image_urls ?? []) {
+      if (url) urls.add(url)
+    }
+  }
+  return [...urls]
 }
 
 /** Flattens the trades table to CSV — the format people actually re-import into
@@ -79,18 +104,17 @@ export function downloadFile(filename: string, content: string, mime: string): v
   URL.revokeObjectURL(url)
 }
 
-/** Deletes every row this user owns.
+/* Erasure lives in db/accountDeletion.ts, not here.
  *
- * Note this does NOT delete the auth user itself — removing an entry from
- * auth.users requires the service-role key, which must never reach the browser.
- * The caller signs the user out afterwards; reclaiming the auth row is a
- * server-side job (an Edge Function using the admin client). Until that exists,
- * a "deleted" account is one with no data left and no way back into anything. */
-export async function deleteAllUserData(userId: string): Promise<void> {
-  for (const table of USER_TABLES) {
-    const { error } = await supabase.from(table).delete().eq('user_id', userId)
-    if (error) throw error
-  }
-  const { error } = await supabase.from('eaglecapital_profiles').delete().eq('user_id', userId)
-  if (error) throw error
-}
+ * There used to be a `deleteAllUserData()` in this file that looped DELETEs
+ * from the browser. It was wrong in three ways that no amount of care at the
+ * call site could fix:
+ *   · it could never remove the auth.users row (service-role only), so a
+ *     "deleted" account could still sign in;
+ *   · it never touched Storage, leaving every screenshot in a public bucket;
+ *   · its delete against eaglecapital_profiles silently did nothing, because
+ *     that table had no DELETE policy and RLS turns a blocked delete into a
+ *     no-op rather than an error.
+ *
+ * Deletion is now a scheduled request with a 30-day window, carried out
+ * server-side by the purge-deleted-accounts Edge Function. */

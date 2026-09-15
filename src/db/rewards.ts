@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { selectAll } from './paginate'
 import type { Reward } from '../types'
 
 export function fromRow(row: Record<string, any>): Reward {
@@ -15,9 +16,7 @@ export function toRow(r: Reward): Record<string, unknown> {
 }
 
 export async function listRewards(): Promise<Reward[]> {
-  const { data, error } = await supabase.from('rewards').select('*').order('date', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (await selectAll('rewards', { orderBy: 'date' })).map(fromRow)
 }
 
 export async function addReward(userId: string, accountId: string, date: string, growthPct: number): Promise<void> {

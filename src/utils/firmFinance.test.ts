@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { firmFinanceBreakdown, firmPassRate, pathToFundingProgress, breachReasonCounts } from './firmFinance'
-import type { Account, Payout, SessionLog } from '../db/schema'
+import type { Account, Payout } from '../db/schema'
+import type { AccountLedger } from './ledger'
 
 function account(overrides: Partial<Account>): Account {
   return {
@@ -47,34 +48,51 @@ describe('firmPassRate', () => {
 })
 
 describe('pathToFundingProgress', () => {
-  const sessions: SessionLog[] = [
-    { id: '1', accountId: '1', date: '2026-07-01', pnl: 100, trades: 2, consecutiveLosses: 0, rulesFollowed: true },
-    { id: '2', accountId: '1', date: '2026-07-02', pnl: 50, trades: 1, consecutiveLosses: 0, rulesFollowed: true },
-    { id: '3', accountId: '1', date: '2026-07-03', pnl: -80, trades: 3, consecutiveLosses: 1, rulesFollowed: true },
-    { id: '4', accountId: '1', date: '2026-07-06', pnl: -50, trades: 1, consecutiveLosses: 1, rulesFollowed: true },
-  ]
-
-  it('returns null for non-evaluation stages', () => {
-    expect(pathToFundingProgress(account({ stage: 'funded' }), sessions, '2026-07-06')).toBeNull()
+  // The ledger is the derived record now — progress reads realised P&L and
+  // active days from it instead of counting session rows, so a trader who logs
+  // individual fills gets the same progress as one who logs daily summaries.
+  const ledger = (over: Partial<AccountLedger> = {}): AccountLedger => ({
+    openingBalance: 10_000, tradePnl: 0, sessionPnl: 20, realizedPnl: 20,
+    withdrawn: 0, received: 0, balance: 10_020, peakBalance: 10_150, tradingDays: 4, ...over,
   })
 
-  it('computes profit/days/dailyLoss percentages', () => {
+  it('returns null for non-evaluation stages', () => {
+    expect(pathToFundingProgress(account({ stage: 'funded' }), ledger(), 0)).toBeNull()
+  })
+
+  it('computes profit/days/dailyLoss percentages from the ledger', () => {
     const acc = account({
       stage: 'evaluation', size: 10_000, balance: 9_700, highestBalance: 10_000,
       profitTarget: 1_000, minTradingDays: 10, dailyLossLimit: 200, maxDrawdown: 1_000, trailingDrawdown: false,
     })
-    const result = pathToFundingProgress(acc, sessions, '2026-07-06')
-    expect(result?.profitPct).toBe(0)
+    const result = pathToFundingProgress(acc, ledger({ realizedPnl: 250, tradingDays: 4 }), -50)
+    expect(result?.profitPct).toBe(0.25)
     expect(result?.daysPct).toBe(0.4)
     expect(result?.dailyLossPct).toBe(0.25)
   })
 
+  it('counts a winning day as zero daily loss used, not a negative', () => {
+    const acc = account({ stage: 'challenge', dailyLossLimit: 200 })
+    expect(pathToFundingProgress(acc, ledger(), 300)?.dailyLossPct).toBe(0)
+  })
+
+  it('counts trades toward profit — the case reading account.balance missed', () => {
+    const acc = account({ stage: 'challenge', size: 10_000, balance: 10_000, profitTarget: 1_000 })
+    const fromTrades = ledger({ tradePnl: 200, sessionPnl: 0, realizedPnl: 200 })
+    expect(pathToFundingProgress(acc, fromTrades, 0)?.profitPct).toBe(0.2)
+  })
+
   it('leaves days/dailyLoss null when those fields are not set', () => {
     const acc = account({ stage: 'challenge', profitTarget: 1_000, balance: 10_200 })
-    const result = pathToFundingProgress(acc, [], '2026-07-06')
+    const result = pathToFundingProgress(acc, ledger({ realizedPnl: 200 }), 0)
     expect(result?.daysPct).toBeNull()
     expect(result?.dailyLossPct).toBeNull()
     expect(result?.profitPct).toBe(0.2)
+  })
+
+  it('clamps progress past the target to 100%', () => {
+    const acc = account({ stage: 'challenge', profitTarget: 1_000 })
+    expect(pathToFundingProgress(acc, ledger({ realizedPnl: 5_000 }), 0)?.profitPct).toBe(1)
   })
 })
 

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
-import { updateAccount } from './accounts'
-import type { Account, Payout } from '../types'
+import { selectAll } from './paginate'
+import type { Payout } from '../types'
 
 export function fromRow(row: Record<string, any>): Payout {
   return {
@@ -17,21 +17,24 @@ export function toRow(p: Payout): Record<string, unknown> {
 }
 
 export async function listPayouts(): Promise<Payout[]> {
-  const { data, error } = await supabase.from('payouts').select('*').order('date', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (await selectAll('payouts', { orderBy: 'date' })).map(fromRow)
 }
 
-/** Record a payout request/receipt (both entered directly) and bump the account's counters. */
-export async function recordPayout(userId: string, account: Account, date: string, requested: number, received: number): Promise<void> {
-  const cumulativePaid = account.cumulativePaid ?? 0
+/** Records a payout — `requested` is what left the account, `received` is what
+ * reached the trader after any profit split.
+ *
+ * This used to also bump `accounts.payouts_done`, `cumulative_paid` and
+ * `balance` in a second, untransacted write. All three are derivable from the
+ * payouts table itself, so a half-failed pair of writes can no longer leave the
+ * account disagreeing with its own history. See utils/ledger.ts. */
+export async function recordPayout(userId: string, accountId: string, date: string, requested: number, received: number): Promise<void> {
   const { error } = await supabase
     .from('payouts')
-    .insert({ user_id: userId, ...toRow({ accountId: account.id!, date, requested, received }) })
+    .insert({ user_id: userId, ...toRow({ accountId, date, requested, received }) })
   if (error) throw error
-  await updateAccount(account.id!, {
-    payoutsDone: (account.payoutsDone ?? 0) + 1,
-    cumulativePaid: cumulativePaid + received,
-    balance: account.balance - requested,
-  })
+}
+
+export async function deletePayout(id: string): Promise<void> {
+  const { error } = await supabase.from('payouts').delete().eq('id', id)
+  if (error) throw error
 }

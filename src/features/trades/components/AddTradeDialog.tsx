@@ -3,6 +3,7 @@ import type { Account, Trade } from '../../../db/schema'
 import { addTrade, updateTrade } from '../../../db/trades'
 import { Modal } from '../../../shared/ui/Modal'
 import { AddAccountDialog } from '../../accounts/components/AddAccountDialog'
+import { errorMessage } from '../../../utils/errors'
 
 function toLocalInput(date: Date): string {
   const d = new Date(date)
@@ -47,6 +48,12 @@ export function AddTradeDialog({
   // for e.g. index CFDs or futures with a real contract multiplier).
   const [pnl, setPnl] = useState(trade ? String(trade.pnl) : '')
   const [pnlTouched, setPnlTouched] = useState(!!trade)
+  // This dialog — the one that writes the app's core record — was the only one
+  // with no try/catch, no in-flight guard and nowhere to show a failure. A save
+  // that hit a network or policy error rejected into an unhandled promise and
+  // the button simply did nothing, twice if you clicked twice.
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const naivePnl =
     entryPrice === '' || exitPrice === '' || qty === ''
@@ -58,9 +65,30 @@ export function AddTradeDialog({
     setPnl(String(naivePnl))
   }, [naivePnl, pnlTouched])
 
-  const canSave = accountId && symbol && entryPrice !== '' && exitPrice !== '' && entryTime && exitTime
+  const validationError = (() => {
+    if (!accountId) return 'Pick an account.'
+    if (!symbol.trim()) return 'Enter a symbol.'
+    if (entryPrice === '' || exitPrice === '') return 'Enter both an entry and an exit price.'
+    if (!entryTime || !exitTime) return 'Enter both an entry and an exit time.'
+    if (!Number.isFinite(Number(qty)) || Number(qty) <= 0) return 'Quantity must be greater than zero.'
+    if (new Date(exitTime) < new Date(entryTime)) return 'Exit time cannot be before entry time.'
+    if (pnl !== '' && !Number.isFinite(Number(pnl))) return 'P&L must be a number.'
+    return null
+  })()
+  const canSave = validationError === null && !saving
+
+  // Whether dismissing would throw work away. For an edit, any field moved off
+  // the saved trade; for a new trade, anything typed at all.
+  const dirty = trade
+    ? symbol !== trade.symbol || side !== trade.side || Number(qty) !== trade.qty ||
+      Number(entryPrice) !== trade.entryPrice || Number(exitPrice) !== trade.exitPrice ||
+      notes !== (trade.notes ?? '') || String(trade.pnl) !== pnl
+    : symbol.trim() !== '' || entryPrice !== '' || exitPrice !== '' || notes.trim() !== '' || fees !== ''
 
   async function save() {
+    if (!canSave) return
+    setError(null)
+    setSaving(true)
     const input = {
       accountId,
       symbol: symbol.toUpperCase(),
@@ -74,21 +102,29 @@ export function AddTradeDialog({
       notes: notes || undefined,
     }
     const pnlOverride = pnl === '' ? undefined : Number(pnl)
-    if (trade) await updateTrade(trade.id!, input, pnlOverride)
-    else await addTrade(userId, input, pnlOverride)
-    onSaved()
-    onClose()
+    try {
+      if (trade) await updateTrade(trade.id!, input, pnlOverride)
+      else await addTrade(userId, input, pnlOverride)
+      onSaved()
+      onClose()
+    } catch (err) {
+      setError(errorMessage(err))
+      setSaving(false)
+    }
   }
 
   return (
     <Modal
       title={trade ? 'Edit trade' : 'Add trade'}
       onClose={onClose}
+      dirty={dirty && !saving}
       minWidth={420}
       footer={
         <>
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={save} disabled={!canSave}>{trade ? 'Update' : 'Save'}</button>
+          <button onClick={onClose} className="btn-ghost" disabled={saving}>Cancel</button>
+          <button onClick={save} disabled={!canSave} className="btn-primary">
+            {saving ? 'Saving…' : trade ? 'Update' : 'Save'}
+          </button>
         </>
       }
     >
@@ -190,6 +226,15 @@ export function AddTradeDialog({
         Notes
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
       </label>
+
+      {/* Only shown once something has been entered, so an untouched form
+          doesn't open pre-scolded. */}
+      {validationError && (symbol || entryPrice !== '' || exitPrice !== '') && (
+        <div style={{ color: 'var(--warning)', marginTop: '0.75rem', fontSize: '0.82rem' }}>
+          {validationError}
+        </div>
+      )}
+      {error && <div style={{ color: 'var(--critical)', marginTop: '0.75rem' }}>{error}</div>}
     </Modal>
   )
 }

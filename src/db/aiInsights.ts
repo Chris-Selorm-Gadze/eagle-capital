@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { selectAll } from './paginate'
 import type { InsightsPayload, InsightsRangePreset } from '../features/insights/buildInsightsPayload'
 import type { InsightsResponse } from '../lib/tradingInsightsClient'
 
@@ -56,12 +57,22 @@ export async function saveAiInsight(userId: string, insight: AiInsight): Promise
 
 /** Every saved digest for the signed-in user, most recent first. */
 export async function listAiInsights(): Promise<AiInsight[]> {
-  const { data, error } = await supabase
-    .from('ai_insights')
-    .select('*')
-    .order('created_at', { ascending: false })
+  return (await selectAll('ai_insights', { orderBy: 'created_at', ascending: false })).map(fromRow)
+}
+
+/** How many generations this user has spent in the last rolling 24 hours.
+ *
+ * The quota itself is enforced in the Edge Function — this is only so the UI can
+ * say how many are left before someone clicks and gets refused. The table is
+ * read-only to clients (no insert policy), so this can't be used to game it. */
+export async function getInsightsUsage(): Promise<number> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { count, error } = await supabase
+    .from('ai_usage')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', since)
   if (error) throw error
-  return (data ?? []).map(fromRow)
+  return count ?? 0
 }
 
 export async function deleteAiInsight(id: string): Promise<void> {

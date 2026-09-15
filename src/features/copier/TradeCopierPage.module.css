@@ -214,3 +214,51 @@
 .pnlNeutral {
   color: var(--text-secondary);
 }
+
+/* Armed-but-not-running, and risk-locked accounts. Amber rather than red: the
+   system is behaving correctly, but not doing what the toggles imply. */
+.warnStrip {
+  padding: 0.55rem 0.9rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--warning);
+  border-radius: 6px;
+  background: rgba(214, 154, 42, 0.1);
+  color: var(--warning);
+  font-size: 0.85rem;
+}
+
+/* A queued worker command — accepted, not yet executed. */
+.notice {
+  padding: 0.55rem 0.9rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* An account row plus, when there is one, the broker's reason for refusing it. */
+.accountEntry {
+  display: flex;
+  flex-direction: column;
+}
+
+.rowError {
+  margin: 0;
+  padding: 0 0.9rem 0.6rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+/* Queued, not yet answered — deliberately neither the "on" green nor the "off"
+   grey, because it is not a verdict on the account yet. */
+.badgePending {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: var(--surface);
+}

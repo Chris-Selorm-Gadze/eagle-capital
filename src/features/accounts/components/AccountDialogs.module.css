@@ -73,3 +73,38 @@
   color: var(--text-secondary);
   line-height: 1.4;
 }
+
+/* Read-only derived figures (balance, peak). They look deliberately unlike the
+   editable fields around them so it's obvious they're computed, not typed. */
+.derivedRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.derivedLabel {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.derivedValue {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.1rem;
+}
+
+.derivedHint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}

@@ -47,7 +47,12 @@ export function AuthGate() {
 
   if (loading) return null
 
-  return <Suspense fallback={<SurfaceFallback />}>{renderSurface()}</Suspense>
+  // The landing site is near-black and the app/auth screens are light, so the
+  // holding frame has to know which one it's standing in for — a single colour
+  // flashes the wrong ground for half the routes.
+  const darkGround = publicLocation !== null || onAuthRoute
+
+  return <Suspense fallback={<SurfaceFallback dark={darkGround} />}>{renderSurface()}</Suspense>
 
   function renderSurface() {
     // Marketing pages render for everyone — a signed-in visitor can still read
@@ -72,7 +77,12 @@ export function AuthGate() {
 }
 
 /** Deliberately just the page ground, no spinner — these chunks resolve in
- * milliseconds and a flashed spinner reads worse than a beat of nothing. */
-function SurfaceFallback() {
-  return <div style={{ minHeight: '100vh', backgroundColor: '#070707' }} />
+ * milliseconds and a flashed spinner reads worse than a beat of nothing.
+ *
+ * This was unconditionally #070707, from when every surface was near-black. The
+ * authenticated app is light now, so a black frame flashed before each of its
+ * chunks painted. The landing site and auth screens are still dark, hence the
+ * flag rather than one colour for everything. */
+function SurfaceFallback({ dark }: { dark: boolean }) {
+  return <div style={{ minHeight: '100vh', backgroundColor: dark ? '#070707' : 'var(--page-bg)' }} />
 }

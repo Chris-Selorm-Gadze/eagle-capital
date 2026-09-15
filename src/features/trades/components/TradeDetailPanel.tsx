@@ -14,6 +14,7 @@ import { TradeStrategyTab } from './tabs/TradeStrategyTab'
 import { TradeTagsTab } from './tabs/TradeTagsTab'
 import { TradeNotesTab } from './tabs/TradeNotesTab'
 import styles from './TradeDetailPanel.module.css'
+import { tradingDayOf } from '../../../utils/tradingDay'
 
 // Chart is no longer a tab here — it's always visible in its own pane (see TradeChartPanel),
 // so this panel only needs to switch between these four.
@@ -98,18 +99,21 @@ export function TradeDetailPanel({
     <div className={styles.panel}>
       <div className={styles.header}>
         <div className={styles.headerTop}>
-          <button type="button" className={styles.navArrow} onClick={() => prevTrade && onSelect(prevTrade.id!)} disabled={!prevTrade}>
+          <button aria-label="Previous trade" type="button" className={styles.navArrow} onClick={() => prevTrade && onSelect(prevTrade.id!)} disabled={!prevTrade}>
             <FontAwesomeIcon icon={faChevronLeft} fixedWidth />
           </button>
           <span className={styles.symbol}>{trade.symbol}</span>
           <span className={`${styles.sideBadge} ${trade.side === 'long' ? styles.sideLong : styles.sideShort}`}>{trade.side.toUpperCase()}</span>
           <span className={`${styles.outcomeBadge} ${OUTCOME_BADGE_CLASS[outcome]}`}>{OUTCOME_LABEL[outcome]}</span>
-          <button type="button" className={styles.navArrow} onClick={() => nextTrade && onSelect(nextTrade.id!)} disabled={!nextTrade}>
+          <button aria-label="Next trade" type="button" className={styles.navArrow} onClick={() => nextTrade && onSelect(nextTrade.id!)} disabled={!nextTrade}>
             <FontAwesomeIcon icon={faChevronRight} fixedWidth />
           </button>
         </div>
         <div className={styles.headerMeta}>
-          Opened {trade.entryTime.slice(0, 10)} · Closed {trade.exitTime.slice(0, 10)} · Held {formatDuration(heldMinutes)}
+          {/* tradingDayOf, not a slice of the ISO string — that slice is the UTC
+              date, so an evening US trade showed a day later here than the day
+              the journal and calendar file it under. */}
+          Opened {tradingDayOf(trade.entryTime)} · Closed {tradingDayOf(trade.exitTime)} · Held {formatDuration(heldMinutes)}
         </div>
       </div>
 

@@ -8,6 +8,7 @@ import styles from './PlaybooksPage.module.css'
 import { errorMessage } from '../../utils/errors'
 import { computePlaybookStats, playbookLinkedTrades } from './playbookStats'
 import { useConfirm } from '../../shared/ui/confirm'
+import { LoadError } from '../../shared/ui/LoadError'
 
 const GRADE_CLASS: Record<PlaybookGrade, string> = {
   'A+': styles.gradeAPlus,
@@ -40,6 +41,7 @@ export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: str
   const [editing, setEditing] = useState<Playbook | null>(null)
   const [viewing, setViewing] = useState<Playbook | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   async function refresh() {
     const [p, e] = await Promise.all([listPlaybooks(), listPlaybookExamples()])
@@ -47,8 +49,18 @@ export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: str
     setExamples(e)
   }
 
+  // A failed load must not render as "no playbooks yet" — see shared/ui/LoadError.
+  function load() {
+    setLoading(true)
+    setLoadError(null)
+    refresh()
+      .catch((err) => setLoadError(errorMessage(err)))
+      .finally(() => setLoading(false))
+  }
+
   useEffect(() => {
-    refresh().finally(() => setLoading(false))
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleDelete(id: string) {
@@ -63,6 +75,7 @@ export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: str
   }
 
   if (loading) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  if (loadError) return <LoadError message={loadError} onRetry={load} />
 
   return (
     <div>

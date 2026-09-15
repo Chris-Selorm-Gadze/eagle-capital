@@ -1,13 +1,24 @@
 import type { Account } from '../../../db/schema'
+import type { AccountLedger } from '../../../utils/ledger'
 import { StatTile } from '../../../shared/ui/StatTile'
 import styles from './DashboardSummary.module.css'
 
-export function DashboardSummary({ accounts }: { accounts: Account[] }) {
-  const totalCapital = accounts.reduce((sum, a) => sum + a.balance, 0)
+export function DashboardSummary({
+  accounts,
+  ledgers,
+}: {
+  accounts: Account[]
+  ledgers: Map<string, AccountLedger>
+}) {
+  // Derived balances — see utils/ledger.ts. The stored column this used to read
+  // only moved when a session or payout was logged, never when a trade was.
+  const balanceOf = (a: Account) => (a.id ? ledgers.get(a.id)?.balance ?? a.size : a.size)
+
+  const totalCapital = accounts.reduce((sum, a) => sum + balanceOf(a), 0)
 
   const fundedCapital = accounts
     .filter((a) => a.stage === 'funded' || a.stage === 'pa')
-    .reduce((sum, a) => sum + a.balance, 0)
+    .reduce((sum, a) => sum + balanceOf(a), 0)
 
   const challengeCapital = accounts
     .filter((a) => ['challenge', 'phase2', 'verification', 'evaluation'].includes(a.stage))

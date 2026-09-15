@@ -17,7 +17,14 @@ export function TileShell({
       <div className={styles.header}>
         <div className={styles.label}>
           {label}
-          {info && <span data-tooltip={info} className="info-icon">i</span>}
+          {/* tabIndex + role make the hover tooltip reachable by keyboard;
+              aria-label carries the same text for screen readers, which would
+              otherwise just announce the letter "i". */}
+          {info && (
+            <span aria-label={info} className="info-icon" data-tooltip={info} role="note" tabIndex={0}>
+              i
+            </span>
+          )}
         </div>
         {badge !== undefined && <span className={styles.badge}>{badge}</span>}
       </div>

@@ -1,0 +1,15 @@
+# Real credentials. .env.example is the tracked template.
+.env
+
+venv/
+__pycache__/
+*.pyc
+
+# Runtime logs — the folder is kept, its contents are not.
+logs/*
+!logs/.gitkeep
+
+# Live config, if you ever fall back to yaml mode. The .example files are tracked.
+config/accounts.yaml
+config/copiers.yaml
+config/symbol_map.yaml

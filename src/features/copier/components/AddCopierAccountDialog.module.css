@@ -1,0 +1,54 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: min(420px, 80vw);
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.hint {
+  font-weight: 400;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.error {
+  color: var(--critical);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.grow {
+  flex: 1 1 180px;
+}
+
+.presetNote {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  padding: 0.5rem 0.65rem;
+  border-left: 2px solid var(--border);
+  background: var(--surface);
+}

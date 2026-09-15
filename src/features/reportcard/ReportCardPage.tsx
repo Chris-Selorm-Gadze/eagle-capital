@@ -12,6 +12,7 @@ import { LedgerSection } from './components/LedgerSection'
 import { TradeLinkSection } from './components/TradeLinkSection'
 import styles from './ReportCardPage.module.css'
 import { useConfirm } from '../../shared/ui/confirm'
+import { useUnsavedWarning } from '../../shared/useUnsavedWarning'
 
 const SECTIONS = [
   { id: 'sec-scoreboard', label: 'Scoreboard' },
@@ -32,6 +33,52 @@ function dayOfWeekFor(date: string): string {
 
 function blankCard(date: string): ReportCard {
   return { date, dayOfWeek: dayOfWeekFor(date) }
+}
+
+/** Every field a user can actually type into. `date`/`dayOfWeek` are excluded
+ * because a blank form already has both. */
+function hasContent(card: ReportCard): boolean {
+  const { date: _date, dayOfWeek: _dow, ruleChecks, tradeIds, imageUrls, ...rest } = card
+  if (Object.values(rest).some((v) => v !== undefined && v !== '' && v !== null)) return true
+  if (ruleChecks && Object.keys(ruleChecks).length > 0) return true
+  if (tradeIds && tradeIds.length > 0) return true
+  if (imageUrls && imageUrls.length > 0) return true
+  return false
+}
+
+/* Drafts survive a reload.
+ *
+ * This form holds the most writing anyone does in the app and had no
+ * persistence of any kind — a refresh, an accidental back-press, or a crash
+ * took the lot. The draft lives in localStorage (per browser, never sent
+ * anywhere) and is cleared the moment the entry is saved for real. */
+const DRAFT_KEY = 'eaglecapital:report-card-draft'
+
+function readDraft(): ReportCard | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as ReportCard
+    return parsed && typeof parsed.date === 'string' ? parsed : null
+  } catch {
+    return null // private mode, cleared storage, or a corrupt value
+  }
+}
+
+function writeDraft(card: ReportCard): void {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(card))
+  } catch {
+    /* storage full or blocked — the form still works, it just won't survive a reload */
+  }
+}
+
+function clearDraft(): void {
+  try {
+    localStorage.removeItem(DRAFT_KEY)
+  } catch {
+    /* nothing to do */
+  }
 }
 
 function toText(card: ReportCard, trades: Trade[], rules: TradingRule[]): string {
@@ -93,15 +140,29 @@ export function ReportCardPage({
   onSaved?: () => void
 }) {
   const confirm = useConfirm()
-  const [card, setCard] = useState<ReportCard>(() => openedCard ?? blankCard(todayISO()))
+  // A saved entry opened from Completed DRCs always wins over a local draft —
+  // the user explicitly asked for that one.
+  const [card, setCard] = useState<ReportCard>(() => openedCard ?? readDraft() ?? blankCard(todayISO()))
   const [savedMessage, setSavedMessage] = useState('')
   const [rules, setRules] = useState<TradingRule[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [restoredDraft] = useState(() => openedCard === null && readDraft() !== null)
+
+  const unsaved = hasContent(card)
+  useUnsavedWarning(unsaved && !saving)
 
   useEffect(() => {
-    listTradingRules().then(setRules)
+    listTradingRules().then(setRules).catch(() => setRules([]))
   }, [])
+
+  // Persist as the user types. Cheap (one small JSON blob) and it means the
+  // beforeunload prompt is a safety net rather than the only line of defence.
+  useEffect(() => {
+    if (openedCard) return // viewing a saved entry, not composing
+    if (unsaved) writeDraft(card)
+    else clearDraft()
+  }, [card, unsaved, openedCard])
 
   function patch(p: Partial<ReportCard>) {
     setCard((c) => ({ ...c, ...p }))
@@ -120,8 +181,12 @@ export function ReportCardPage({
     setSaving(true)
     try {
       await saveReportCard(userId, card)
+      clearDraft()
       flash('SAVED')
-      setCard(blankCard(todayISO()))
+      // The form used to be blanked here. It's an upsert keyed on (user, date),
+      // so wiping the screen after a successful save just made it look like the
+      // work had vanished — and made "save, then add one more thought"
+      // impossible. The entry stays put; "Clear form" starts a new one.
       onSaved?.()
     } catch (err) {
       setError(errorMessage(err))
@@ -146,7 +211,8 @@ export function ReportCardPage({
 
   async function handleClear() {
     if (!(await confirm({ title: 'Clear the form?', description: 'Unsaved entries are lost.', confirmLabel: 'Clear form', destructive: true }))) return
-    setCard(blankCard(card.date))
+    clearDraft()
+    setCard(blankCard(todayISO()))
   }
 
   function handleDateChange(newDate: string) {
@@ -167,6 +233,12 @@ export function ReportCardPage({
             <div className={styles.openedBanner}>
               <span>Viewing saved entry from {openedCard.date}</span>
               {onClose && <button type="button" className="btn-ghost" onClick={onClose}>Close</button>}
+            </div>
+          )}
+
+          {restoredDraft && !openedCard && (
+            <div className={styles.openedBanner}>
+              <span>Restored an unsaved draft from this browser. Save it to keep it.</span>
             </div>
           )}
 

@@ -337,7 +337,17 @@ export function AddAccountDialog({
   }
 
   return (
-    <Modal title="Add account" onClose={handleAbandon} minWidth={kind === 'prop' ? 560 : 400} footer={footer}>
+    <Modal
+      title="Add account"
+      onClose={handleAbandon}
+      dirty={
+        // A label or size typed in, or a verified-but-unsaved broker connection
+        // — all of it is lost on an accidental backdrop click.
+        !saving && (label.trim() !== '' || size !== '' || liveConnectionId !== null || futuresConnectionId !== null)
+      }
+      minWidth={kind === 'prop' ? 560 : 400}
+      footer={footer}
+    >
       {kind === 'unset' && (
         <div className={styles.kindChoice}>
           <button className={styles.kindOption} onClick={() => setKind('live')}>
@@ -353,7 +363,11 @@ export function AddAccountDialog({
 
       {kind === 'live' && !brokerSyncConfigured && (
         <p style={{ color: 'var(--text-muted)' }}>
-          Broker sync isn't configured yet — set VITE_BROKER_SYNC_API_URL in .env.local to connect a live account.
+          Live accounts here are served by the broker sync service, which isn’t deployed.
+          To connect an MT5 account for <strong>copy trading</strong>, use{' '}
+          <strong>Trade Copier → Connect an account</strong> instead — that path is live.
+          A prop-firm account you only want to journal against needs no credentials at all:
+          choose <strong>Prop firm</strong> above.
         </p>
       )}
 

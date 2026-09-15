@@ -66,7 +66,7 @@ export function CalendarHeatmap({
   return (
     <div className="card" ref={cardRef}>
       <div className={styles.header}>
-        <button type="button" onClick={prevMonth} data-snapshot-exclude="true">‹</button>
+        <button aria-label="Previous month" type="button" onClick={prevMonth} data-snapshot-exclude="true">‹</button>
         <div className={styles.monthTitleGroup}>
           <div className={styles.monthTitle}>{MONTH_NAMES[month]} {year}</div>
           <div className={styles.monthTotal} style={{ color: totalColor(total) }}>
@@ -74,8 +74,8 @@ export function CalendarHeatmap({
           </div>
         </div>
         <div className={styles.headerActions} data-snapshot-exclude="true">
-          <button type="button" onClick={nextMonth}>›</button>
-          <button type="button" onClick={handleDownload} className={styles.downloadBtn} title="Download this month as an image">
+          <button aria-label="Next month" type="button" onClick={nextMonth}>›</button>
+          <button aria-label="Download this month as an image" type="button" onClick={handleDownload} className={styles.downloadBtn} title="Download this month as an image">
             <FontAwesomeIcon icon={faCamera} />
           </button>
         </div>

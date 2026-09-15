@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, lazy, Suspense } from 'react'
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { useAuth } from './features/auth/AuthContext'
 import { useSupabaseData } from './db/useSupabaseData'
 import { downloadElementAsImage } from './utils/snapshot'
@@ -9,6 +9,9 @@ import { AppShell } from './components/app-shell'
 import { ConfirmProvider } from './shared/ui/confirm'
 import { navItemFor } from './components/app-shared'
 import { DashboardSkeleton } from './features/dashboard/components/DashboardSkeleton'
+import { LoadError } from './shared/ui/LoadError'
+import { buildLedgers } from './utils/ledger'
+import { DeletionBanner } from './features/settings/DeletionBanner'
 import { DashboardActions } from './components/dashboard-actions'
 import { AddTradeDialog } from './features/trades/components/AddTradeDialog'
 import { ImportTradesDialog } from './features/trades/components/ImportTradesDialog'
@@ -34,10 +37,26 @@ const EconomicCalendarPage = lazy(() => import('./features/calendar/EconomicCale
 const BrokerConnectionsPage = lazy(() => import('./features/brokers/BrokerConnectionsPage').then((m) => ({ default: m.BrokerConnectionsPage })))
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
+/** Pages whose contents come from `useSupabaseData`. They wait for the load and
+ * surface its failure; the rest (broker sync, copier, calendar, settings) own
+ * their own fetching and must not be blocked by it. */
+const DATA_PAGES: NavKey[] = [
+  'dashboard', 'cockpit', 'tradelog', 'tradejournal', 'tradermanagement', 'playbooks', 'insights', 'charting',
+]
+
+/** Pages the account filter actually narrows.
+ *
+ * The picker used to render only on the dashboard while the filtered trade list
+ * was also handed to the Trade Log — so a filter set on one page silently
+ * narrowed another, including its "Delete all N trades shown here" button, with
+ * no visible control and no way to clear it. The control is now shown on
+ * exactly the pages it affects. */
+const ACCOUNT_SCOPED_PAGES: NavKey[] = ['dashboard', 'tradelog', 'tradejournal', 'insights', 'charting']
+
 export default function App() {
   const { user } = useAuth()
   const userId = user!.id
-  const { accounts, sessions, payouts, rewards, trades, loading, refresh } = useSupabaseData(userId)
+  const { accounts, sessions, payouts, rewards, trades, loading, error, refresh } = useSupabaseData(userId)
 
   const [nav, setNavState] = useState<NavKey>(() => navForPath(window.location.pathname))
   const [accountFilter, setAccountFilter] = useState<string | 'all'>('all')
@@ -62,6 +81,8 @@ export default function App() {
       return
     }
     const path = pathForNav(nav)
+    // Compares pathname only, so a page's own `?tab=` query (see
+    // shared/useUrlTab.ts) survives re-renders that don't change the page.
     if (window.location.pathname !== path) {
       window.history.pushState({ nav }, '', path)
       // AuthGate subscribes to the path to pick which surface to render;
@@ -122,22 +143,34 @@ export default function App() {
     sessionsByAccountId.set(s.accountId, list)
   }
 
+  // One derivation of what every account is worth, computed once and passed
+  // down. Replaces the stored `accounts.balance` column, which only moved when
+  // a session or payout was logged and never when a trade was — see
+  // utils/ledger.ts.
+  const ledgers = useMemo(
+    () => buildLedgers(accounts, trades, sessions, payouts),
+    [accounts, trades, sessions, payouts],
+  )
+
   const filteredTrades = accountFilter === 'all' ? trades : trades.filter((t) => t.accountId === accountFilter)
+  const filteredSessions = accountFilter === 'all' ? sessions : sessions.filter((s) => s.accountId === accountFilter)
   const dashboardAccounts = accountFilter === 'all' ? accounts : accounts.filter((a) => a.id === accountFilter)
   const filteredPayouts = accountFilter === 'all' ? payouts : payouts.filter((p) => p.accountId === accountFilter)
 
-  const headerActions =
-    nav === 'dashboard' ? (
-      <DashboardActions
-        accounts={accounts}
-        accountFilter={accountFilter}
-        onAccountFilterChange={setAccountFilter}
-        onAddTrade={() => setChoosingAddMethod(true)}
-        onAddAccount={() => setAddingAccount(true)}
-        onSnapshot={handleSnapshot}
-        onAccountDeleted={refresh}
-      />
-    ) : undefined
+  const headerActions = ACCOUNT_SCOPED_PAGES.includes(nav) ? (
+    <DashboardActions
+      accounts={accounts}
+      accountFilter={accountFilter}
+      onAccountFilterChange={setAccountFilter}
+      onAddTrade={() => setChoosingAddMethod(true)}
+      onAddAccount={() => setAddingAccount(true)}
+      onSnapshot={nav === 'dashboard' ? handleSnapshot : undefined}
+      onAccountDeleted={refresh}
+    />
+  ) : undefined
+
+  const dataPage = DATA_PAGES.includes(nav)
+  const blocked = dataPage && (loading || error !== null)
 
   return (
     <ConfirmProvider>
@@ -151,47 +184,66 @@ export default function App() {
         headerActions={headerActions}
         contentRef={mainRef}
       >
+        {/* Outside `appSurface` so its shadcn styling isn't overridden by
+            theme.css's element rules. Renders nothing unless a deletion is
+            actually pending. */}
+        <DeletionBanner userId={userId} />
+
         <div className="appSurface contents">
-          <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
-            {nav === 'dashboard' &&
-              (loading ? (
-                <DashboardSkeleton />
-              ) : (
+          {/* A failed load must never fall through to a page's empty state —
+              rendering "your desk is empty" at someone whose data merely failed
+              to fetch is the worst thing this app could say. */}
+          {dataPage && error !== null ? (
+            <LoadError message={error} onRetry={refresh} />
+          ) : blocked ? (
+            <DashboardSkeleton />
+          ) : (
+            <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
+              {nav === 'dashboard' && (
                 <DashboardPage
                   trades={filteredTrades}
                   accounts={dashboardAccounts}
                   payouts={filteredPayouts}
+                  sessions={filteredSessions}
+                  ledgers={ledgers}
                   onOpenDateInJournal={handleOpenDateInJournal}
                   onAddAccount={() => setAddingAccount(true)}
                   onAddTrade={() => setChoosingAddMethod(true)}
                 />
-              ))}
-            {nav === 'cockpit' && (
-              <RiskCockpitPage
-                accounts={accounts}
-                payouts={payouts}
-                rewards={rewards}
-                sessionsByAccountId={sessionsByAccountId}
-                userId={userId}
-                onChanged={refresh}
-              />
-            )}
+              )}
+              {nav === 'cockpit' && (
+                <RiskCockpitPage
+                  accounts={accounts}
+                  payouts={payouts}
+                  rewards={rewards}
+                  trades={trades}
+                  sessionsByAccountId={sessionsByAccountId}
+                  ledgers={ledgers}
+                  userId={userId}
+                  onChanged={refresh}
+                />
+              )}
+              {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
+              {nav === 'tradejournal' && (
+                <TradeJournalPage
+                  trades={filteredTrades}
+                  accounts={accounts}
+                  userId={userId}
+                  onChanged={refresh}
+                  initialDateFilter={pendingJournalDate}
+                />
+              )}
+              {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
+              {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
+              {nav === 'insights' && <InsightsPage trades={filteredTrades} accounts={accounts} userId={userId} />}
+              {nav === 'charting' && <ChartingPage trades={filteredTrades} />}
+            </Suspense>
+          )}
+
+          {/* Pages that fetch their own data — unaffected by the load above. */}
+          <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
             {nav === 'tradecopier' && <TradeCopierPage />}
             {nav === 'livepositions' && <LivePositionsPage />}
-            {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
-            {nav === 'tradejournal' && (
-              <TradeJournalPage
-                trades={trades}
-                accounts={accounts}
-                userId={userId}
-                onChanged={refresh}
-                initialDateFilter={pendingJournalDate}
-              />
-            )}
-            {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
-            {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
-            {nav === 'insights' && <InsightsPage trades={trades} accounts={accounts} userId={userId} />}
-            {nav === 'charting' && <ChartingPage trades={trades} />}
             {nav === 'calendar' && <EconomicCalendarPage />}
             {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}
           </Suspense>

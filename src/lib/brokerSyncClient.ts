@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { isUsableApiUrl, unreachableBackendWarning } from './apiUrl'
 
 // Talks to the separate eaglecapital-broker-sync backend — the only two writes that must never
 // touch the browser directly: submitting real broker credentials, and triggering a manual sync.
@@ -7,11 +8,11 @@ import { supabase } from './supabaseClient'
 
 const apiUrl = import.meta.env.VITE_BROKER_SYNC_API_URL
 
-export const brokerSyncConfigured = Boolean(apiUrl)
+export const brokerSyncConfigured = isUsableApiUrl(apiUrl, import.meta.env.PROD)
 
 if (!brokerSyncConfigured) {
   // eslint-disable-next-line no-console
-  console.warn('Broker sync env var missing — set VITE_BROKER_SYNC_API_URL in .env.local. Live Tradovate sync is disabled until then.')
+  console.warn(unreachableBackendWarning('Live broker sync', 'VITE_BROKER_SYNC_API_URL', apiUrl))
 }
 
 export interface TradovateCredentials {
@@ -56,9 +57,33 @@ async function authHeader(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${token}` }
 }
 
+
+/** Turns a refused connection into a sentence that says what to do.
+ *
+ * `fetch` throws a bare TypeError("Failed to fetch") when nothing is listening,
+ * and that reached the user verbatim — next to a form that looked perfectly
+ * available. It looks like the app is broken when in fact a separate service
+ * simply is not running, and on a dev machine that is the normal state.
+ */
+function describeNetworkFailure(err: unknown): Error {
+  if (err instanceof TypeError) {
+    return new Error(
+      `The broker sync service isn't reachable at ${apiUrl}. ` +
+      'It is a separate backend and is not currently deployed. ' +
+      'To connect an MT5 account for copy trading, use Trade Copier → Connect an account instead.',
+    )
+  }
+  return err instanceof Error ? err : new Error(String(err))
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = { 'Content-Type': 'application/json', ...(await authHeader()), ...(init?.headers ?? {}) }
-  const res = await fetch(`${apiUrl}${path}`, { ...init, headers })
+  let res: Response
+  try {
+    res = await fetch(`${apiUrl}${path}`, { ...init, headers })
+  } catch (err) {
+    throw describeNetworkFailure(err)
+  }
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(body.error ?? `Broker sync API ${path} failed: ${res.status}`)
   return body as T

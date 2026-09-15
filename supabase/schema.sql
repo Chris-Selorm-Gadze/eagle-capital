@@ -356,3 +356,99 @@ create table if not exists public.broker_connection_accounts (
 alter table public.broker_connection_accounts enable row level security;
 drop policy if exists "own broker connection accounts" on public.broker_connection_accounts;
 create policy "own broker connection accounts" on public.broker_connection_accounts for all using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Account deletion, with a 30-day retention window.
+--
+-- "Delete my account" used to run a loop of DELETEs straight from the browser.
+-- Three things were wrong with that:
+--   · it was instant and irreversible — one mis-click and a trading history was
+--     gone, with no way back for a user who changed their mind;
+--   · it silently failed to remove the profile row (see the delete policy added
+--     further down — there wasn't one, and RLS turns a blocked delete into a
+--     no-op, not an error);
+--   · it never touched Storage, so uploaded screenshots stayed in a PUBLIC
+--     bucket forever, at URLs that still resolved.
+--
+-- A request now records an intent and a purge date. Until that date the user can
+-- sign back in and cancel. After it, the purge Edge Function (service-role) does
+-- the erasure the browser can't: Storage objects, every table, and the auth.users
+-- row itself.
+-- ---------------------------------------------------------------------------
+create table if not exists public.account_deletions (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  requested_at timestamptz not null default now(),
+  -- The moment the data becomes eligible for permanent erasure. Defaulted
+  -- server-side so the window can't be shortened by a client with a skewed (or
+  -- hostile) clock; the check below clamps it even if one is supplied.
+  purge_after timestamptz not null default (now() + interval '30 days'),
+  -- Optional free-text the user gave on the way out.
+  reason text,
+  constraint purge_window_is_sane check (
+    purge_after >= requested_at + interval '29 days'
+    and purge_after <= requested_at + interval '31 days'
+  )
+);
+alter table public.account_deletions enable row level security;
+-- A user can see, schedule and cancel their OWN deletion. Cancelling is a
+-- DELETE of this row; the purge function runs as service-role and bypasses RLS.
+drop policy if exists "own deletion request" on public.account_deletions;
+create policy "own deletion request" on public.account_deletions for all using (auth.uid() = user_id);
+
+-- The policy that was missing. Without it, RLS blocked the erasure step for
+-- eaglecapital_profiles and PostgREST reported success anyway (a delete that
+-- matches no visible row is not an error), so a "deleted" account kept a
+-- username derived from the user's email address — readable by every signed-in
+-- user via the "read profiles" policy above.
+drop policy if exists "delete own profile" on public.eaglecapital_profiles;
+create policy "delete own profile" on public.eaglecapital_profiles for delete using (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- Indexes.
+--
+-- Every table above was created with no index other than its primary key, so
+-- each of these RLS-filtered reads was a sequential scan. They are all
+-- "everything for this user, in date order" queries, which is exactly what a
+-- (user_id, date) composite serves.
+-- ---------------------------------------------------------------------------
+create index if not exists trades_user_date_idx on public.trades (user_id, date);
+create index if not exists trades_account_idx on public.trades (account_id);
+create index if not exists sessions_user_date_idx on public.sessions (user_id, date);
+create index if not exists sessions_account_idx on public.sessions (account_id);
+create index if not exists payouts_user_date_idx on public.payouts (user_id, date);
+create index if not exists rewards_user_date_idx on public.rewards (user_id, date);
+create index if not exists accounts_user_idx on public.accounts (user_id, created_at);
+create index if not exists report_cards_user_date_idx on public.report_cards (user_id, date);
+create index if not exists playbooks_user_idx on public.playbooks (user_id, created_at);
+create index if not exists playbook_examples_user_idx on public.playbook_examples (user_id, created_at);
+create index if not exists playbook_examples_playbook_idx on public.playbook_examples (playbook_id);
+create index if not exists trading_rules_user_idx on public.trading_rules (user_id, created_at);
+create index if not exists ai_insights_user_created_idx on public.ai_insights (user_id, created_at);
+create index if not exists broker_connections_user_idx on public.broker_connections (user_id);
+create index if not exists broker_connection_accounts_user_idx on public.broker_connection_accounts (user_id);
+create index if not exists copier_links_user_idx on public.copier_links (user_id);
+create index if not exists account_deletions_purge_idx on public.account_deletions (purge_after);
+
+-- ---------------------------------------------------------------------------
+-- AI insights rate limiting.
+--
+-- The trading-insights Edge Function had no quota of any kind: any signed-in
+-- user could POST to it in a loop, and with ANTHROPIC_API_KEY set that is an
+-- open billing line. The function counts this table's rows for the caller
+-- before spending anything.
+--
+-- It's a separate table from ai_insights because a request that fails upstream
+-- still costs money and still has to count, whereas ai_insights only ever holds
+-- successful digests the user can read back.
+-- ---------------------------------------------------------------------------
+create table if not exists public.ai_usage (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  created_at timestamptz not null default now()
+);
+alter table public.ai_usage enable row level security;
+-- Readable by its owner so the UI can show "3 of 10 left today". Only the
+-- function (service-role) writes, so there is deliberately no insert policy.
+drop policy if exists "read own ai usage" on public.ai_usage;
+create policy "read own ai usage" on public.ai_usage for select using (auth.uid() = user_id);
+create index if not exists ai_usage_user_created_idx on public.ai_usage (user_id, created_at);

@@ -4,9 +4,16 @@ export interface DailyPnl {
   tradeCount: number
 }
 
+/** `YYYY-MM-DD`, the only shape the day-grouped views can bucket on. */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
 export function dailyPnlSeries(trades: { date: string; pnl: number }[]): DailyPnl[] {
   const byDate = new Map<string, { pnl: number; tradeCount: number }>()
   for (const t of trades) {
+    // A row whose timestamp couldn't be read yields an empty date (see
+    // tradingDayOf). Bucketing it anyway produced a nameless column in the
+    // charts and, downstream, a literal "undefined" as a weekday label.
+    if (!DATE_RE.test(t.date)) continue
     const entry = byDate.get(t.date) ?? { pnl: 0, tradeCount: 0 }
     entry.pnl += t.pnl
     entry.tradeCount += 1
@@ -73,9 +80,14 @@ export interface WeekdayStat {
   tradeCount: number
 }
 
+/** Local day-of-week, or -1 when the date can't be read. Building the Date from
+ * components (not `new Date(str)`) keeps it local — the UTC parse renders as the
+ * previous day anywhere west of Greenwich. */
 function weekdayIndex(dateISO: string): number {
+  if (!DATE_RE.test(dateISO)) return -1
   const [y, m, d] = dateISO.split('-').map(Number)
-  return new Date(y, m - 1, d).getDay()
+  const date = new Date(y, m - 1, d)
+  return Number.isNaN(date.getTime()) ? -1 : date.getDay()
 }
 
 /** Aggregates daily totals by day-of-week (Sun-Sat), summing across every occurrence —
@@ -84,6 +96,7 @@ export function weekdayStats(daily: DailyPnl[]): WeekdayStat[] {
   const byWeekday = new Map<number, { pnl: number; tradeCount: number }>()
   for (const d of daily) {
     const idx = weekdayIndex(d.date)
+    if (idx === -1) continue
     const entry = byWeekday.get(idx) ?? { pnl: 0, tradeCount: 0 }
     entry.pnl += d.pnl
     entry.tradeCount += d.tradeCount

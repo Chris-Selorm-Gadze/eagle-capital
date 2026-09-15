@@ -2,3 +2,71 @@
   margin-top: 0.75rem;
   font-size: 0.85rem;
 }
+
+.hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--critical);
+}
+
+/* The date-format question. Deliberately loud — importing on the wrong guess
+   misfiles trades in a way nothing downstream can detect. */
+.choiceBlock {
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--warning);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.choiceTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.choiceRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.6rem;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+}
+
+.choice input {
+  width: auto;
+  margin: 0;
+}
+
+.rejects {
+  margin-top: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.rejectsTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.rejectList {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-height: 8rem;
+  overflow-y: auto;
+}

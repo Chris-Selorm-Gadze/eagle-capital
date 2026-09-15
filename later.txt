@@ -16,6 +16,9 @@ review, not a nice-to-have. Kept here so it isn't rediscovered as "new".
    index.html sets og:title and og:description but no og:image, so every shared
    link renders bare. Needs a 1200x630 image in public/ plus the og:image and
    twitter:image tags.
+   NOTE (2026-09-11): twitter:card was changed from "summary_large_image" to
+   "summary", because the large-image card renders as a blank box when there is
+   no image. Change it back in the same commit that adds og:image.
 
 
 3. robots.txt + sitemap.xml

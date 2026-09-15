@@ -6,6 +6,7 @@ import {
 import { dailyPnlSeries, weekdayStats } from '../../utils/tradeAggregates'
 import { realizedRMultiple } from '../../utils/tradeRisk'
 import { playbookLinkedTrades, computePlaybookStats } from '../playbooks/playbookStats'
+import { addDays } from '../../utils/tradingDay'
 
 export type InsightsRangePreset = 'last_30' | 'last_60' | 'last_90' | 'all_time'
 
@@ -20,9 +21,11 @@ export function rangeForPreset(preset: InsightsRangePreset, todayISO: string): I
   const end = todayISO
   if (preset === 'all_time') return { start: '0000-01-01', end, label: 'All-time', preset }
   const days = preset === 'last_30' ? 30 : preset === 'last_60' ? 60 : 90
-  const startDate = new Date(todayISO)
-  startDate.setDate(startDate.getDate() - days)
-  const start = startDate.toISOString().slice(0, 10)
+  // Calendar arithmetic on the date string itself. The previous
+  // `new Date(str)` → setDate → `toISOString().slice(0, 10)` round-trip
+  // happened to be correct (both halves were UTC, so they cancelled), but only
+  // by accident — it broke the moment either half was made local.
+  const start = addDays(todayISO, -days)
   const label = preset === 'last_30' ? 'Last 30 days' : preset === 'last_60' ? 'Last 60 days' : 'Last 90 days'
   return { start, end, label, preset }
 }

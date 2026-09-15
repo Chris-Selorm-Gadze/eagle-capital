@@ -1,4 +1,5 @@
-import type { Account, Payout, SessionLog } from '../db/schema'
+import type { Account, Payout } from '../db/schema'
+import type { AccountLedger } from './ledger'
 
 function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x))
@@ -60,21 +61,25 @@ export interface PathToFundingProgress {
   dailyLossPct: number | null
 }
 
-/** null when the account isn't in an evaluation-like stage — nothing to show progress toward. */
+/** null when the account isn't in an evaluation-like stage — nothing to show progress toward.
+ *
+ * Takes the derived ledger rather than reading `account.balance` and counting
+ * session rows: progress used to ignore logged trades entirely, so a trader who
+ * journals fills instead of daily summaries saw 0% profit and 0 trading days
+ * no matter how much they'd made. */
 export function pathToFundingProgress(
   account: Account,
-  sessionsForAccount: SessionLog[],
-  todayISODate: string,
+  ledger: AccountLedger | undefined,
+  todaysPnl: number,
 ): PathToFundingProgress | null {
   if (!EVAL_STAGES.includes(account.stage)) return null
 
-  const profitPct = account.profitTarget ? clamp01((account.balance - account.size) / account.profitTarget) : 0
+  const profitPct = account.profitTarget ? clamp01((ledger?.realizedPnl ?? 0) / account.profitTarget) : 0
 
-  const daysPct = account.minTradingDays ? clamp01(sessionsForAccount.length / account.minTradingDays) : null
+  const daysPct = account.minTradingDays ? clamp01((ledger?.tradingDays ?? 0) / account.minTradingDays) : null
 
-  const todaySession = sessionsForAccount.find((s) => s.date === todayISODate)
   const dailyLossPct = account.dailyLossLimit
-    ? clamp01(Math.max(0, -(todaySession?.pnl ?? 0)) / account.dailyLossLimit)
+    ? clamp01(Math.max(0, -todaysPnl) / account.dailyLossLimit)
     : null
 
   return { profitPct, daysPct, dailyLossPct }

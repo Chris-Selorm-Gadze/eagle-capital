@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
+import { selectAll } from './paginate'
+import { deleteImagesByUrl } from '../lib/storage'
 import type { PlaybookExample } from '../types'
 
 function fromRow(row: Record<string, any>): PlaybookExample {
@@ -21,9 +23,7 @@ function toRow(e: PlaybookExample): Record<string, unknown> {
 }
 
 export async function listPlaybookExamples(): Promise<PlaybookExample[]> {
-  const { data, error } = await supabase.from('playbook_examples').select('*').order('created_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (await selectAll('playbook_examples', { orderBy: 'created_at' })).map(fromRow)
 }
 
 export async function addPlaybookExample(userId: string, input: PlaybookExample): Promise<void> {
@@ -31,7 +31,20 @@ export async function addPlaybookExample(userId: string, input: PlaybookExample)
   if (error) throw error
 }
 
+/** Deletes the row AND its uploaded screenshot. Deleting the row alone used to
+ * leave the image in a public bucket at a URL that still resolved, with nothing
+ * left pointing at it — so it could never be found again, let alone removed. */
 export async function deletePlaybookExample(id: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from('playbook_examples')
+    .select('image_url')
+    .eq('id', id)
+    .maybeSingle()
+
   const { error } = await supabase.from('playbook_examples').delete().eq('id', id)
   if (error) throw error
+
+  // After the row is gone: if this fails the user's action still succeeded, and
+  // the orphan is swept up by the purge job.
+  await deleteImagesByUrl([existing?.image_url])
 }

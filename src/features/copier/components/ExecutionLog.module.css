@@ -1,0 +1,128 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.empty {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.statLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.statValue {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.statNote {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* The log can be wider than the page on a narrow window; it scrolls inside its
+   own box so the page body never scrolls sideways. */
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--gridline);
+  vertical-align: top;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.num,
+.numCol {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mapped {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.tone {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.45rem;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.toneGood {
+  background: rgba(12, 163, 12, 0.15);
+  color: var(--good);
+}
+
+.toneWarn {
+  background: rgba(214, 154, 42, 0.18);
+  color: var(--warning);
+}
+
+.toneBad {
+  background: rgba(208, 59, 59, 0.15);
+  color: var(--critical);
+}
+
+.toneMuted {
+  background: var(--gridline);
+  color: var(--text-secondary);
+}
+
+.errorText {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--critical);
+  max-width: 32ch;
+}

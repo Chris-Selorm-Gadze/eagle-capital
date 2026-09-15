@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import type { Account, Payout, SessionLog } from '../../../db/schema'
+import type { Account, Payout, SessionLog, Trade } from '../../../db/schema'
+import { pnlOnDay, type AccountLedger } from '../../../utils/ledger'
 import { firmFinanceBreakdown, firmPassRate, pathToFundingProgress, breachReasonCounts } from '../../../utils/firmFinance'
 import { PROP_FIRMS } from '../propFirms'
 import { Meter } from '../../../shared/ui/Meter'
@@ -14,11 +15,15 @@ function firmName(firmId: string): string {
 export function FirmFinanceSection({
   accounts,
   payouts,
+  trades,
   sessionsByAccountId,
+  ledgers,
 }: {
   accounts: Account[]
   payouts: Payout[]
+  trades: Trade[]
   sessionsByAccountId: Map<string, SessionLog[]>
+  ledgers: Map<string, AccountLedger>
 }) {
   const payoutsByAccountId = new Map<string, Payout[]>()
   for (const p of payouts) {
@@ -34,7 +39,14 @@ export function FirmFinanceSection({
 
   const evalAccounts = accounts
     .filter((a) => a.active)
-    .map((a) => ({ account: a, progress: pathToFundingProgress(a, sessionsByAccountId.get(a.id!) ?? [], today) }))
+    .map((a) => ({
+      account: a,
+      progress: pathToFundingProgress(
+        a,
+        a.id ? ledgers.get(a.id) : undefined,
+        pnlOnDay(trades.filter((t) => t.accountId === a.id), sessionsByAccountId.get(a.id!) ?? [], today),
+      ),
+    }))
     .filter((x): x is { account: Account; progress: NonNullable<ReturnType<typeof pathToFundingProgress>> } => x.progress !== null)
 
   if (finance.length === 0) return null

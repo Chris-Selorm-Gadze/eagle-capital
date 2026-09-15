@@ -23,7 +23,10 @@
       property="og:description"
       content="Prop-firm evaluations, funded accounts and live broker accounts side by side — with a real journal, live sync and order copying."
     />
-    <meta name="twitter:card" content="summary_large_image" />
+    <!-- `summary` not `summary_large_image`: the large-image card renders blank
+         without an og:image, which is worse than no card at all. Switch this
+         back the same day an og:image ships (see later.txt). -->
+    <meta name="twitter:card" content="summary" />
 
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />

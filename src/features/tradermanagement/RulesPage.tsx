@@ -4,6 +4,7 @@ import { listTradingRules, addTradingRule, updateTradingRule, deleteTradingRule 
 import { errorMessage } from '../../utils/errors'
 import styles from './RulesPage.module.css'
 import { useConfirm } from '../../shared/ui/confirm'
+import { LoadError } from '../../shared/ui/LoadError'
 
 export function RulesPage({ userId }: { userId: string }) {
   const confirm = useConfirm()
@@ -12,13 +13,24 @@ export function RulesPage({ userId }: { userId: string }) {
   const [text, setText] = useState('')
   const [isCore, setIsCore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   async function refresh() {
     setRules(await listTradingRules())
   }
 
+  // A failed load must not render as "no rules yet" — see shared/ui/LoadError.
+  function load() {
+    setLoading(true)
+    setLoadError(null)
+    refresh()
+      .catch((err) => setLoadError(errorMessage(err)))
+      .finally(() => setLoading(false))
+  }
+
   useEffect(() => {
-    refresh().finally(() => setLoading(false))
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleAdd() {
@@ -56,6 +68,7 @@ export function RulesPage({ userId }: { userId: string }) {
   }
 
   if (loading) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  if (loadError) return <LoadError message={loadError} onRetry={load} />
 
   return (
     <div>

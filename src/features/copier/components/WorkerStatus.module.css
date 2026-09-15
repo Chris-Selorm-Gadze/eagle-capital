@@ -1,0 +1,75 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  margin-bottom: 1.25rem;
+}
+
+/* The fleet being down is the one state on this page that must not read as
+   ordinary chrome — it means armed copy links are mirroring nothing. */
+.shellBad {
+  border-color: var(--critical);
+}
+
+.headline {
+  font-weight: 600;
+  color: var(--critical);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.meta {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.beat {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.pillOnline {
+  background: rgba(12, 163, 12, 0.15);
+  color: var(--good);
+}
+
+.pillStale {
+  background: rgba(214, 154, 42, 0.18);
+  color: var(--warning);
+}
+
+.pillOffline {
+  background: rgba(208, 59, 59, 0.15);
+  color: var(--critical);
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faEllipsisVertical, faTrash } from '@fortawesome/free-solid-svg-icons'
 import type { Account } from '../../../db/schema'
+import type { AccountLedger } from '../../../utils/ledger'
 import { PROP_FIRMS } from '../propFirms'
 import { deleteAccount } from '../../../db/accounts'
 import { errorMessage } from '../../../utils/errors'
@@ -42,6 +43,7 @@ function money(n: number): string {
 
 export function AccountCard({
   account,
+  ledger,
   onEdit,
   onLogSession,
   onPayoutPlanner,
@@ -49,6 +51,10 @@ export function AccountCard({
   onDeleted,
 }: {
   account: Account
+  /** Derived balance/peak for this account. Absent only while data is still
+   * loading, in which case the card falls back to the opening allocation
+   * rather than inventing a number. */
+  ledger?: AccountLedger
   onEdit: () => void
   onLogSession: () => void
   onPayoutPlanner?: () => void
@@ -63,7 +69,11 @@ export function AccountCard({
       ? (account.customFirmName || 'Custom Firm')
       : (firm?.name || account.firmId)
   const accent = STAGE_ACCENT[account.stage]
-  const netPnl = account.balance - account.size
+  // Derived, not the stored `accounts.balance` column — logging a trade never
+  // moved that column, so this card showed the opening allocation forever for
+  // anyone who logged trades instead of daily sessions.
+  const balance = ledger?.balance ?? account.size
+  const netPnl = balance - account.size
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -149,7 +159,7 @@ export function AccountCard({
       <div className={styles.balanceRow}>
         <div>
           <div className={styles.balanceLabel}>Balance</div>
-          <div className={styles.balanceValue}>{money(account.balance)}</div>
+          <div className={styles.balanceValue}>{money(balance)}</div>
         </div>
         <div className={styles.pnl} style={{ color: netPnl >= 0 ? 'var(--good)' : 'var(--critical)' }}>
           {netPnl >= 0 ? '+' : '-'}{money(Math.abs(netPnl))}

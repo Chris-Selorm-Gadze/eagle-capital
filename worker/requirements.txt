@@ -1,0 +1,8 @@
+# Delta Engine — MT5 Worker Dependencies
+# Note: MetaTrader5 only works on Windows.
+
+MetaTrader5>=5.0.5488
+python-dotenv==1.0.1
+structlog==24.4.0
+PyYAML==6.0.2
+httpx>=0.27.0,<0.29.0

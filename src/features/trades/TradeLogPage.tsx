@@ -22,9 +22,25 @@ export function TradeLogPage({
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // The row's Delete button used to fire straight through: no confirmation, no
+  // error handling, no undo. It was the only destructive action in the app
+  // without a prompt — while "Delete all" right above it had one.
   async function handleDelete(id: string) {
-    await deleteTrade(id)
-    onChanged()
+    const trade = trades.find((t) => t.id === id)
+    const label = trade ? `${trade.symbol} on ${trade.date}` : 'this trade'
+    if (!(await confirm({
+      title: `Delete ${label}?`,
+      description: 'This cannot be undone, and it changes the account balance derived from it.',
+      confirmLabel: 'Delete trade',
+      destructive: true,
+    }))) return
+    setError(null)
+    try {
+      await deleteTrade(id)
+      onChanged()
+    } catch (err) {
+      setError(errorMessage(err))
+    }
   }
 
   async function handleDeleteAll() {

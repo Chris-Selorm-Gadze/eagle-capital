@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import type { Account, Payout, Reward, SessionLog } from '../../db/schema'
+import type { Account, Payout, Reward, SessionLog, Trade } from '../../db/schema'
+import type { AccountLedger } from '../../utils/ledger'
+import { tradingDayOf } from '../../utils/tradingDay'
 import { setAccountActive } from '../../db/accounts'
 import { AccountCard } from './components/AccountCard'
 import { EditAccountDialog } from './components/EditAccountDialog'
@@ -22,14 +24,20 @@ export function RiskCockpitPage({
   accounts,
   payouts,
   rewards,
+  trades,
   sessionsByAccountId,
+  ledgers,
   userId,
   onChanged,
 }: {
   accounts: Account[]
   payouts: Payout[]
   rewards: Reward[]
+  trades: Trade[]
   sessionsByAccountId: Map<string, SessionLog[]>
+  /** Derived balances, keyed by account id — the one definition of what an
+   * account is worth (utils/ledger.ts). */
+  ledgers: Map<string, AccountLedger>
   userId: string
   onChanged: () => void
 }) {
@@ -58,6 +66,17 @@ export function RiskCockpitPage({
     { title: 'Blown & Inactive', accounts: blown, accent: 'var(--critical)' },
   ].filter((g) => g.accounts.length > 0)
 
+  const balanceOf = (a: Account) => (a.id ? ledgers.get(a.id)?.balance ?? a.size : a.size)
+
+  const tradeDaysByAccount = new Map<string, Set<string>>()
+  for (const t of trades) {
+    const day = tradingDayOf(t.entryTime)
+    if (!day) continue
+    const set = tradeDaysByAccount.get(t.accountId)
+    if (set) set.add(day)
+    else tradeDaysByAccount.set(t.accountId, new Set([day]))
+  }
+
   async function handleActivate(id: string) {
     await setAccountActive(id, true)
     onChanged()
@@ -70,9 +89,15 @@ export function RiskCockpitPage({
         <button onClick={() => setAdding(true)} className="btn-primary">+ Add Account</button>
       </div>
 
-      <DashboardSummary accounts={activeAccounts} />
+      <DashboardSummary accounts={activeAccounts} ledgers={ledgers} />
 
-      <FirmFinanceSection accounts={accounts} payouts={payouts} sessionsByAccountId={sessionsByAccountId} />
+      <FirmFinanceSection
+        accounts={accounts}
+        payouts={payouts}
+        trades={trades}
+        sessionsByAccountId={sessionsByAccountId}
+        ledgers={ledgers}
+      />
 
       {activeAccounts.length === 0 && (
         <div className={styles.emptyState}>
@@ -81,7 +106,7 @@ export function RiskCockpitPage({
       )}
 
       {groups.map((group) => {
-        const totalBalance = group.accounts.reduce((sum, a) => sum + a.balance, 0)
+        const totalBalance = group.accounts.reduce((sum, a) => sum + balanceOf(a), 0)
         return (
           <section key={group.title} style={{ marginBottom: '2rem' }}>
             <div className={styles.groupHeader}>
@@ -95,6 +120,7 @@ export function RiskCockpitPage({
                 <AccountCard
                   key={a.id}
                   account={a}
+                  ledger={a.id ? ledgers.get(a.id) : undefined}
                   onEdit={() => setEditing(a)}
                   onLogSession={() => setLogging(a)}
                   onPayoutPlanner={['funded', 'pa'].includes(a.stage) ? () => setPlanningPayout(a) : undefined}
@@ -132,8 +158,24 @@ export function RiskCockpitPage({
         </section>
       )}
 
-      {editing && <EditAccountDialog account={editing} onClose={() => setEditing(null)} onSaved={onChanged} />}
-      {logging && <LogSessionDialog account={logging} userId={userId} onClose={() => setLogging(null)} onSaved={onChanged} />}
+      {editing && (
+        <EditAccountDialog
+          account={editing}
+          ledger={editing.id ? ledgers.get(editing.id) : undefined}
+          onClose={() => setEditing(null)}
+          onSaved={onChanged}
+        />
+      )}
+      {logging && (
+        <LogSessionDialog
+          account={logging}
+          sessions={sessionsByAccountId.get(logging.id!) ?? []}
+          hasTradesOn={(date) => tradeDaysByAccount.get(logging.id!)?.has(date) ?? false}
+          userId={userId}
+          onClose={() => setLogging(null)}
+          onSaved={onChanged}
+        />
+      )}
       {planningPayout && (
         <PayoutPlannerDialog
           account={planningPayout}

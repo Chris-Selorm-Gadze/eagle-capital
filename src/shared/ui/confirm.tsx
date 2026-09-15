@@ -101,3 +101,10 @@ export function useConfirm(): ConfirmFn {
   if (!ctx) throw new Error('useConfirm must be used within a ConfirmProvider')
   return ctx
 }
+
+/** Like useConfirm, but returns null outside a provider instead of throwing.
+ * For shared primitives (Modal) that want a confirmation when one is available
+ * but must still render if they're mounted somewhere without the provider. */
+export function useOptionalConfirm(): ConfirmFn | null {
+  return useContext(ConfirmContext)
+}

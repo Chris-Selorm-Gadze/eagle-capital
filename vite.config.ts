@@ -10,5 +10,12 @@ export default defineConfig({
     // Mirrors the "@/*" path alias in tsconfig.json, which shadcn components use.
     alias: { '@': path.resolve(__dirname, './src') },
   },
-  test: { globals: true, environment: 'node', include: ['src/**/*.test.ts'] },
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
+    // Pins TZ so the local-vs-UTC day-boundary tests are deterministic
+    // everywhere, not just on a machine that happens to sit west of UTC.
+    setupFiles: ['./src/test-setup.ts'],
+  },
 })

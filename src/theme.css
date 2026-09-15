@@ -274,6 +274,7 @@ label > textarea {
   flex-shrink: 0;
 }
 
+.info-icon:focus-visible::after,
 .info-icon:hover::after {
   content: attr(data-tooltip);
   position: absolute;

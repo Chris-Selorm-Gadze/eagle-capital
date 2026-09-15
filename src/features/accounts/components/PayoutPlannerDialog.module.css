@@ -1,10 +1,39 @@
 .history {
   margin: 0;
-  padding-left: 1.2rem;
+  padding-left: 0;
+  list-style: none;
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
 
 .history li {
-  padding: 0.15rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.history li:last-child {
+  border-bottom: none;
+}
+
+.hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.rowDelete {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.rowDelete:hover:not(:disabled) {
+  color: var(--critical);
+  border-color: var(--critical);
 }

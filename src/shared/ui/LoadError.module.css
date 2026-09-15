@@ -1,0 +1,25 @@
+.root {
+  border-color: var(--critical);
+  max-width: 34rem;
+}
+
+.title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--critical);
+  margin-bottom: 0.4rem;
+}
+
+.message {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.reassure {
+  margin: 0 0 0.9rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}

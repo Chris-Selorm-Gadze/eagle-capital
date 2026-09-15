@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { selectAll } from './paginate'
 import type { Account } from '../types'
 
 export type NewAccountInput = Omit<Account, 'id' | 'balance' | 'highestBalance'> &
@@ -58,11 +59,17 @@ export function toRow(a: Partial<Account>): Record<string, unknown> {
 }
 
 export async function listAccounts(): Promise<Account[]> {
-  const { data, error } = await supabase.from('accounts').select('*').order('created_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (await selectAll('accounts', { orderBy: 'created_at' })).map(fromRow)
 }
 
+/* Note on `balance` / `highest_balance`.
+ *
+ * Both columns are NOT NULL and are written once here, at creation, equal to
+ * the account's opening size. Nothing reads them for display any more: what an
+ * account is currently worth is derived from its trades, sessions and payouts
+ * (utils/ledger.ts). They used to be the authoritative balance, mutated by
+ * logSession() and recordPayout() but never by logging a trade — which is how
+ * the app ended up with two balances that disagreed on the same screen. */
 export async function addAccount(userId: string, input: NewAccountInput): Promise<string> {
   const balance = input.balance ?? input.size
   const highestBalance = input.highestBalance ?? balance

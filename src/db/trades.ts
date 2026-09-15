@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
+import { selectAll } from './paginate'
+import { tradingDayOf } from '../utils/tradingDay'
 import type { Trade } from '../types'
 
 export type TradeInput = Omit<Trade, 'id' | 'pnl' | 'date'>
@@ -12,7 +14,13 @@ export function fromRow(row: Record<string, any>): Trade {
   return {
     id: row.id,
     accountId: row.account_id,
-    date: row.date,
+    // Derived from entry_time rather than read from the `date` column. The
+    // column used to be written as a slice of the UTC ISO string, which filed
+    // every evening US trade on the next day; deriving it here makes rows
+    // written before that fix group correctly too, with no backfill — and a
+    // backfill couldn't be right anyway, since SQL doesn't know the trader's
+    // zone. See utils/tradingDay.ts.
+    date: tradingDayOf(row.entry_time),
     symbol: row.symbol,
     side: row.side,
     qty: Number(row.qty),
@@ -55,15 +63,14 @@ export function toRow(t: TradeInput, pnlOverride?: number): Record<string, unkno
     profit_target: t.profitTarget,
     rating: t.rating,
     tags: t.tags,
-    date: t.entryTime.slice(0, 10),
+    // The trader's local day, not the UTC one — see fromRow above.
+    date: tradingDayOf(t.entryTime),
     pnl: pnlOverride ?? computePnl(t),
   }
 }
 
 export async function listTrades(): Promise<Trade[]> {
-  const { data, error } = await supabase.from('trades').select('*').order('date', { ascending: true })
-  if (error) throw error
-  return (data ?? []).map(fromRow)
+  return (await selectAll('trades', { orderBy: 'date' })).map(fromRow)
 }
 
 export async function addTrade(userId: string, input: TradeInput, pnlOverride?: number): Promise<void> {

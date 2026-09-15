@@ -15,12 +15,31 @@
 // Auth: Supabase's default platform-level JWT verification handles "who's calling this function"
 // (this project has never deployed with --no-verify-jwt) — the client sends
 // `Authorization: Bearer <session access_token>`, same pattern as economicCalendarClient.ts.
+// The token is then resolved to a user id here as well, because the per-user quota below needs
+// to know *which* user, not merely that the caller is a valid one.
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b' // the only Groq models with strict JSON-schema support
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-5'
 const MAX_TOKENS = 4096
+
+/* Cost controls.
+ *
+ * This function had none: any signed-in user could POST to it in a loop, with a
+ * body of any size, and every call spent real money (Anthropic) or a shared
+ * rate limit (Groq). The client caps what it sends, but a client-side cap is a
+ * suggestion — the server has to enforce its own.
+ *
+ * DAILY_LIMIT is per user per rolling 24 hours. MAX_BODY_BYTES bounds what a
+ * single call can cost, since input tokens scale with the payload. */
+const DAILY_LIMIT = Number(Deno.env.get('INSIGHTS_DAILY_LIMIT') ?? '10')
+const MAX_BODY_BYTES = 256 * 1024
+/** A provider that never answers must not hold the function open to its
+ * platform timeout while the caller waits. */
+const PROVIDER_TIMEOUT_MS = 60_000
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -30,6 +49,17 @@ const CORS_HEADERS = {
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } })
+}
+
+/** Aborts a provider call that has stopped responding. */
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 const FINDING_SCHEMA = {
@@ -101,7 +131,7 @@ function extractJson(text: string): unknown {
 
 // --- Groq (OpenAI-compatible chat completions) ---
 async function callGroq(payload: unknown, model: string, apiKey: string): Promise<{ text: string } | { error: string; status: number }> {
-  const res = await fetch(GROQ_URL, {
+  const res = await fetchWithTimeout(GROQ_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -126,7 +156,7 @@ async function callGroq(payload: unknown, model: string, apiKey: string): Promis
 
 // --- Anthropic Messages API ---
 async function callClaude(payload: unknown, model: string, apiKey: string): Promise<{ text: string } | { error: string; status: number }> {
-  const res = await fetch(ANTHROPIC_URL, {
+  const res = await fetchWithTimeout(ANTHROPIC_URL, {
     method: 'POST',
     headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -155,15 +185,64 @@ Deno.serve(async (req) => {
     return json({ error: 'AI insights are not configured (set GROQ_API_KEY or ANTHROPIC_API_KEY as a secret).' }, 500)
   }
 
+  // Platform JWT verification has already established that *someone* valid is
+  // calling. Who they are matters here, because the quota is per user.
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    { auth: { persistSession: false } },
+  )
+  const token = authHeader.replace(/^Bearer\s+/i, '')
+  const { data: userData, error: userError } = await supabase.auth.getUser(token)
+  const userId = userData?.user?.id
+  if (userError || !userId) return json({ error: 'Not signed in.' }, 401)
+
+  // Reject an oversized body before reading it — input tokens are the cost, and
+  // the caller controls the payload entirely.
+  const declaredLength = Number(req.headers.get('content-length') ?? '0')
+  if (declaredLength > MAX_BODY_BYTES) {
+    return json({ error: 'That range is too large to analyse. Pick a shorter one.' }, 413)
+  }
+
+  const rawBody = await req.text()
+  if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
+    return json({ error: 'That range is too large to analyse. Pick a shorter one.' }, 413)
+  }
+
   let payload: unknown
   try {
-    payload = await req.json()
+    payload = JSON.parse(rawBody)
   } catch {
     return json({ error: 'Request body must be JSON.' }, 400)
   }
   if (!payload || typeof payload !== 'object' || !('meta' in payload)) {
     return json({ error: 'Malformed insights payload — missing `meta`.' }, 400)
   }
+
+  // Rolling 24-hour quota. Counted before the spend, and recorded immediately
+  // after, so a burst of concurrent calls can at worst overshoot by the number
+  // in flight rather than without limit.
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { count, error: countError } = await supabase
+    .from('ai_usage')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', since)
+  if (countError) return json({ error: 'Could not check your usage allowance.' }, 500)
+  if ((count ?? 0) >= DAILY_LIMIT) {
+    return json({
+      error: `You've used all ${DAILY_LIMIT} insight generations for today. The limit resets 24 hours after each one.`,
+      limit: DAILY_LIMIT,
+      used: count ?? 0,
+    }, 429)
+  }
+
+  // Recorded before the provider call, not after: a request that fails upstream
+  // has still been paid for, and not counting it would make the limit trivially
+  // bypassable by triggering failures.
+  const { error: usageError } = await supabase.from('ai_usage').insert({ user_id: userId })
+  if (usageError) return json({ error: 'Could not record your usage allowance.' }, 500)
 
   const provider = groqKey ? 'groq' : 'anthropic'
   const model = provider === 'groq'

@@ -1,0 +1,1053 @@
+WORKFLOW — change log for EagleCapital
+======================================
+
+Purpose: a running record of what changed, why, and what must NOT be undone.
+Read the "LOAD-BEARING" section before touching anything in it — several entries
+below are fixes for bugs that looked like features, and reverting them silently
+reintroduces wrong numbers rather than a visible break.
+
+Append to the bottom. Newest entry last. Date every entry.
+
+Conventions for new entries:
+  ## YYYY-MM-DD — short title
+  WHAT    one line
+  WHY     the problem it solves
+  FILES   the paths touched
+  RISK    what breaks if someone undoes it, or "none"
+  DEPLOY  anything needed beyond `git push`, or "none"
+
+
+================================================================================
+LOAD-BEARING — do not revert without reading
+================================================================================
+
+1. BALANCE IS DERIVED, NEVER STORED.           src/utils/ledger.ts
+   `accounts.balance` and `accounts.highest_balance` still exist (NOT NULL) but
+   are written once at creation and read by NOTHING. Do not put them back into a
+   display path. Balance = size + realised P&L − withdrawals, and a day's trades
+   take precedence over a day's session summary so logging both cannot
+   double-count.
+
+2. THE TRADING DAY IS LOCAL, NEVER UTC.        src/utils/tradingDay.ts
+   Never use `toISOString().slice(0, 10)` to get a date. That is the UTC day and
+   it files every evening US session on the following day. `trades.date` is
+   derived from `entry_time` on READ, so pre-fix rows group correctly too.
+
+3. DELETION IS SERVER-SIDE AND REVERSIBLE.     src/db/accountDeletion.ts
+   The browser cannot delete an auth.users row or a Storage object. Do not add a
+   client-side erasure path. The 30-day window is a DATABASE DEFAULT, not a
+   client value — that is deliberate, so a skewed clock can't shorten it.
+
+4. NEW SHADCN PAGES GO OUTSIDE `appSurface`.   src/App.tsx
+   theme.css's element rules are unlayered and beat Tailwind's layered utilities
+   regardless of specificity. Inside the wrapper, `variant="destructive"` renders
+   in the legacy grey.
+
+5. LIST QUERIES GO THROUGH selectAll().        src/db/paginate.ts
+   A bare `.select('*')` silently truncates at PostgREST's 1000-row `max-rows`.
+   No error, no warning — the 1001st trade just stops existing.
+
+6. THE TEST SUITE PINS TZ.                     src/test-setup.ts
+   America/New_York. A day-boundary test that runs in UTC proves nothing,
+   because local and UTC agree there.
+
+
+================================================================================
+## 2026-09-10 — UI pass 1: typography
+================================================================================
+WHAT    Unified the whole app on self-hosted Manrope.
+WHY     The app was rendering in system-ui while only shadcn's `font-heading`
+        titles got the webfont. Root cause: `body { font-family }` in theme.css.
+        An element's own declaration always beats an inherited value — specificity
+        never enters into it — so `html { @apply font-sans }` was being ignored.
+FILES   src/index.css (@fontsource-variable/manrope, --font-sans/--font-heading)
+        src/theme.css (body font-family DELETED, with a comment explaining why)
+        index.html (deduplicated the Google Fonts request; Gloock stays, it is
+        landing-only)
+RISK    Re-adding any `font-family` to `body` re-breaks the whole app's font.
+DEPLOY  none
+
+
+================================================================================
+## 2026-09-10 — UI pass 2: review findings
+================================================================================
+WHAT    Fixed everything found in a full render-based review of all 26 routes at
+        two viewport widths plus empty states.
+WHY     See individual items.
+FILES / ITEMS
+  · theme.css element rules wrapped in `:where()` (zero specificity), turning
+    them into a floor rather than a ceiling. Several pages already shipped
+    active-state classes — AI Insights range chips, Trader Management tabs,
+    calendar filter chips — that were being silently overridden by
+    `.appSurface button` (0,1,1 beats 0,1,0), so every chip in a group rendered
+    identically and you could not tell which was selected.
+  · --accent-fg: #ffffff added. Active chips were `--text-primary` (near-black)
+    on `--accent` blue = 4.06:1, under WCAG AA. Now 4.66:1. The rule was written
+    for the old dark palette and survived the light flip.
+  · --btn-primary / --btn-primary-hover / --btn-primary-fg tokens. Primary
+    ACTIONS are near-black; --accent stays blue because it means something
+    different (data + links + focus rings). Before the split, every legacy page's
+    primary button was blue while every shell button was black, on one screen.
+    Do NOT collapse these two tokens — it would blacken the equity curve.
+  · Per-page document titles (App.tsx). Every app page shared one <title>.
+  · Password reset: /forgot-password + /reset-password, "Forgot password?" link.
+    /reset-password is EXEMPT from the signed-in bounce in AuthGate — arriving
+    from a recovery email IS a signed-in state, and bouncing makes the form
+    unreachable. The confirmation message is identical whether or not the address
+    exists, deliberately, so the form can't be used to test which emails are
+    registered.
+  · Settings page: username, CSV + JSON export, explicit Sign out, account
+    deletion. Makes the pricing FAQ's "Can I export and leave? Yes" true.
+  · DashboardSkeleton + EmptyDesk. `loading` was computed and never read, so
+    every load flashed a zeroed dashboard.
+  · Promise-based confirm() replacing 16 window.confirm and 2 alert() calls.
+    Kept the promise shape so call sites stay one-liners instead of every page
+    growing its own open/pending/target state.
+  · Privacy + Terms pages, written against what the code actually does.
+  · Trade Journal list pane scrolls in its own column (page height 6680 → 1153).
+  · Trades table scrolls horizontally so mobile can reach Delete.
+  · Balance chart: clipped "$200,000" Y-axis label and raw ISO date ticks.
+  · Report-card scoreboard fills from logged trades.
+  · 18 unused Efferd demo components deleted.
+FILES   src/theme.css, src/App.tsx, src/AuthGate.tsx, src/features/auth/*,
+        src/features/settings/*, src/shared/ui/confirm.tsx,
+        src/features/dashboard/components/{DashboardSkeleton,EmptyDesk}.tsx,
+        src/landing/pages/Legal.tsx, src/landing/content.ts, and others
+RISK    Removing `:where()` from theme.css re-hides every active state.
+DEPLOY  none
+
+
+================================================================================
+## 2026-09-10 — Mobile sign-out
+================================================================================
+WHAT    Added HeaderUserMenu to the always-visible header.
+WHY     Sign out was unreachable on a phone. NOT for the reason first assumed —
+        the initial diagnosis (React 18 stripping `ref` from shadcn's
+        SidebarMenuButton) was tested and DISPROVEN: the menu opened either way.
+        Measured across viewports, the real cause was that below `md` the sidebar
+        is a closed drawer, so the trigger is not rendered at all.
+          1440x1000 / 1366x768 / 1280x720 → trigger present
+          390x844                         → trigger NOT RENDERED
+FILES   src/components/nav-user.tsx (HeaderUserMenu, md:hidden)
+        src/components/app-header.tsx
+        src/components/ui/{button,sidebar}.tsx (forwardRef — kept, it is correct
+        hygiene and silences the Primitive.button.Slot warning, but it is NOT the
+        sign-out fix; do not let the comment history suggest otherwise)
+RISK    none
+DEPLOY  none
+NOTE    Radix's DropdownMenuTrigger listens on pointerdown, not click. A test
+        that drives it with element.click() will report a false failure.
+
+
+================================================================================
+## 2026-09-11 — Correctness: the two-ledger bug
+================================================================================
+WHAT    One definition of account balance, derived from trades/sessions/payouts.
+WHY     There were two, and they never agreed. `accounts.balance` was a stored
+        column mutated by logSession() and recordPayout() but NOT by logging a
+        trade. `accountBalanceSeries()` computed size + cumulative trade P&L and
+        ignored both sessions and that column. DashboardPage handed one to the
+        chart and the other to the header of the SAME tile — so the curve and the
+        number above it were drawn from different ledgers. A user who only logged
+        trades watched the curve climb while the header stayed pinned at their
+        starting allocation.
+        Two smaller inconsistencies in the same four lines: the curve summed only
+        accounts that had traded, while the header summed every account in the
+        filter.
+HOW     utils/ledger.ts: balance = size + realised P&L − withdrawals. A session
+        contributes P&L only on a date with no logged trades for that account, so
+        logging both cannot double-count and a user can switch styles mid-account.
+        logSession() and recordPayout() no longer write back to the account — both
+        were untransacted read-modify-writes from the browser.
+        Manual Balance / Highest Balance inputs removed from Edit Account (they
+        would silently revert the moment anything was logged); replaced with a
+        read-only derived display and an editable Starting size.
+FILES   + src/utils/ledger.ts, src/utils/ledger.test.ts
+        - src/utils/accountBalance.ts, accountBalance.test.ts
+        M src/db/{sessions,payouts,accounts}.ts, src/App.tsx,
+          src/features/dashboard/DashboardPage.tsx,
+          src/features/dashboard/components/AccountBalanceChart.tsx,
+          src/features/accounts/** , src/utils/firmFinance.ts
+VERIFIED In a real browser with seeded data: header $153,697.49, curve's final
+        vertex $153,697.49 — identical. Old behaviour would have shown $150,000.
+RISK    HIGH. See LOAD-BEARING #1.
+DEPLOY  none (no schema change — the columns were left in place)
+
+
+================================================================================
+## 2026-09-11 — Correctness: the trading day was UTC
+================================================================================
+WHAT    Day grouping now uses the trader's local calendar day.
+WHY     `trades.date` was `entryTime.slice(0, 10)` — a slice of a UTC ISO string.
+        Verified by execution:
+            local Jan 15 20:30 ET → stored date 2026-01-16  (wrong)
+                                  → actual local date 2026-01-15
+        The CME session opens 18:00 ET, so for a US futures trader this misfiled
+        most of the session, every day. It affected the calendar heatmap, daily
+        P&L, the equity curve, weekday stats and the insights range filter.
+        The correct helper already existed (utils/timezone.ts, written for FMP
+        candles) and had never been applied to the more important case.
+HOW     utils/tradingDay.ts. `trades.date` is derived from `entry_time` on READ
+        as well as write, so pre-fix rows group correctly with no backfill — and
+        a backfill couldn't be right anyway, since SQL doesn't know the user's
+        zone.
+        Also fixed: TradeDetailPanel printed the UTC date while the journal
+        grouped by local; rangeForPreset's Date round-trip (correct only by
+        accident — both halves were UTC and cancelled).
+        Hardened dailyPnlSeries/weekdayStats to drop unreadable dates: an empty
+        date reached WEEKDAY_NAMES[NaN] and rendered the literal string
+        "undefined" as a weekday. Found by browser smoke test, not by reading.
+FILES   + src/utils/tradingDay.ts, tradingDay.test.ts, src/test-setup.ts
+        M src/db/{trades,sessions}.ts, src/utils/tradeAggregates.ts,
+          src/features/trades/components/TradeDetailPanel.tsx,
+          src/features/insights/buildInsightsPayload.ts, vite.config.ts
+RISK    HIGH. See LOAD-BEARING #2 and #6.
+DEPLOY  none
+
+
+================================================================================
+## 2026-09-11 — Correctness: CSV import corrupted data three ways
+================================================================================
+WHAT    Rewrote the importer; it now refuses to guess.
+WHY     All three verified by execution.
+        1. DIRECTION INVERTED. `sideRaw.startsWith('b')` meant:
+               "Buy" → long   "Long"  → SHORT   (wrong)
+               "Sell"→ short  "Short" → short
+           Any export using Long/Short imported EVERY trade as short. The P&L came
+           from the broker's own column so nothing looked wrong — only the
+           direction, the long/short split, and every pattern built on them.
+        2. US DATES LANDED TWO YEARS OUT. Slash dates were assumed DD/MM/YYYY:
+               "07/25/2026 14:30" → parsed as month 25 → Fri Jan 07 2028
+        3. BROKER TIMEZONE IGNORED. Timestamps were read in the IMPORTER's local
+           zone; MT4/MT5 stamps are broker-server time (usually GMT+2/+3).
+        Plus: `Number("1,234.56")` → NaN, and Postgres accepts NaN into a numeric
+        column, which turns every dashboard aggregate into $NaN.
+HOW     Date order is PROVEN from the file (a day above 12 proves day-first). If
+        every value is ambiguous the dialog asks and blocks import. A file proving
+        both orders is rejected outright. Broker-timezone selector added.
+        parseNumber handles US and European separators, currency symbols and
+        parenthesised negatives, returning null rather than NaN. Rejected rows now
+        carry a row number and a reason instead of a bare count.
+FILES   M src/features/trades/csvImport.ts (+ .test.ts, 7 → 31 tests)
+          src/features/trades/components/ImportTradesDialog.tsx (+ .module.css)
+RISK    Do not restore a default date order. Guessing is the bug.
+DEPLOY  none
+
+
+================================================================================
+## 2026-09-11 — Privacy: deletion, storage, and an export leak
+================================================================================
+WHAT    Account deletion is now a 30-day reversible request, completed
+        server-side. Uploaded images are actually deleted. Fixed a leak in the
+        JSON export.
+WHY     Three separate failures:
+        · THE PROFILE DELETE WAS A SILENT NO-OP. eaglecapital_profiles had no
+          DELETE policy. With RLS on, a delete that matches no visible row is not
+          an error — PostgREST reports success. A "deleted" account kept a
+          username derived from the user's email local part, readable by EVERY
+          signed-in user via the "read profiles" policy.
+        · NO IMAGE WAS EVER DELETED, ANYWHERE. There was not one
+          storage.remove() call in the codebase. Playbook and report-card
+          screenshots survived deleting the example, the playbook, and the whole
+          account — in a PUBLIC bucket, at URLs that still resolved.
+        · THE EXPORT LEAKED EVERY USER'S PROFILE. exportAllData() ran
+          `.select('*')` on eaglecapital_profiles, whose policy is
+          `using (auth.role() = 'authenticated')`. That returns EVERYONE's rows.
+          Every JSON export contained every user's id and username. Now filtered
+          to the caller.
+HOW     Deletion records an intent + a purge date. The window is a DATABASE
+        DEFAULT (now() + 30 days) with a CHECK clamping it to 29–31 days, so a
+        client with a skewed or hostile clock cannot shorten it. Requesting twice
+        keeps the original date rather than restarting the clock. Cancelling is a
+        DELETE of the row. A banner on every page offers "Keep my account".
+        The purge Edge Function (service-role) does what the browser cannot:
+        walks Storage recursively (report-card images live in a subfolder that a
+        non-recursive list would miss), deletes all 15 tables, then the
+        auth.users row. It deletes the request row LAST, so a mid-way failure
+        leaves the job queued rather than silently dropped.
+        copier_links added to the export list — it had been missing.
+FILES   + src/db/accountDeletion.ts (+ .test.ts)
+        + src/features/settings/DeletionBanner.tsx
+        + supabase/functions/purge-deleted-accounts/index.ts
+        M src/db/userData.ts (deleteAllUserData REMOVED — see the comment there)
+          src/lib/storage.ts (pathFromPublicUrl, deleteImagesByUrl)
+          src/db/{playbooks,playbookExamples}.ts, src/features/settings/SettingsPage.tsx
+          src/App.tsx, supabase/schema.sql, src/landing/content.ts
+RISK    HIGH. See LOAD-BEARING #3.
+DEPLOY  schema.sql + function deploy + cron. See 2026-09-11 DEPLOYED below.
+
+
+================================================================================
+## 2026-09-11 — Failure handling
+================================================================================
+WHAT    A failed load no longer renders as an empty account.
+WHY     Five top-level loads were `load().finally(() => setLoading(false))` with
+        no .catch. A dropped connection or an RLS error resolved loading, left
+        every array empty, and the dashboard rendered "Your desk is empty — three
+        steps and this page starts telling you the truth". The most alarming
+        possible message for someone whose data merely failed to fetch. The new
+        empty state had made this worse than it was.
+        Separately, AddTradeDialog — the dialog that writes the app's core record
+        — was the ONLY dialog with no try/catch, no in-flight guard and nowhere to
+        show a failure. A save that errored rejected into an unhandled promise and
+        the button simply did nothing. Twice, if you clicked twice.
+FILES   + src/shared/ui/LoadError.tsx (+ .module.css)
+        M src/db/useSupabaseData.ts (error state + a request-id guard against a
+          slow load overwriting a fresher one)
+          src/App.tsx, src/features/insights/InsightsPage.tsx,
+          src/features/playbooks/PlaybooksPage.tsx,
+          src/features/tradermanagement/RulesPage.tsx,
+          src/features/trades/components/AddTradeDialog.tsx
+NOTE    EconomicCalendarPage was flagged in the review but already had a .catch —
+        that was a false positive in the audit, not a fixed bug.
+RISK    none
+DEPLOY  none
+
+
+================================================================================
+## 2026-09-11 — Destructive actions and data loss
+================================================================================
+WHAT    Confirmations, dialog behaviour, and draft persistence.
+WHY     · The Trade Log's row Delete fired straight through — no confirmation, no
+          error handling, no undo. It was the only destructive action in the app
+          without a prompt, while "Delete all" directly above it had one.
+        · Modal (the primitive behind ~10 forms) closed on ANY backdrop click,
+          instantly and silently. A stray click beside a half-filled Add Trade or
+          Log Session form discarded everything. It also had no Escape handler, no
+          focus trap, no focus restore and no ARIA role, so assistive tech never
+          announced it as a dialog and Tab walked into the page behind it.
+        · The report card — the longest-form page in the product (5 Whys, ledger,
+          scoreboard) — had no draft persistence and no beforeunload guard. A
+          refresh took all of it. It also BLANKED ITSELF after a successful save,
+          which made the work look lost and made "save, then add one more thought"
+          impossible (it is an upsert keyed on (user, date), so there was no
+          reason to).
+HOW     Modal gained role="dialog"/aria-modal/aria-labelledby, a labelled close
+        button, Escape, a focus trap, focus restore, and a `dirty` prop — when set,
+        backdrop click and Escape ask before discarding. A modal STACK (not a
+        counter) so nested dialogs don't all close on one Escape, and a guard so a
+        Radix AlertDialog rendered above owns the keyboard.
+        Report card: localStorage draft + beforeunload warning; no longer blanks.
+        Payouts and sessions became editable/deletable — both move the balance, so
+        a mistyped one has to be reachable.
+FILES   M src/shared/ui/Modal.tsx (+ .module.css), src/shared/ui/confirm.tsx
+          (useOptionalConfirm), src/features/trades/TradeLogPage.tsx,
+          src/features/reportcard/ReportCardPage.tsx,
+          src/features/accounts/components/{LogSessionDialog,PayoutPlannerDialog}.tsx
+        + src/shared/useUnsavedWarning.ts
+        + src/features/accounts/components/LogSessionDialog.module.css
+RISK    none
+DEPLOY  none
+
+
+================================================================================
+## 2026-09-11 — Sessions were write-only and today-only
+================================================================================
+WHAT    Session logging got a date picker and a history list.
+WHY     LogSessionDialog hardcoded `date: todayISO()` — you could not log
+        yesterday. And no UI anywhere rendered a SessionLog, so a session
+        permanently moved the account balance and could never be seen, corrected
+        or removed. A fat-fingered P&L was wrong forever.
+FILES   M src/features/accounts/components/LogSessionDialog.tsx,
+          src/features/accounts/RiskCockpitPage.tsx, src/db/sessions.ts
+NOTE    A session on a day that already has trades is kept as a journal note but
+          contributes no P&L — the dialog says so. See LOAD-BEARING #1.
+RISK    none
+DEPLOY  none
+
+
+================================================================================
+## 2026-09-11 — Scale, cost and navigation
+================================================================================
+WHAT    Pagination, indexes, AI quota, visible filters, sub-tabs in the URL.
+WHY     · NO PAGINATION ANYWHERE. Every list was a bare `.select('*')`. Supabase's
+          default max-rows is 1000, so a user's 1001st trade silently stopped
+          existing and every statistic quietly went wrong.
+        · NO INDEXES. Every table had only its primary key, so each RLS-filtered
+          read was a sequential scan. 18 added.
+        · THE AI FUNCTION HAD NO QUOTA. Any signed-in user could POST in a loop
+          with a body of any size. With ANTHROPIC_API_KEY set that is an open
+          billing line. (Currently GROQ_API_KEY is the one configured, so the
+          exposure today is rate limits rather than money — but the limit is
+          per-user and server-enforced now either way.)
+        · THE ACCOUNT FILTER WAS INVISIBLE WHERE IT STILL APPLIED. The picker
+          rendered only on the dashboard, but the filtered trade list was also
+          handed to the Trade Log — including its "Delete all N trades shown here"
+          button. The control now renders on exactly the five pages it narrows.
+        · SUB-TABS WERE COMPONENT STATE. You couldn't link to your Rules, Back
+          skipped the whole page, and returning always reset to the first tab.
+FILES   + src/db/paginate.ts, src/shared/useUrlTab.ts
+        M every src/db/*.ts list function, src/App.tsx, supabase/schema.sql,
+          supabase/functions/trading-insights/index.ts,
+          src/features/insights/InsightsPage.tsx, src/db/aiInsights.ts,
+          src/features/tradermanagement/TraderManagementPage.tsx
+RISK    See LOAD-BEARING #5.
+DEPLOY  schema.sql (indexes, ai_usage) + trading-insights redeploy.
+
+
+================================================================================
+## 2026-09-11 — Dead code removed
+================================================================================
+WHAT    Deleted an orphaned feature, a superseded client, 7 dead components and
+        8 committed scratch files.
+WHY     · src/features/plan/ was an ENTIRE UNREACHABLE FEATURE — not in NavKey,
+          not in the router, not imported anywhere. Worse, scenarios.ts hardcoded
+          one person's spreadsheet ("copied verbatim from
+          FundedNext_600K_Scaling_Plan.xlsx"), starting Jul 2026, which every user
+          of a multi-user product would have been shown.
+        · deltaEngineClient.ts was fully superseded by copierClient.ts.
+        · 7 dashboard components referenced by nothing.
+        · 8 .pt-smoke-*.mjs files were TRACKED IN GIT at the repo root, dot-
+          prefixed so they didn't show in `ls`. Now gitignored.
+KEPT    The 5 unused shadcn primitives (dialog, table, select, collapsible,
+        empty). They are the component library, not dead app code — but note
+        their being unused is why the app still runs on the legacy Modal, hand-
+        rolled tables and native <select>. That migration is half-done.
+RISK    none
+DEPLOY  none
+
+
+================================================================================
+## 2026-09-11 — Accessibility and polish
+================================================================================
+WHAT    aria-labels on icon-only controls, keyboard-reachable tooltips, and a
+        theme-correct loading frame.
+WHY     129 <button> elements, 1 aria-label. Month nav used bare "‹"/"›" glyphs,
+        which a screen reader announces as punctuation or skips. The .info-icon
+        tooltips were :hover-only, so keyboard users never saw them.
+        AuthGate's Suspense fallback painted #070707 unconditionally — a leftover
+        from when every surface was near-black — flashing a black frame before
+        each light app chunk. It is now surface-aware (the landing site and auth
+        screens are still dark; the app is light).
+        index.html declared twitter:card=summary_large_image with no og:image,
+        which renders a blank card — worse than no card. Downgraded to "summary";
+        see later.txt item 2 to switch it back when the image ships.
+FILES   M src/features/dashboard/components/CalendarHeatmap.tsx,
+          src/features/trades/components/TradeDetailPanel.tsx,
+          src/shared/ui/TileShell.tsx, src/theme.css, src/AuthGate.tsx, index.html
+RISK    none
+DEPLOY  none
+
+
+================================================================================
+## 2026-09-11 — Tests
+================================================================================
+88 → 142 tests. New: ledger (11), tradingDay (12), accountDeletion (4),
+csvImport 7 → 31, tradeAggregates +3.
+Still ZERO component and integration tests — vitest runs environment:'node'
+with no jsdom, so component testing isn't currently possible. Nothing covers the
+auth flow or any Supabase call path. Verification for those was done by driving a
+real headless browser against seeded preview scaffolding, which was then fully
+reverted (no markers remain in src/).
+
+
+================================================================================
+## 2026-09-11 — DEPLOYED to project onbirijlwcxykdgxxsvy (EagleCapital)
+================================================================================
+DONE (verified):
+  · schema.sql run by Chris via the SQL editor. Confirmed present:
+      - account_deletions, ai_usage
+      - "delete own profile" policy on eaglecapital_profiles (4 policies total)
+      - purge_window_is_sane CHECK constraint
+      - 18 new indexes
+  · pg_net 0.20.4 and pg_cron 1.6.4 enabled.
+  · purge-deleted-accounts deployed, v1, ACTIVE, verify_jwt=FALSE.
+      verify_jwt must stay false: a cron has no user JWT. It authenticates on the
+      x-purge-secret header instead.
+  · trading-insights redeployed, v4, verify_jwt=TRUE (it reads the caller's user
+      id to meter their quota, so it needs the JWT).
+  · pg_cron job 1 "purge-deleted-accounts", '17 3 * * *', active, with the secret
+      embedded in its header. Verified the embedded value matches.
+
+OUTSTANDING — one manual step:
+  · PURGE_SECRET is NOT set on the Edge Function. The Supabase account used has
+    read access to project secrets but not write (403 on both the CLI's legacy
+    endpoint and POST /v1/projects/{ref}/secrets — it is not a project owner).
+    Set it at:
+      Dashboard → Project Settings → Edge Functions → Secrets → New secret
+      Name: PURGE_SECRET
+      Value: in .secrets.local at the repo root (chmod 600, gitignored)
+    The SAME value is already inside the cron job. Rotate BOTH or the nightly run
+    starts returning 403.
+
+  UNTIL THAT IS SET, NOTHING IS EVER ERASED. The function fails closed:
+      POST with no header      → 500 {"error":"PURGE_SECRET is not configured."}
+      POST with the right one  → 500, same
+  That is safe (no partial deletion) but it means the UI is promising an erasure
+  that does not happen. Do not tell users their data will be deleted until:
+      curl -X POST -H "x-purge-secret: <value>" \
+        https://onbirijlwcxykdgxxsvy.supabase.co/functions/v1/purge-deleted-accounts
+      → {"checked":0,"purged":0,"failed":[]}
+  and a POST without the header returns 403.
+
+ALSO NOTE:
+  · GROQ_API_KEY is the AI provider currently configured, not Anthropic.
+  · INSIGHTS_DAILY_LIMIT is unset, so the function's default of 10/user/day
+    applies. The figure shown in the Insights UI is hardcoded to 10 — if you set
+    the secret to anything else, update DAILY_LIMIT in InsightsPage.tsx too.
+
+
+================================================================================
+STILL OPEN
+================================================================================
+· later.txt — 5 deliberately deferred items (waitlist, og:image, robots/sitemap,
+  contact/support, broker connections).
+· Privacy and Terms are written against real behaviour but are NOT lawyer-
+  reviewed. Get them checked before taking money.
+· Playbook/report-card images remain in a PUBLIC bucket. Unguessable URLs, but
+  that is unlisted-link privacy, not private. Disclosed in the privacy policy.
+  Moving to signed URLs is a real change, not a config flip.
+· Trading-ACCOUNT deletion (per account, in Prop Firm Manager) is still
+  immediate. Only USER-account deletion has the 30-day window. Adding it there
+  means a deleted_at filter on every query in the app.
+· No component or integration tests (see Tests above).
+· The shadcn migration is half-done — legacy Modal, hand-rolled tables and native
+  <select> still in use. New work should use the shadcn primitives and live
+  outside `appSurface` (LOAD-BEARING #4).
+
+================================================================================
+2026-09-11 — PLATFORM COMPLETION AUDIT (no code changed)
+================================================================================
+Full report: https://claude.ai/code/artifact/444809b8-7023-4a3f-bbda-0a8a01d6ed21
+
+Read-only audit of frontend, backend, trade copier, and the delta_engine
+remoting question. Nothing in src/ was modified. Findings the team must know:
+
+LOAD-BEARING — THE TRADE COPIER IS OFFLINE IN PRODUCTION
+  VITE_BROKER_SYNC_API_URL = http://localhost:8787, and no such service is
+  running or present on this machine. Four surfaces are dead for every
+  deployed user, not one:
+      Trade Copier · Live Positions · Broker Connections (creds + sync)
+      · Add Account (live/MetaApi path)
+  The copier page's guard is Boolean(apiUrl), which is TRUE for a localhost
+  URL — so the gate passes in production and the fetches just fail.
+
+TWO COMPETING COPIER STACKS — A DECISION IS REQUIRED
+  A) eaglecapital-broker-sync + CopyFactory (MetaApi.cloud)
+     wired into the app, backend NOT deployed, repo not on this machine.
+  B) Delta Engine — https://copymorphic-api.onrender.com
+     DEPLOYED AND HEALTHY. 46 endpoints. Its client (src/lib/deltaEngineClient.ts)
+     was deleted in this session's dead-code sweep — correctly, on the evidence
+     then available (it was genuinely unreferenced), but the endpoint it called
+     is live while its replacement's backend is not. VITE_DELTA_API_URL is now
+     an orphaned env var pointing at a working backend.
+     Recommendation: go with Delta Engine. Recover the client from git history.
+
+  NOT one Supabase project. .env.example claims EagleCapital and Delta Engine
+  share a project — they do not. Verified: EagleCapital has 18 tables and none
+  of Delta Engine's (trading_accounts, worker_nodes, execution_events, ...).
+  Two projects = two JWT secrets. An EagleCapital token will probably NOT
+  authenticate against the Delta Engine API. TEST THIS BEFORE SCOPING.
+
+  copier_links table is orphaned — referenced only by name in db/userData.ts's
+  export list. Drop it or wire it; don't leave it.
+
+DELTA ENGINE REMOTING — ALREADY BUILT
+  /internal/* worker protocol is live, auth via X-Worker-Key header:
+    workers/register · heartbeat · session-started · session-failed
+    runtime-config · worker-commands (+complete) · execution-events · balances
+  Worker POLLS OUTBOUND -> no port forwarding, no static IP, no inbound rule
+  on the Windows box.
+  The account-switch latency is already solved in that repo:
+    worker/engine/terminal_pool.py       dedicated pool per account when each
+                                         has its own portable MT5 + terminal_path
+    worker/engine/isolated_mt5_worker.py warm pinned sessions, symbol prewarm
+    worker/engine/signal_bus.py + mql5/DeltaEngineSignalBus.mq5
+                                         event-driven, "single-digit ms"
+    migration 017                        switch_ms / order_ms / e2e_ms
+  IMPORTANT: remoting that PC does NOT reduce copy latency. The hot path is
+  worker->broker; Render is not in it. Latency is set by the worker's network
+  distance to the BROKER. Correct end state = Windows VPS near the broker
+  (LD4 / NY4). Use the home PC to prove the integration, then relocate.
+  Open gaps: Render free tier cold-starts 60-90s (unacceptable for a trading
+  control plane); /internal/runtime-config returns broker passwords in
+  PLAINTEXT to workers; orchestrator does not consume worker_sessions yet;
+  WORKER_API_KEY and ENCRYPTION_KEY still unset.
+
+BACKEND
+  RLS verified live: 18/18 tables have RLS, 23 policies, 18 indexes.
+  broker_credentials has RLS + zero policies — CORRECT BY DESIGN (service-role
+  only). Do not "fix" this by adding a policy.
+  STILL BLOCKING: PURGE_SECRET unset -> purge-deleted-accounts returns
+  500 {"error":"PURGE_SECRET is not configured."}. Deletion promises an
+  erasure it cannot perform. Dashboard only; the CLI 403s on this account.
+  NEW: a stray public.profiles table (id, email, created_at) exists alongside
+  eaglecapital_profiles. In no migration, no app code. Holds emails, is NOT in
+  the purge sweep and NOT in the export path. Confirm dead, then drop.
+  DEPLOY.md is WRONG: it says `supabase secrets set PURGE_SECRET=...`, which
+  403s for this account. Fix to say "dashboard".
+
+FRONTEND — solid; typecheck clean, 142 tests pass, 0 TODO, 0 `any`.
+  Gaps: 17 page components with 0 tests and jsdom absent (environment:'node'),
+  so component tests are impossible until jsdom is added; LoadError on only
+  4 of 17 pages; noUncheckedIndexedAccess off (96 sites, incl. the
+  tradeAggregates.ts:105 line that shipped "undefined" to the dashboard);
+  vite.config.ts is never typechecked (include:["src"]); jspdf+html2canvas
+  (584K) loaded eagerly for one button.
+
+--------------------------------------------------------------------------------
+2026-09-11 — COPIER WORKER ROLLOUT PLAN (no code changed)
+  https://claude.ai/code/artifact/f4596b56-92ed-4be8-a1a7-4dd3214cf13e
+  Six phases: verify/decide -> harden control plane -> one worker on demo ->
+  latency -> connect EagleCapital -> VPS -> multi-tenant. Each has an exit gate.
+  OPEN DECISION (blocks everything): consolidate Delta Engine's schema into
+  EagleCapital's Supabase (recommended) vs. an Edge Function bridge between two
+  projects. Do NOT take the "multi-issuer JWT" shortcut — it fixes auth and
+  leaves one human as two user rows in two databases.
+  HARD CONSTRAINT: a worker binds to ONE user (WORKER_USER_ID). Multi-tenant
+  needs the orchestrator (worker_sessions) finished first.
+  DO NOT build the EagleCapital copier UI before a worker is proven standalone.
+
+================================================================================
+2026-09-12 — TRADE COPIER WIRED TO DELTA ENGINE + WINDOWS WORKER
+================================================================================
+
+DECISION TAKEN: consolidate. Delta Engine's tables move into THIS Supabase
+project rather than staying in their own. Verified first, not assumed:
+
+  · Delta Engine verifies JWT signatures LOCALLY. An EagleCapital token returned
+    {"detail":"Invalid authentication token: Signature verification failed."}
+    So no code change is needed on their side — pointing the API's
+    SUPABASE_JWT_SECRET at this project is what makes our tokens valid.
+  · The delta_engine Supabase project (ref wrjwkrhfasufpxlkmwtq) is INACTIVE /
+    paused. Queries time out. The live API has a dead database behind it.
+  · ZERO table-name collisions between the two schemas (11 vs 18 tables).
+
+LOAD-BEARING — handle_new_user() IS MERGED, NOT REPLACED
+  EagleCapital already had a trigger on_auth_user_created -> handle_new_user()
+  writing public.profiles on signup. Delta's migration 001 does
+  CREATE OR REPLACE FUNCTION handle_new_user() and would have SILENTLY
+  overwritten it, breaking profile creation for every new user.
+  supabase/delta-engine-schema.sql does both inserts. Do not "simplify" it back.
+  CORRECTION to the 2026-09-11 audit: public.profiles is NOT dead. It is the
+  signup hook's target. Do not drop it.
+
+NEW FILES
+  supabase/delta-engine-schema.sql  11 tables, 5 enums, RLS, backfill of the 13
+                                    existing users into tc_users. Idempotent.
+                                    NOT YET RUN — see STILL OPEN.
+  WORKER.md                         Windows worker runbook + bring-up order.
+  src/db/copier.ts                  Supabase-direct reads + pure derivations.
+  src/lib/apiUrl.ts                 isUsableApiUrl — the localhost guard.
+  src/lib/deltaEngineClient.ts      RESTORED from git, extended with accounts,
+                                    sessions, SLA; 90s timeout for cold starts.
+  src/features/copier/components/WorkerStatus.tsx      worker liveness
+  src/features/copier/components/ExecutionLog.tsx      copy log + latency
+  src/features/copier/components/AddCopierAccountDialog.tsx
+  src/db/copier.test.ts, src/lib/apiUrl.test.ts        26 new tests
+
+DELETED
+  src/lib/copierClient.ts        CopyFactory/MetaApi path, backend never deployed
+  src/lib/copierGroupsSocket.ts  pointed at the same dead localhost
+
+ARCHITECTURE: reads vs writes
+  READS come straight from Supabase via db/paginate's selectAll. RLS already
+  scopes every row to auth.uid(), so the API adds nothing to a SELECT — and the
+  page keeps rendering when the control plane is cold-starting or down, which is
+  exactly when a trader wants to look. WRITES go to the FastAPI control plane,
+  because arming a link or flattening a book must reach a worker.
+  The copier-groups WebSocket is gone; groups are derived client-side and the
+  page re-polls every 30s (matching the worker's heartbeat interval).
+
+BUG FIXED: the Boolean(apiUrl) guard
+  Every backend client gated on Boolean(apiUrl), which is TRUE for
+  "http://localhost:8787". In production that made Trade Copier, Live Positions
+  and Broker Connections render full UI over a host that does not exist off a
+  developer's laptop. isUsableApiUrl() now rejects loopback in prod builds only.
+  (A test caught a real bug in my first version: URL.hostname keeps the brackets
+  on an IPv6 literal, so "[::1]" never matched "::1".)
+
+SAFETY PROPERTIES BUILT IN — do not regress these
+  · Worker liveness is the FIRST thing on the page. Heartbeat >120s reads
+    "Offline" and says copying is stopped. A page showing healthy copy groups
+    over a dead worker reads as confirmation and is worse than showing nothing.
+  · "Armed, not live" is a distinct state. A link switched on whose accounts are
+    disconnected is called out explicitly rather than shown as a green toggle.
+  · Arming a copier ALWAYS takes a named confirmation. Creating a link and
+    turning it on are separate acts.
+  · Flatten requires an existing risk profile and says so when there isn't one.
+  · Broker passwords go browser -> control plane (TLS) -> encrypted at rest.
+    They never touch this app's Supabase tables or browser storage.
+
+STILL OPEN (blocked on access I do not have)
+  1. RUN supabase/delta-engine-schema.sql in the SQL editor. Nothing copier-side
+     works until this is done; the page will show a read error, which is correct.
+  2. On Render, set SUPABASE_URL / SUPABASE_SERVICE_KEY / SUPABASE_JWT_SECRET to
+     THIS project, plus WORKER_API_KEY (in .secrets.local) and ENCRYPTION_KEY.
+     Take it off the free tier — 60-90s cold starts are not viable for trading.
+  3. Windows box: worker/.env per WORKER.md, ONE MT5 INSTALL PER ACCOUNT with a
+     unique terminal_path. That is what makes switch_ms zero.
+  4. PURGE_SECRET is STILL unset — deletion still cannot complete.
+
+KNOWN GAPS carried forward
+  · /internal/runtime-config returns broker passwords in PLAINTEXT to workers.
+  · Orchestrator does not consume worker_sessions — one worker serves ONE user
+    (WORKER_USER_ID). Multi-tenant needs that finished first.
+  · copier_links table is now definitively dead (CopyFactory design). Drop it
+    once the schema above is run.
+
+
+================================================================================
+2026-09-12 (later) — COPIER BACKEND BROUGHT IN-HOUSE
+================================================================================
+
+The Render/FastAPI dependency is GONE. The copier's control plane is now the
+`copier-gateway` Supabase Edge Function, in the same project as the data.
+
+WHY — three facts, all verified rather than assumed:
+  · The worker only ever calls TWELVE endpoints, all /internal/*. It never
+    touches /api/* at all (checked worker/engine/api_client.py). The other 34
+    endpoints were the old Next.js dashboard's.
+  · Consolidating the tables ate most of the rest: with RLS scoping every row to
+    auth.uid(), "enable a copier" is an UPDATE the browser can make directly.
+    The API was adding no authorization the database wasn't already enforcing.
+  · delta_engine's encryption is plain AES-256-GCM, base64(nonce||ct||tag), no
+    AAD. I PROVED byte-compatibility both directions (Deno WebCrypto <-> Python
+    `cryptography`, unicode included) before porting. That means the gateway and
+    the Python service are interchangeable with NO credential re-entry.
+
+CORRECTIONS FOUND WHILE READING THE SOURCE (I had guessed wrong):
+  · Real worker command types are ONLY: flatten, test_connection, reload_config.
+    There is no start_session/stop_session command. The orchestrator's
+    /api/accounts/:id/start-session writes a worker_sessions row the worker does
+    NOT read — so those buttons were theatre. REMOVED from the UI and replaced
+    with "Test connection", which actually makes the worker log in and report.
+    The DB now has a CHECK constraint pinning command_type to those three.
+  · `_prepare_mt5_row` probes the filesystem (path_exists) for terminal_path —
+    but it runs on the API host, not the Windows box that owns the terminal. On
+    a Linux deployment it is always false. The gateway passes the stored path
+    through instead: simpler and actually correct.
+  · register_worker did a bare INSERT, creating a ghost worker_nodes row on
+    every restart — and a supervised worker restarts often. The gateway upserts
+    on (worker_name, host_identifier). The worker only reads `id`, so it cannot
+    tell the difference. Contract test asserts this.
+
+NEW / CHANGED
+  supabase/functions/copier-gateway/index.ts   the 12 worker endpoints + the one
+                                               user-facing route that needs the
+                                               encryption key. DEPLOYED, live,
+                                               answering /health in 0.26s.
+  scripts/verify-copier-gateway.sh             contract test for all 12, in the
+                                               shapes the worker sends.
+  src/db/copierActions.ts                      direct RLS writes + worker_commands
+  src/lib/copierGateway.ts                     the single gateway call
+  DELETED src/lib/deltaEngineClient.ts         superseded
+  VITE_DELTA_API_URL                           REMOVED — the gateway's address is
+                                               derived from VITE_SUPABASE_URL, so
+                                               there is no second URL to
+                                               misconfigure. (The previous
+                                               architecture got exactly that
+                                               wrong: copier pointed at localhost
+                                               in production.)
+
+SCHEMA CHANGES since the morning entry — re-run delta-engine-schema.sql:
+  · trading_accounts: INSERT policy REMOVED on purpose. encrypted_password can
+    only be written by the gateway; a browser cannot produce a valid value, and a
+    row with a garbage one looks connected then fails to decrypt in the worker's
+    hot path. select/update/delete remain.
+  · worker_commands: INSERT policy added, but it verifies the account belongs to
+    the caller — checking user_id alone would let someone queue a flatten on a
+    stranger's account under their own id.
+  · worker_commands: CHECK constraint on command_type (see above).
+
+STILL OPEN
+  1. RUN supabase/delta-engine-schema.sql (updated since this morning).
+  2. Set WORKER_API_KEY + ENCRYPTION_KEY in the Supabase dashboard. My token
+     gets 403 on secrets-write (LegacySecretsSetUnexpectedStatusError) — it can
+     deploy functions and run DDL, but not write project secrets.
+     ENCRYPTION_KEY CANNOT BE ROTATED once accounts exist.
+  3. Run ./scripts/verify-copier-gateway.sh — expect all green.
+  4. Windows box: worker/.env with API_URL pointed at the gateway. NO worker
+     code changes needed.
+  5. PURGE_SECRET still unset (unrelated, still blocks account deletion).
+
+
+================================================================================
+2026-09-14 — WINDOWS WORKER HOST: SCRIPTS + RUNBOOK
+================================================================================
+Schema VERIFIED landed: 11/11 copier tables, tc_users backfilled 13/13,
+handle_new_user() confirmed still writing BOTH profiles and tc_users.
+
+PLAN CONFIRMED WITH OWNER: local Windows PC as the test rig now, VPS later once
+solid. Setup is therefore SCRIPTED, not a checklist — the move to the VPS is a
+re-run of the same three scripts, not a rediscovery.
+
+NEW
+  WINDOWS-SETUP.md                       two-phase runbook (PC now, VPS later)
+  scripts/windows/prepare-host.ps1       one-time machine prep
+  scripts/windows/run-copier.ps1         supervisor: restart-on-crash + logging
+  scripts/windows/install-autostart.ps1  scheduled task at logon
+
+LOAD-BEARING DECISION: NOT a Windows Service.
+  Delta Engine's own runbook says "NSSM / Task Scheduler" but never writes one.
+  NSSM-as-service is the WRONG pattern here: MT5 is a GUI app that needs a real
+  desktop session, and services run in Session 0 with no window station. Use a
+  scheduled task in the logged-in session + auto-login. Do not "improve" this
+  into a service later.
+
+VERIFIED WHILE WRITING
+  · The worker LAUNCHES AND LOGS INTO the MT5 terminals itself
+    (mt5.initialize(path, login, password, server)). No terminal needs starting
+    or logging in by hand. The runbook says so.
+  · Nothing inbound is ever needed: the worker only dials out. prepare-host.ps1
+    explicitly does NOT create firewall rules / port forwards, and says why.
+
+THREE REAL BUGS CAUGHT BY PSScriptAnalyzer (scripts can't be run from macOS,
+so they were parse-checked and linted with pwsh 7.6 + PSScriptAnalyzer):
+  1. NO BOM. Windows PowerShell 5.1 — which is what powershell.exe is, and what
+     the scheduled task runs — reads a BOM-less file as ANSI and MANGLES every
+     non-ASCII character. These files are full of em-dashes. All three now
+     written as utf-8-sig. If you edit them, KEEP THE BOM.
+  2. Test-Connection (ICMP) for the network wait. Most VPS providers and many
+     home networks drop ICMP, so a healthy machine would log "no network" every
+     boot. Replaced with a TCP connect to the gateway on 443 — accurate, and it
+     tests the dependency we actually have.
+  3. Invoke-Expression for Python detection. Replaced with splatted args.
+  Remaining lint warning (PSAvoidUsingEmptyCatchBlock, run-copier.ps1:87) is a
+  false positive: it is a retry loop and the catch is commented as deliberate.
+
+STILL OPEN
+  1. WORKER_API_KEY + ENCRYPTION_KEY in the Supabase dashboard. Gateway still
+     returns 500 "WORKER_API_KEY is not configured" — verified again today.
+     ENCRYPTION_KEY CANNOT BE ROTATED once accounts exist.
+  2. The PowerShell has been parse-checked and linted but never EXECUTED —
+     no Windows machine here. Read each script's output rather than assuming.
+  3. Heartbeat alarm: the supervisor restarts a process that EXITS; it cannot
+     detect one that HANGS. UI shows stale/offline, but nothing pages anyone.
+     Offered, not built.
+  4. PURGE_SECRET still unset (unrelated, still blocks account deletion).
+
+
+--------------------------------------------------------------------------------
+2026-09-14 (later) — BROKER PRESETS: CORRECTING THE MT5 INSTALL GUIDANCE
+  Owner's machine already has Moneta, Fusion, FTMO and Exness MT5 installed.
+  Re-read the worker + catalog. TWO CORRECTIONS to earlier advice:
+
+  1. "One MT5 install per account, make portable copies" was WRONG as stated.
+     Every broker ships its OWN MT5 build and they are NOT interchangeable —
+     mt5_brokers.py docstring: "The Python API must launch the matching
+     terminal64.exe or login fails (wrong IPC / wrong server list)."
+     Correct rule: ONE TERMINAL PER BROKER, plus a second portable copy of THAT
+     BROKER'S installer only when two accounts share a broker.
+     Four brokers with one account each => switch_ms is ALREADY ZERO.
+
+  2. terminal_path is effectively REQUIRED on a multi-broker host. If it is
+     null, mt5_connector calls mt5.initialize() with NO path, which attaches to
+     whatever terminal is already running — a coin toss with four installed, and
+     the failure looks like bad credentials. My gateway passes terminal_path
+     through without resolving it (correct — the Python probed the filesystem on
+     the API host, which is meaningless on Linux), so the UI must fill it.
+
+  NEW
+    src/features/copier/brokerPresets.ts (+ .test.ts, 14 tests)
+      Ported from backend/app/data/mt5_brokers.py. matchBrokerFromServer()
+      mirrors the Python rule exactly (server hints, then space-insensitive
+      search terms, never matching 'custom'). Tests assert each broker maps to a
+      DISTINCT path — that is the property that matters.
+    AddCopierAccountDialog: broker dropdown prefills terminal path + server
+      suggestions; typing a recognised server auto-selects the broker; a manual
+      edit is never overwritten.
+    TradeCopierPage: names accounts that SHARE an MT5 install (the only case
+      that costs switch_ms), and shows each account's terminal folder.
+
+  Deliberately did NOT duplicate the broker catalog into the Edge Function —
+  two copies of the same table drift. The UI fills the path; the page flags any
+  account still missing one.
+
+--------------------------------------------------------------------------------
+2026-09-14 (later) — WORKER CANNOT IDLE: a real onboarding blocker
+  Found while bringing the first worker up. The gateway is fine — verified live:
+    wrong key       -> 401   (secrets ARE set)
+    worker-commands -> 200 {"commands":[]}   (routing fine)
+    runtime-config  -> 404 "No enabled copier relations for this user"  (correct)
+    bogus path      -> 404 "Not found"       (what a routing miss looks like)
+
+  THE PROBLEM: the worker treats that 404 as fatal.
+    master_supervisor.run_all_masters() retries 3x then raises RuntimeError.
+    Even returning 200 with empty arrays would NOT fix it — copier_engine.run()
+    raises "No enabled master account" on zero masters. The comment in
+    master_supervisor says so outright: "0 masters -> CopierEngine.run() raises
+    the usual descriptive error."
+    WORSE: register_worker() + start_heartbeat_loop() are called INSIDE
+    CopierEngine.run() (copier_engine.py:385-386), so with no armed link the
+    worker never registers at all and never appears in the dashboard.
+
+  WHY IT MATTERS FOR A PRODUCT: a new user connects accounts and presses "Test
+  connection" BEFORE arming anything — that is the safe order. Today that is
+  impossible: no armed link means no worker, and no worker means no test. The
+  only way in is to arm a live copy link before ever verifying the accounts.
+
+  FIX: patches/delta-engine-worker-idle.patch  (applies to delta_engine, NOT
+  this repo). Verified: `git apply --check` clean against a fresh clone, and
+  py_compile passes after applying.
+    1. register + heartbeat BEFORE config discovery, so the worker shows Online
+       while idle. Safe: start_heartbeat_loop() returns early if already running
+       and our gateway's register_worker UPSERTS, so CopierEngine calling both
+       again is a no-op.
+    2. wait-for-work loop instead of raise. Logs "worker_idle" ONCE, not per
+       poll — no armed link is a normal state for a new account, not a fault.
+    3. serves `test_connection` commands while idle. command_processor's own
+       docstring confirms it needs no session: "Verify broker login for a
+       dashboard-linked account (no active copier session required)."
+       flatten/reload_config are deliberately left pending while idle — flatten
+       needs a live session, and reload_config is moot because the discovery
+       loop is already looking again every WORKER_IDLE_POLL_SECONDS (15s).
+
+  Not applied or pushed — it is the owner's separate repo.
+
+--------------------------------------------------------------------------------
+2026-09-14 — TWO "CONNECT AN ACCOUNT" DOORS, ONE OF THEM DEAD
+  Owner hit ERR_CONNECTION_REFUSED on localhost:8787 while connecting an account.
+  Traced to AddAccountDialog.tsx:87 — Prop Firm Management -> Add account ->
+  "live", which is the old CopyFactory path (brokerSyncClient -> broker-sync
+  service, never deployed). NOT the copier: verified the copier path has zero
+  references to broker-sync; it posts to the gateway.
+
+  The guard was already correct (isUsableApiUrl rejects localhost in PROD) but
+  in DEV localhost is legitimately allowed, so the form rendered and then died
+  on a refused connection with a bare TypeError("Failed to fetch").
+
+  FIXED
+    · brokerSyncClient + livePositionsClient: catch the network failure and say
+      what is actually wrong and where to go instead.
+    · AddAccountDialog's not-configured notice now points at Trade Copier, and
+      says a journal-only prop account needs no credentials at all.
+    · .env.local: VITE_BROKER_SYNC_API_URL blanked so dev matches prod.
+
+  STILL OPEN — the last of the old CopyFactory stack, all still pointing at the
+  undeployed broker-sync service:
+    /prop-firm-management  (AddAccountDialog "live" branch)
+    /broker-connections
+    /live-positions
+  Live Positions is the cheap one to migrate: it can read trading_accounts
+  equity straight from the gateway's account-balances push, no separate service.
+
+2026-09-15 — "FUSION DEMO / DISCONNECTED": TWO REAL BUGS BEHIND ONE SYMPTOM
+  Owner connected an account with correct credentials, pressed Test connection,
+  and it stayed Disconnected. Full review of the connection path. The account
+  creation path is fine — the row exists, so gateway + AES-GCM + RLS all worked.
+  Nothing was broken in "connecting". Two other things were.
+
+  BUG 1 — the deadlock (design, not a typo)
+    connection_status defaults to 'disconnected' (schema:172). EXACTLY three
+    things in the system can set it to 'connected', and all three are the worker:
+      gateway:407  sessionStarted
+      gateway:495  completeCommand(test_connection)
+      gateway:548  updateBalances
+    That is correct and deliberate — only the process holding the MT5 terminal
+    can honestly say the broker accepted a login.
+
+    But Test connection only INSERTS a worker_commands row. And the worker could
+    not run: unpatched run_all_masters() fetches runtime-config, gets the 404
+    "No enabled copier relations", retries 3x, raises. With one account you
+    cannot make a relation. So:
+      account can't go Connected until a worker answers
+      -> worker won't start until a link is armed
+      -> arming means placing real orders before either login is verified
+    Verifying credentials was gated behind arming live order execution.
+
+    THE WAY OUT NEEDED NO PATCH: worker/scripts/15_poll_worker_commands.py
+    already exists upstream and does register + heartbeat + poll + process,
+    with no copier loop and no relation. command_processor.test_connection_command
+    is explicitly documented "no active copier session required". Verified the
+    whole chain matches the gateway: routes, X-Worker-Key/X-User-Id headers,
+    complete_command payload keys.
+
+  BUG 2 — the banner lies in the other direction (would have wasted the next hour)
+    worker_nodes carries no user_id and its RLS was `using (is_admin())`, where
+    is_admin() = tc_users.subscription_plan = 'admin'. An ordinary user's read
+    returns ZERO ROWS — no error, just nothing. So WorkerStatus renders
+    "No worker - Nothing is executing trades" PERMANENTLY, even with a worker
+    heartbeating every 30s. The one indicator you check before trusting the
+    copier was pinned to the alarming answer regardless of truth.
+
+    Fixed by ownership, not a wider policy:
+      supabase/migrations-copier-worker-visibility.sql  — adds worker_nodes.user_id,
+        policy becomes `is_admin() or auth.uid() = user_id`
+      copier-gateway registerWorker()  — stamps user_id from X-User-Id
+      patches/delta-engine-worker-register-user.patch — worker sends the header
+        on register (upstream passes include_user=False). git apply --check OK,
+        py_compile OK against a pristine clone.
+    First attempt used `or user_id is null` as a bridge for unpatched workers.
+    The auto-mode classifier blocked it as Security Weaken and was right — it
+    made unowned rows readable by every signed-in user. Strict ownership + the
+    one-line worker patch instead.
+
+  UI DEFECTS FIXED (all of these made a working system look broken)
+    · Test connection claimed "the worker will report back within a few seconds"
+      unconditionally. Now checks worker liveness and says plainly when nothing
+      is listening.
+    · Pending commands were invisible. listPendingCommands + hasPendingTest, so
+      an account shows `Testing...` while queued. Queued-but-unanswered and
+      tested-and-failed no longer look identical.
+    · Every press queued another row -> N sequential MT5 logins when a worker
+      finally started. testConnection now refuses a duplicate pending test.
+    · last_error was a `title` tooltip only (invisible on touch). Now rendered
+      inline under the row, so "Login rejected" arrives with the reason.
+    · WorkerStatus's no-worker copy now says accounts will read Disconnected and
+      that this is not a verdict on the credentials.
+
+  WINDOWS-SETUP.md — the startup order it gave was WRONG and is corrected.
+    Was: start run-copier.ps1, then Test connection. That cannot work unpatched.
+    Now: Step 5 verify logins with 15_poll_worker_commands.py -> Step 6 create,
+    arm, and start the copier -> Step 7 first copy. Migration + register patch
+    added to Step 1 as blocking. Four new rows in the troubleshooting table.
+
+  Verified: tsc clean, deno check clean, 191 tests (17 files), build green.
+
+2026-09-15 (later) — WORKER EXTRACTED INTO worker/, DELTA_ENGINE DROPPED
+  Owner asked whether to stop carrying the whole delta_engine repo on the Windows
+  box and keep one self-contained worker folder instead. Checked rather than
+  guessed: worker/ is 508K of a 4.4M repo and reaches outside itself exactly once
+  (a parents[2] sys.path insert that was ALREADY WRONG — adapters/ lives at
+  worker/adapters, so [2] pointed at the old repo root; it only ever worked
+  because the entry scripts already had worker/ on sys.path). env_loader's
+  root-.env read degrades to a no-op. So: self-contained, and extraction removes
+  the root-.env-overrides-worker-.env footgun entirely.
+
+  NOW AT worker/ IN THIS REPO — 56 files, 368K, nothing outside it needed.
+    engine/ adapters/ config/ mql5/ tests/ requirements.txt
+    scripts/  run_copier.py poll_commands.py show_config.py soak_test.py
+              (were 09_/15_/16_/10_ — step numbers in a bring-up sequence that
+              no longer exists)
+    setup.ps1  test-connections.ps1  run.ps1  show-config.ps1
+    prepare-host.ps1  install-autostart.ps1   (moved from scripts/windows/)
+    .env.example  .gitignore  README.md
+
+  BOTH PATCHES ARE NOW PERMANENT CODE, not patches. patches/ deleted.
+    master_supervisor.py  register+heartbeat before discovery, idle-poll instead
+                          of raising, serve test_connection while idle
+    api_client.py         include_user=True on register, so worker_nodes gets an
+                          owner and RLS stops hiding it from its owner
+
+  TWO MORE LATENT BUGS FIXED DURING THE MOVE
+    command_processor.py  parents[2] -> parents[1] (see above)
+    env_loader.py         rewritten: reads this folder's .env only, override=True.
+                          No root file, no override chain.
+
+  DROPPED DELIBERATELY
+    backend/ and supabase/ from delta_engine — replaced by copier-gateway. Their
+    presence next to the worker meant two plausible schemas and two plausible
+    APIs in one folder with only one of them real.
+    11_seed_supabase.py — wrote to the OLD paused project. Actively dangerous.
+    00_validate_config.py — forces DELTA_CONFIG_SOURCE=yaml, irrelevant now.
+    _bootstrap.py — dead, nothing imported it.
+    Dockerfile.wine — Linux/wine MT5, not the plan.
+
+  ALL .ps1 default -WorkerRoot to $PSScriptRoot, so every one runs bare from the
+  folder. Task renamed DeltaEngineCopier -> EagleCapitalCopier.
+
+  DOCS RECONCILED — they had drifted into three overlapping copies.
+    worker/README.md   the worker itself (install, run, troubleshoot, why the
+                       four upstream changes exist)
+    WINDOWS-SETUP.md   rewritten 335 -> 276 lines: EagleCapital side + getting the
+                       folder onto the box. Points at worker/README.md.
+    WORKER.md          architecture and why (kept). Its Bring-up order had the
+                       WRONG ORDER — said start worker, then connect accounts,
+                       then test. Corrected: verify logins BEFORE arming, because
+                       arming is what starts placing real orders.
+
+  Verified: 56 files compile (py_compile), 6/6 .ps1 parse clean under pwsh,
+  PSScriptAnalyzer no Errors (only Write-Host warnings, correct for interactive
+  operator scripts), all 6 .ps1 keep their UTF-8 BOM, entry-point imports resolve,
+  worker/.env + venv/ + logs/ gitignored. App: tsc clean, 191 tests, build green.

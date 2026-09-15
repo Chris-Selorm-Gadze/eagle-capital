@@ -1,0 +1,8 @@
+# Copy to symbol_map.yaml
+# Map master broker symbols to follower broker symbols when they differ.
+
+mappings:
+  - master_symbol: EURUSD
+    follower_symbol: EURUSD
+  - master_symbol: XAUUSD
+    follower_symbol: XAUUSD

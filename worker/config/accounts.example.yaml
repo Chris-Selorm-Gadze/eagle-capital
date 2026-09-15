@@ -1,0 +1,23 @@
+# Copy to accounts.yaml and fill in your demo credentials.
+# NEVER commit accounts.yaml — it contains passwords.
+
+accounts:
+  - id: master-1
+    label: "Demo Master"
+    role: master
+    login: 12345678
+    password: "your-master-password"
+    server: "YourBroker-Demo"
+    # Use the MT5 build from YOUR broker installer (required for many brokers).
+    # Exness example:
+    terminal_path: "C:\\Program Files\\MetaTrader 5 EXNESS\\terminal64.exe"
+    # Generic MetaQuotes: "C:\\Program Files\\MetaTrader 5\\terminal64.exe"
+    enabled: true
+
+  - id: follower-1
+    label: "Demo Follower 1"
+    role: follower
+    login: 87654321
+    password: "your-follower-password"
+    server: "YourBroker-Demo"
+    enabled: true

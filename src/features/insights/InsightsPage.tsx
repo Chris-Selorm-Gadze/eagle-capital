@@ -9,7 +9,7 @@ import { listReportCards } from '../../db/reportCards'
 import { listPlaybooks } from '../../db/playbooks'
 import { listPlaybookExamples } from '../../db/playbookExamples'
 import { listTradingRules } from '../../db/tradingRules'
-import { listAiInsights, saveAiInsight, deleteAiInsight, type AiInsight } from '../../db/aiInsights'
+import { listAiInsights, saveAiInsight, deleteAiInsight, getInsightsUsage, type AiInsight } from '../../db/aiInsights'
 import { generateTradingInsights } from '../../lib/tradingInsightsClient'
 import { buildInsightsPayload, rangeForPreset, type InsightsRangePreset } from './buildInsightsPayload'
 import { detectTradePatterns } from '../../utils/tradePatterns'
@@ -17,6 +17,7 @@ import { errorMessage } from '../../utils/errors'
 import { todayISO } from '../../db/sessions'
 import styles from './InsightsPage.module.css'
 import { useConfirm } from '../../shared/ui/confirm'
+import { LoadError } from '../../shared/ui/LoadError'
 
 const RANGE_OPTIONS: { preset: InsightsRangePreset; label: string }[] = [
   { preset: 'last_30', label: '30 days' },
@@ -158,6 +159,10 @@ function DetectedPatternsSection({ trades, accounts }: { trades: Trade[]; accoun
   )
 }
 
+/** Mirrors INSIGHTS_DAILY_LIMIT in the Edge Function. Display only — the
+ * server is what actually enforces it. */
+const DAILY_LIMIT = 10
+
 export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; accounts: Account[]; userId: string }) {
   const confirm = useConfirm()
   const [reportCards, setReportCards] = useState<Awaited<ReturnType<typeof listReportCards>>>([])
@@ -165,7 +170,11 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
   const [playbookExamples, setPlaybookExamples] = useState<Awaited<ReturnType<typeof listPlaybookExamples>>>([])
   const [rules, setRules] = useState<Awaited<ReturnType<typeof listTradingRules>>>([])
   const [history, setHistory] = useState<AiInsight[]>([])
+  // Generations are metered server-side (see supabase/functions/trading-insights).
+  // Showing the remaining count means the limit is visible before it bites.
+  const [usedToday, setUsedToday] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [rangePreset, setRangePreset] = useState<InsightsRangePreset>('last_30')
   const [current, setCurrent] = useState<AiInsight | null>(null)
@@ -173,9 +182,11 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
   const [error, setError] = useState<string | null>(null)
 
   async function loadAll() {
-    const [cards, pbs, examples, userRules, insights] = await Promise.all([
+    const [cards, pbs, examples, userRules, insights, used] = await Promise.all([
       listReportCards(), listPlaybooks(), listPlaybookExamples(), listTradingRules(), listAiInsights(),
+      getInsightsUsage().catch(() => null),
     ])
+    setUsedToday(used)
     setReportCards(cards)
     setPlaybooks(pbs)
     setPlaybookExamples(examples)
@@ -185,7 +196,10 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
   }
 
   useEffect(() => {
-    loadAll().finally(() => setLoading(false))
+    loadAll()
+      .then(() => setLoadError(null))
+      .catch((err) => setLoadError(errorMessage(err)))
+      .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -209,6 +223,7 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
       insight.createdAt = new Date().toISOString()
       setCurrent(insight)
       setHistory((h) => [insight, ...h])
+      setUsedToday((n) => (n === null ? n : n + 1))
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -224,6 +239,20 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
   }
 
   if (loading) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  if (loadError) {
+    return (
+      <LoadError
+        message={loadError}
+        onRetry={() => {
+          setLoading(true)
+          setLoadError(null)
+          loadAll()
+            .catch((err) => setLoadError(errorMessage(err)))
+            .finally(() => setLoading(false))
+        }}
+      />
+    )
+  }
 
   return (
     <div className={styles.root}>
@@ -257,6 +286,9 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
         <span className={styles.preview}>
           {previewTradeCount} trade{previewTradeCount === 1 ? '' : 's'} · {previewCardCount} report card{previewCardCount === 1 ? '' : 's'}
           {' '}· {range.start} – {range.end}
+          {usedToday !== null && (
+            <> · {Math.max(0, DAILY_LIMIT - usedToday)} of {DAILY_LIMIT} generations left today</>
+          )}
         </span>
         {error && <span className={styles.error}><FontAwesomeIcon icon={faCircleExclamation} /> {error}</span>}
       </div>
