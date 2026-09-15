@@ -27,7 +27,15 @@ const PLATFORMS = [
 export function AddCopierAccountDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const serverListId = useId()
   const [platform, setPlatform] = useState<string>('mt5')
-  const [brokerSlug, setBrokerSlug] = useState<string>('ftmo')
+  /* No default broker, deliberately.
+   *
+   * This used to default to 'ftmo', which meant the terminal path silently
+   * prefilled with FTMO's install for anyone who never opened the dropdown --
+   * and every broker ships its own MT5 build, so pointing a Moneta account at
+   * FTMO's terminal fails the login with an error that reads exactly like a
+   * wrong password. A default that is right for one broker and quietly wrong for
+   * every other is worse than no default. */
+  const [brokerSlug, setBrokerSlug] = useState<string>('')
   const [accountNumber, setAccountNumber] = useState('')
   const [brokerServer, setBrokerServer] = useState('')
   const [password, setPassword] = useState('')
@@ -56,7 +64,8 @@ export function AddCopierAccountDialog({ onClose, onSaved }: { onClose: () => vo
     if (matched && matched.slug !== brokerSlug) setBrokerSlug(matched.slug)
   }, [brokerServer, brokerSlug])
 
-  const canSave = accountNumber.trim() !== '' && brokerServer.trim() !== '' && password !== ''
+  const canSave = accountNumber.trim() !== '' && brokerServer.trim() !== ''
+    && password !== '' && (!isMt5 || brokerSlug !== '')
 
   async function handleSave() {
     if (!canSave || saving) return
@@ -109,13 +118,25 @@ export function AddCopierAccountDialog({ onClose, onSaved }: { onClose: () => vo
             <label className={styles.grow}>
               Broker
               <select value={brokerSlug} onChange={(e) => { setBrokerSlug(e.target.value); setPathTouched(false) }}>
+                <option value="">Select your broker…</option>
                 {BROKER_PRESETS.map((b) => (
                   <option key={b.slug} value={b.slug}>{b.name}{b.verified ? '' : ' *'}</option>
                 ))}
               </select>
+              <span className={styles.hint}>
+                Sets the terminal path below. Getting it wrong fails the login in a way that
+                looks like a wrong password.
+              </span>
             </label>
           )}
         </div>
+
+        {isMt5 && preset && !preset.verified && (
+          <p className={styles.presetNote}>
+            <strong>*</strong> No confirmed install path for this one — type the full path to
+            its <code>terminal64.exe</code> below yourself.
+          </p>
+        )}
 
         {isMt5 && preset?.note && <p className={styles.presetNote}>{preset.note}</p>}
 
