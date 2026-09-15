@@ -18,12 +18,51 @@ from engine.env_loader import load_worker_env
 from engine.config_loader import load_accounts, load_copiers, get_config_source
 
 
+REQUIRED = ("API_URL", "WORKER_API_KEY", "WORKER_USER_ID")
+OPTIONAL = ("DELTA_CONFIG_SOURCE", "WORKER_NAME", "WORKER_REGION", "WORKER_CAPACITY")
+SECRET = ("WORKER_API_KEY",)
+
+
+def _show(name: str) -> str:
+    """Print a value, masking anything secret. A key that is present but wrong
+    and a key that is absent need to look different, so masking still shows the
+    length and the last four characters."""
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return "(not set)"
+    if name in SECRET:
+        return f"set, {len(raw)} chars, ends ...{raw[-4:]}" if len(raw) > 4 else "set (very short)"
+    return raw
+
+
 def main() -> int:
+    from engine.env_loader import WORKER_ROOT
+
+    env_file = WORKER_ROOT / ".env"
+    print(f".env: {env_file}")
+    if not env_file.exists():
+        print("  MISSING. Run .\\setup.ps1, then fill it in.")
+        return 1
+    print(f"  found, {env_file.stat().st_size} bytes")
+
     load_worker_env()
+
+    print("\nRequired:")
+    for name in REQUIRED:
+        print(f"  {name:18} {_show(name)}")
+    print("Optional:")
+    for name in OPTIONAL:
+        print(f"  {name:18} {_show(name)}")
+
+    missing = [n for n in REQUIRED if not os.environ.get(n)]
+    if missing:
+        plural = "they are" if len(missing) > 1 else "it is"
+        print(f"\nFAILED: {', '.join(missing)} not set in .env.")
+        print(f"Nothing else can work until {plural}. Check for a typo in the key")
+        print("name, a line that got commented out, or a stray blank after the '='.")
+        return 1
+
     source = get_config_source()
-    print(f"DELTA_CONFIG_SOURCE={source}")
-    print(f"WORKER_USER_ID={os.environ.get('WORKER_USER_ID', '')}")
-    print(f"API_URL={os.environ.get('API_URL', '')}")
 
     if source != "api":
         print("\nSet DELTA_CONFIG_SOURCE=api in .env to use dashboard copiers.")

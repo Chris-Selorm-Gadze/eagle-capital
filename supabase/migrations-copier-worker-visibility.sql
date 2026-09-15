@@ -31,12 +31,11 @@ create policy "read own worker nodes" on public.worker_nodes for select using (
   public.is_admin() or auth.uid() = user_id
 );
 
--- REQUIRES the one-line worker change in
--- patches/delta-engine-worker-register-user.patch. The upstream worker sends no
--- X-User-Id when it registers (api_client.py passes include_user=False), so
--- without that change its row lands with user_id NULL, stays invisible under the
--- policy above, and the banner keeps lying. Apply the patch, then restart the
--- worker so it re-registers and claims its row.
+-- REQUIRES the worker in worker/ (this repo), whose api_client.py sends
+-- X-User-Id on register. The upstream delta_engine worker passed
+-- include_user=False, so its row lands with user_id NULL, stays invisible under
+-- the policy above, and the banner keeps lying. If you are still running the old
+-- clone, stop: use worker/ instead.
 
 -- Rows registered before that change have no owner and no way to acquire one.
 -- There is no user context to infer here, so they are left alone rather than

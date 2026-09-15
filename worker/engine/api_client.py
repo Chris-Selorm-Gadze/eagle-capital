@@ -22,7 +22,12 @@ logger = structlog.get_logger()
 class ControlApiClient:
     def __init__(self) -> None:
         load_worker_env()
-        self.base_url = os.environ.get("API_URL", "http://localhost:8000").rstrip("/")
+        # No localhost default. This worker's entire job is to talk to a remote
+        # gateway; falling back to http://localhost:8000 turned a missing API_URL
+        # into four "connection actively refused" retries against a machine that
+        # was never going to answer, which reads as a network fault rather than a
+        # one-line config mistake.
+        self.base_url = os.environ.get("API_URL", "").strip().rstrip("/")
         self.worker_key = os.environ.get("WORKER_API_KEY", "")
         self.user_id = os.environ.get("WORKER_USER_ID", "")
         self.worker_name = os.environ.get("WORKER_NAME", "worker-local-01")
@@ -47,7 +52,18 @@ class ControlApiClient:
 
     @property
     def enabled(self) -> bool:
-        return bool(self.worker_key and self.user_id)
+        return bool(self.base_url and self.worker_key and self.user_id)
+
+    def missing_settings(self) -> list[str]:
+        """Which required values are absent. Named so callers can say which."""
+        missing = []
+        if not self.base_url:
+            missing.append("API_URL")
+        if not self.worker_key:
+            missing.append("WORKER_API_KEY")
+        if not self.user_id:
+            missing.append("WORKER_USER_ID")
+        return missing
 
     def _headers(self, *, include_user: bool = True) -> dict[str, str]:
         headers = {"X-Worker-Key": self.worker_key}

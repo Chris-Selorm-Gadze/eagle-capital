@@ -23,7 +23,8 @@ def main() -> int:
     load_worker_env()
     client = get_api_client()
     if not client.enabled:
-        print("Set WORKER_API_KEY and WORKER_USER_ID in .env")
+        print(f"Not configured: {', '.join(client.missing_settings())} missing from .env")
+        print("Run .\\show-config.ps1 for the full picture.")
         return 1
 
     client.register_worker()
