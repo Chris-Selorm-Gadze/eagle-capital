@@ -15,3 +15,4 @@ dist
 
 # Artifact of local `deno check` on the edge functions.
 deno.lock
+.vercel
