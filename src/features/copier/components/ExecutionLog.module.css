@@ -120,9 +120,16 @@
   color: var(--text-secondary);
 }
 
-.errorText {
+/* The broker's note on a row. Its colour comes from the row's status, because
+   the same column carries "Request executed" on a success and the reason a copy
+   failed on a failure -- and those must not look alike. */
+.message {
   margin-top: 0.2rem;
   font-size: 0.78rem;
-  color: var(--critical);
   max-width: 32ch;
 }
+
+.msgGood  { color: var(--good); }
+.msgWarn  { color: var(--warning); }
+.msgBad   { color: var(--critical); }
+.msgMuted { color: var(--text-secondary); }

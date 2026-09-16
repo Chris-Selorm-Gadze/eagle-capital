@@ -22,6 +22,28 @@ const STATUS_TONE: Record<ExecutionStatus, string> = {
   rejected: 'toneBad',
 }
 
+/* The broker's own words for the row, which is NOT always an error.
+ *
+ * The worker stores the MT5 retcode comment in `error_message` whether the order
+ * succeeded or not -- there is only one text column -- so a perfectly good copy
+ * carried the comment "Request executed". Rendering that in red under a green
+ * "Copied" pill said two opposite things about the same row.
+ *
+ * So the message takes its colour from the status, never from the fact that the
+ * field happens to be populated. */
+const MESSAGE_TONE: Record<ExecutionStatus, string> = {
+  success: 'msgGood',
+  closed: 'msgGood',
+  modified: 'msgGood',
+  partial: 'msgWarn',
+  pending: 'msgWarn',
+  skipped_risk: 'msgWarn',
+  skipped_slippage: 'msgWarn',
+  duplicate_ignored: 'msgMuted',
+  failed: 'msgBad',
+  rejected: 'msgBad',
+}
+
 const STATUS_LABEL: Record<ExecutionStatus, string> = {
   success: 'Copied',
   closed: 'Closed',
@@ -134,7 +156,11 @@ export function ExecutionLog({ events, accounts }: { events: ExecutionEvent[]; a
                   <span className={`${styles.tone} ${styles[STATUS_TONE[e.status] ?? 'toneMuted']}`}>
                     {STATUS_LABEL[e.status] ?? e.status}
                   </span>
-                  {e.errorMessage && <div className={styles.errorText}>{e.errorMessage}</div>}
+                  {e.errorMessage && (
+                    <div className={`${styles.message} ${styles[MESSAGE_TONE[e.status] ?? 'msgMuted']}`}>
+                      {e.errorMessage}
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
