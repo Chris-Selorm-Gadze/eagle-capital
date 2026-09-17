@@ -63,6 +63,13 @@ class MT5Connector:
         # Remembered filling mode that last filled per symbol — tried first so a
         # repeat order skips the reject/retry dance.
         self._good_filling: Dict[str, int] = {}
+        # Symbols whose broker refused SL/TP on the opening deal. Market-
+        # execution brokers (Exness is one) always refuse, and the retry below
+        # spends a whole broker round trip -- ~285 ms on an Exness terminal --
+        # rediscovering that on every copy. Remembering it opens clean the first
+        # time and applies the stops straight after, which is what the retry did
+        # anyway.
+        self._stops_rejected_on_open: set[str] = set()
         # Resolved follower symbol per master symbol (filled by SymbolMapper).
         self._resolved_symbols: Dict[str, str] = {}
 
@@ -363,6 +370,17 @@ class MT5Connector:
 
         last_result = None
         stops_stripped = False
+
+        # Skip the send this broker has already refused for this symbol. The
+        # stops are not dropped: the success branch applies them through
+        # _ensure_position_stops exactly as it does after the retry, so this
+        # trades a guaranteed rejection for nothing.
+        if (want_sl or want_tp) and symbol in self._stops_rejected_on_open:
+            request["sl"] = 0.0
+            request["tp"] = 0.0
+            stops_stripped = True
+            logger.debug("mt5_open_stops_deferred", symbol=symbol)
+
         # order_send() returning None is the one failure that used to reach the
         # dashboard as a blank row: logged here, never sent anywhere. Hold the
         # reason so the executor can put it on the execution event.
@@ -385,6 +403,8 @@ class MT5Connector:
                 and (want_sl or want_tp)
             ):
                 logger.info("mt5_open_retry_without_stops", symbol=symbol)
+                # Pay this round trip once per symbol, not once per copy.
+                self._stops_rejected_on_open.add(symbol)
                 request["sl"] = 0.0
                 request["tp"] = 0.0
                 stops_stripped = True
