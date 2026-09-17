@@ -20,6 +20,7 @@ function account(id: string, over: Partial<TradingAccount> = {}): TradingAccount
     currency: 'USD',
     isEnabled: true,
     terminalPath: null,
+    brokerPingMs: null,
     lastConnectedAt: null,
     lastError: null,
     ...over,

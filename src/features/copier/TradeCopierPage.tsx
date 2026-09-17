@@ -562,6 +562,18 @@ function TradeCopierWorkspace() {
                       {a.terminalPath
                         ? <span className={styles.cellMuted} title={a.terminalPath}>{terminalFolder(a.terminalPath)}</span>
                         : <span className={styles.cellMuted}>terminal not assigned yet</span>}
+                      {/* Round trip to this broker's trade server. Copy latency
+                          cannot go below it, so a broker that is simply far away
+                          looks completely different here from one where the
+                          copier itself is slow. */}
+                      {a.brokerPingMs !== null && (
+                        <span
+                          className={styles.cellMuted}
+                          title="Round trip to this broker's trade server. Copy latency cannot go below it."
+                        >
+                          {a.brokerPingMs} ms to broker
+                        </span>
+                      )}
                       <button onClick={() => handleTestConnection(a)} disabled={testing}>
                         {testing ? 'Testing…' : 'Retest'}
                       </button>

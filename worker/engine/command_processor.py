@@ -286,12 +286,18 @@ def test_connection_command(
         mgr.ensure_account(restore_account)
 
     if ok:
+        diag = session.connector.terminal_diagnostics()
         result = {
             "success": True,
             "message": msg,
             "balance": health.get("balance"),
             "equity": health.get("equity"),
             "currency": health.get("currency"),
+            # Round trip to this broker's trade server. Copy latency cannot go
+            # below it, so it is the number that says whether a slow broker is a
+            # distance problem or a configuration one.
+            "ping_ms": diag.get("ping_ms"),
+            "terminal_build": diag.get("terminal_build"),
         }
         if claimed_path:
             result["terminal_path"] = claimed_path

@@ -578,6 +578,22 @@ async function completeCommand(commandId: string, body: Record<string, any>): Pr
       if (typeof result.terminal_path === 'string' && result.terminal_path.trim()) {
         patch.terminal_path = result.terminal_path.trim()
       }
+      // Broker ping goes in account_metadata rather than a new column: it is a
+      // diagnostic, not part of the account, and last_error is cleared on
+      // success so a successful test has nowhere else to say anything.
+      const diag: Record<string, unknown> = {}
+      if (typeof result.ping_ms === 'number') diag.ping_ms = result.ping_ms
+      if (result.terminal_build) diag.terminal_build = result.terminal_build
+      if (Object.keys(diag).length > 0) {
+        const { data: existing } = await admin
+          .from('trading_accounts').select('account_metadata')
+          .eq('id', cmd.trading_account_id).maybeSingle()
+        patch.account_metadata = {
+          ...((existing?.account_metadata as Record<string, unknown>) ?? {}),
+          ...diag,
+          diagnostics_at: nowIso(),
+        }
+      }
       await admin.from('trading_accounts').update(patch).eq('id', cmd.trading_account_id)
     } else {
       await admin.from('trading_accounts').update({

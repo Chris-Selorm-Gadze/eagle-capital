@@ -146,6 +146,38 @@ class MT5Connector:
         self.connected = False
         logger.info("mt5_shutdown", login=self.login)
 
+    def terminal_diagnostics(self) -> Dict[str, Any]:
+        """Ping to the trade server, and how lossy the link is.
+
+        This is the measurement that settles "is this broker slow because it is
+        far away, or because of something we are doing". MT5 tracks the round
+        trip to the trade server itself, so it isolates network distance from
+        anything in the copier.
+
+        Every field is read through getattr: terminal_info() is a named tuple
+        whose members vary by terminal build, and a diagnostic must never be the
+        thing that breaks a connection test.
+        """
+        if mt5 is None:
+            return {}
+        try:
+            info = mt5.terminal_info()
+        except Exception:
+            return {}
+        if info is None:
+            return {}
+
+        # ping_last is microseconds.
+        ping_us = getattr(info, "ping_last", None)
+        ping_ms = round(ping_us / 1000.0, 1) if isinstance(ping_us, (int, float)) and ping_us else None
+
+        return {
+            "ping_ms": ping_ms,
+            "retransmission_pct": getattr(info, "retransmission", None),
+            "terminal_build": getattr(info, "build", None),
+            "terminal_company": getattr(info, "company", None),
+        }
+
     def get_account_info(self) -> Optional[Dict[str, Any]]:
         """Fetch basic account information."""
         account_info = mt5.account_info()

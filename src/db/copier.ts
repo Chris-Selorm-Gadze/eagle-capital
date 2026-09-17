@@ -55,6 +55,10 @@ export interface TradingAccount {
   terminalPath: string | null
   lastConnectedAt: string | null
   lastError: string | null
+  /** Round trip to this broker's trade server, from the worker's terminal.
+   * Copy latency cannot go below it, so it separates "this broker is far away"
+   * from "something in the copier is slow". Written by a connection test. */
+  brokerPingMs: number | null
 }
 
 export interface CopierRelation {
@@ -138,6 +142,7 @@ export function accountFromRow(row: Record<string, any>): TradingAccount {
     terminalPath: row.terminal_path ?? null,
     lastConnectedAt: row.last_connected_at ?? null,
     lastError: row.last_error ?? null,
+    brokerPingMs: num(row.account_metadata?.ping_ms),
   }
 }
 
