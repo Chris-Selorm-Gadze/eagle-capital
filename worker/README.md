@@ -120,10 +120,23 @@ because MT5 allows a single login per terminal. Their copies **queue** — the
 worker logs into each in turn, and the last one waits for every switch ahead of
 it. The cost scales with follower count, it is not flat.
 
-To run them in parallel, install that broker's MT5 again into its own folder per
-account (`C:\MT5\ftmo-follower-1\`) and point each account at its own copy. The
-Trade Copier page names any accounts sharing an install, and the Copy log's
-**Login switching** figure is the measurement — zero means you're done.
+To run them in parallel, give each account its own copy of that broker's MT5:
+
+```powershell
+.\clone-terminals.ps1 -Broker all -Count 5
+```
+
+Then set each account's Terminal path to its own clone. The Trade Copier page
+names any accounts sharing an install, and the Copy log's **Login switching**
+figure is the measurement — zero means you're done.
+
+**A master and a follower must never share an install.** Two accounts queueing is
+slow; a master and its follower on one terminal is *unsafe* — the master monitor
+and the follower's pool worker race over that terminal's single login, and a lost
+race sends the copy to the master, opening a second trade there instead of
+copying to the follower. The worker now refuses to trade when the terminal is
+logged into the wrong account, so this fails loudly instead of silently, but the
+fix is separate folders.
 
 ---
 

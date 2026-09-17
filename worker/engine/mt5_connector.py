@@ -52,6 +52,8 @@ class MT5Connector:
         self.server = server
         self.terminal_path = terminal_path
         self.connected = False
+        # Set by any refused or failed send so callers can report the reason.
+        self.last_send_error: Optional[str] = None
         # Static per-symbol spec cache (digits/volume steps/filling flags). These
         # do not change intraday, so cache them to avoid a symbol_info() round
         # trip on every lot-normalize and filling lookup. (TTL guards rare spec
@@ -68,6 +70,33 @@ class MT5Connector:
         if mt5 is None:
             return None
         return mt5.last_error()
+
+    def wrong_account(self) -> Optional[str]:
+        """Is this terminal logged into the account we are about to trade?
+
+        MT5 allows ONE login per terminal instance, and more than one process can
+        be attached to the same terminal64.exe -- the master monitor and a
+        follower pool worker both are, whenever a master and its follower share a
+        terminal path. They then race over that single login, and the loser sends
+        its order to whichever account happens to be active. That is how a copy
+        lands a SECOND trade on the master instead of on the follower.
+
+        account_info() is a local IPC read, so checking costs far less than one
+        millisecond and is the only thing standing between a lost race and an
+        order on the wrong account. Returns None when safe, else why not.
+        """
+        if mt5 is None:
+            return "MetaTrader5 is not available"
+        info = mt5.account_info()
+        if info is None:
+            return f"terminal reports no account (MT5 {mt5.last_error()})"
+        if int(info.login) != int(self.login):
+            return (
+                f"terminal is logged into {info.login}, not {self.login}. Refusing to "
+                f"trade -- this account shares an MT5 install with another one. Give "
+                f"each account its own terminal folder."
+            )
+        return None
 
     def initialize(self, timeout_ms: int = 120_000) -> bool:
         """Initialize connection to the MT5 terminal and authorize the account."""
@@ -219,6 +248,12 @@ class MT5Connector:
         Place a market order (ORDER_TYPE_BUY or ORDER_TYPE_SELL).
         order_type should be mt5.ORDER_TYPE_BUY or mt5.ORDER_TYPE_SELL.
         """
+        wrong = self.wrong_account()
+        if wrong:
+            self.last_send_error = wrong
+            logger.error("mt5_wrong_account_abort", expected=self.login, detail=wrong, symbol=symbol)
+            return None
+
         symbol_info = self.get_symbol_info(symbol)
         if not symbol_info:
             return None
@@ -380,6 +415,12 @@ class MT5Connector:
         etc.) we fall back to a live ``positions_get`` and retry with the same
         filling-mode loop used for opens.
         """
+        wrong = self.wrong_account()
+        if wrong:
+            self.last_send_error = wrong
+            logger.error("mt5_wrong_account_abort_close", expected=self.login, detail=wrong, ticket=ticket)
+            return None
+
         if mt5 is None:
             return None
 
@@ -572,6 +613,12 @@ class MT5Connector:
         symbol, so when the caller passes a cached ``symbol`` we skip the
         ``positions_get`` round-trip. Stops are clamped to broker min distance.
         """
+        wrong = self.wrong_account()
+        if wrong:
+            self.last_send_error = wrong
+            logger.error("mt5_wrong_account_abort_modify", expected=self.login, detail=wrong, ticket=ticket)
+            return None
+
         position_type = None
         if not symbol or side is None:
             position = mt5.positions_get(ticket=ticket)
