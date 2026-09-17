@@ -254,13 +254,38 @@ class MT5Connector:
             logger.error("mt5_wrong_account_abort", expected=self.login, detail=wrong, symbol=symbol)
             return None
 
+        # Both of these used to `return None` recording nothing, so the copy log
+        # said "order_send returned nothing" about an order_send that was never
+        # reached -- a 3ms failure with no explanation. They are the two ways a
+        # copy dies before it is even attempted, and each has a different remedy.
         symbol_info = self.get_symbol_info(symbol)
         if not symbol_info:
+            self.last_send_error = (
+                f"{symbol} is not available on this account's broker. If the master "
+                f"trades it under another name, add a symbol mapping."
+            )
+            logger.error("mt5_symbol_unavailable", symbol=symbol)
             return None
 
         tick = mt5.symbol_info_tick(symbol)
-        if tick is None:
-            logger.error("mt5_no_tick", symbol=symbol, error=mt5.last_error())
+        if tick is None or (not tick.ask and not tick.bid):
+            # A symbol the broker offers but that is not in Market Watch returns
+            # no tick. get_symbol_info selects it, but caches for 600s -- so a
+            # symbol deselected since then looks fine and still has no prices.
+            # symbol_select is a local terminal call with no broker round-trip,
+            # so re-asserting it here is nearly free and turns a dead copy into a
+            # working one.
+            mt5.symbol_select(symbol, True)
+            tick = mt5.symbol_info_tick(symbol)
+
+        if tick is None or (not tick.ask and not tick.bid):
+            err = mt5.last_error()
+            self.last_send_error = (
+                f"No prices for {symbol} on this terminal. The market may be "
+                f"closed, or this account may not be permitted to trade it. "
+                f"(MT5 {err})"
+            )
+            logger.error("mt5_no_tick", symbol=symbol, error=err)
             return None
 
         # Determine price based on order type

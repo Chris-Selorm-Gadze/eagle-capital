@@ -133,3 +133,13 @@
 .msgWarn  { color: var(--warning); }
 .msgBad   { color: var(--critical); }
 .msgMuted { color: var(--text-secondary); }
+
+/* Where the milliseconds went. Muted because it is diagnostic detail under the
+   number people actually read. */
+.breakdown {
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

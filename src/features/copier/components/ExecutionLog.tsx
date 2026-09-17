@@ -61,6 +61,17 @@ function ms(value: number | null): string {
   return value === null ? '—' : `${value} ms`
 }
 
+/** Where the milliseconds went, when the worker reported it.
+ *
+ * A switch of 0 is worth stating rather than hiding: it is the confirmation that
+ * an account has its own terminal, and the number people are trying to get to. */
+function latencyBreakdown(e: ExecutionEvent): string | null {
+  const parts: string[] = []
+  if (e.orderMs !== null) parts.push(`broker ${e.orderMs}`)
+  if (e.switchMs !== null) parts.push(`switch ${e.switchMs}`)
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
 function shortTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
@@ -151,7 +162,19 @@ export function ExecutionLog({ events, accounts }: { events: ExecutionEvent[]; a
                 <td>{e.side ?? '—'}</td>
                 <td className={styles.num}>{e.executedLot ?? e.requestedLot ?? '—'}</td>
                 <td className={styles.num}>{e.slippagePoints ?? '—'}</td>
-                <td className={styles.num}>{ms(e.e2eMs)}</td>
+                <td className={styles.num}>
+                  {ms(e.e2eMs)}
+                  {/* The breakdown is the only thing that answers "why is this
+                      broker slower than that one". order_ms is the broker round
+                      trip -- a floor set by network distance, which no local
+                      change can improve. switch_ms is a login swap, which
+                      giving the account its own terminal removes entirely.
+                      Without these, a slow copy is indistinguishable from a
+                      badly configured one. */}
+                  {latencyBreakdown(e) && (
+                    <div className={styles.breakdown}>{latencyBreakdown(e)}</div>
+                  )}
+                </td>
                 <td>
                   <span className={`${styles.tone} ${styles[STATUS_TONE[e.status] ?? 'toneMuted']}`}>
                     {STATUS_LABEL[e.status] ?? e.status}
