@@ -22,6 +22,7 @@ from engine.signal import TradeSignal
 from engine.symbol_mapper import SymbolMapper
 from engine.ticket_mapper import TicketMapper
 from engine.risk_engine import RiskEngine
+from engine.platform_capabilities import is_mt5
 
 logger = structlog.get_logger()
 
@@ -92,6 +93,29 @@ class FollowerExecutor:
                     "copier_id": copier.id,
                     "event_type": signal.event_type,
                     "master_ticket": signal.ticket,
+                    **self._timing(signal.age_ms()),
+                }
+            )
+            return False
+
+        # A follower with no assigned terminal must not trade.
+        #
+        # A NULL terminal_path used to mean "use whichever terminal is already
+        # running": build_pool_plan skips such an account, so it executed inline
+        # on the active terminal -- which, when the master is on that terminal,
+        # is how a copy opened a SECOND trade on the master. It now means
+        # "unassigned", and unassigned means we stop rather than guess.
+        if is_mt5(self.follower.platform) and not (self.follower.terminal_path or "").strip():
+            self._emit(
+                {
+                    "status": "rejected",
+                    "copier_id": copier.id,
+                    "event_type": signal.event_type,
+                    "master_ticket": signal.ticket,
+                    "error_message": (
+                        "No MT5 terminal assigned to this account. Run Test connection "
+                        "on it -- the worker assigns one on a successful login."
+                    ),
                     **self._timing(signal.age_ms()),
                 }
             )
@@ -327,12 +351,17 @@ class FollowerExecutor:
         )
         latency_ms = int((time.perf_counter() - t0) * 1000)
 
+        # mt5 is None off Windows, and reading a constant from it there raises
+        # AttributeError -- which made this branch impossible to cover in tests
+        # on any machine that could run them. The retcode is a plain int, so
+        # resolving it once keeps the logic identical and the path testable.
+        done = getattr(mt5, "TRADE_RETCODE_DONE", 10009) if mt5 is not None else 10009
         already_flat = result is None or (
             result.get("comment") == "already_closed"
-            and result.get("retcode") == mt5.TRADE_RETCODE_DONE
+            and result.get("retcode") == done
         )
         success = already_flat or (
-            result is not None and result.get("retcode") == mt5.TRADE_RETCODE_DONE
+            result is not None and result.get("retcode") == done
         )
         if success:
             self.ticket_mapper.remove(

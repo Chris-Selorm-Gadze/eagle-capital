@@ -126,9 +126,18 @@ To run them in parallel, give each account its own copy of that broker's MT5:
 .\clone-terminals.ps1 -Broker all -Count 5
 ```
 
-Then set each account's Terminal path to its own clone. The Trade Copier page
-names any accounts sharing an install, and the Copy log's **Login switching**
-figure is the measurement — zero means you're done.
+**You do not assign them.** The worker scans `C:\MT5` and `Program Files`
+(override with `WORKER_TERMINAL_ROOTS`), matches folders to brokers by name, and
+claims a free one for each account on its first successful connection test. The
+choice is written back to the database and kept — reassigning would reset the
+warm session and make MT5 re-download history.
+
+When every terminal for a broker is taken, the account's test fails with
+*"All 5 terminals for this broker are already in use"* rather than silently
+sharing one. Run `clone-terminals.ps1` again to add capacity.
+
+The Copy log's **Login switching** figure is the measurement — zero means each
+account has its own install.
 
 **A master and a follower must never share an install.** Two accounts queueing is
 slow; a master and its follower on one terminal is *unsafe* — the master monitor

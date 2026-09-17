@@ -185,16 +185,20 @@ create table if not exists public.trading_accounts (
   updated_at timestamptz default now()
 );
 alter table public.trading_accounts add column if not exists terminal_path text;
+alter table public.trading_accounts add column if not exists broker_slug varchar(64);
 alter table public.trading_accounts add column if not exists api_base_url text;
 alter table public.trading_accounts add column if not exists account_metadata jsonb not null default '{}'::jsonb;
 alter table public.trading_accounts add column if not exists last_balance_sync_at timestamptz;
 
 comment on column public.trading_accounts.api_base_url is 'REST API root for non-terminal platforms (e.g. https://dxtrade.ftmo.com).';
-comment on column public.trading_accounts.terminal_path is 'Per-account MT5 install. A UNIQUE path per account is what removes switch_ms — see terminal_pool.py.';
+comment on column public.trading_accounts.terminal_path is 'Per-account MT5 install, ASSIGNED BY THE WORKER. NULL means unassigned — never "use whatever terminal is running". A UNIQUE path per account is what removes switch_ms — see terminal_pool.py.';
+comment on column public.trading_accounts.broker_slug is 'Broker preset the user chose. The worker matches it against the MT5 installs it can see.';
 
 create index if not exists idx_trading_accounts_user on public.trading_accounts(user_id);
 create index if not exists idx_trading_accounts_status on public.trading_accounts(connection_status);
 create index if not exists idx_trading_accounts_platform on public.trading_accounts(platform);
+create index if not exists idx_trading_accounts_terminal
+  on public.trading_accounts(user_id, terminal_path) where terminal_path is not null;
 create unique index if not exists idx_trading_accounts_unique_login
   on public.trading_accounts(user_id, platform, account_number, broker_server);
 create index if not exists idx_trading_accounts_metadata_firm

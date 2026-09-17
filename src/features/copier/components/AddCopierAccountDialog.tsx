@@ -15,6 +15,13 @@ import styles from './AddCopierAccountDialog.module.css'
  * The password is posted once to the copier gateway, which encrypts it with
  * AES-256-GCM before it reaches a row. It is never written to this app's own
  * tables and never kept in browser storage.
+ *
+ * There is no terminal path to fill in. Which MT5 install an account opens with
+ * is worker infrastructure, and asking a trader for
+ * `C:\MT5\exness-3\terminal64.exe` both leaks the machine into the product and
+ * fails the login in a way that reads exactly like a wrong password. The user
+ * picks a broker; the worker claims a free matching terminal on the first
+ * connection test. The Advanced override exists only for a non-standard install.
  */
 
 const PLATFORMS = [
@@ -41,20 +48,12 @@ export function AddCopierAccountDialog({ onClose, onSaved }: { onClose: () => vo
   const [password, setPassword] = useState('')
   const [label, setLabel] = useState('')
   const [terminalPath, setTerminalPath] = useState('')
-  const [pathTouched, setPathTouched] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const preset = getBrokerPreset(brokerSlug)
   const isMt5 = platform === 'mt5'
-
-  /* Prefill the terminal path from the chosen broker, but stop the moment the
-   * user edits it themselves — someone with a portable install in a custom
-   * folder should not have it silently overwritten when they change brokers. */
-  useEffect(() => {
-    if (pathTouched) return
-    setTerminalPath(preset?.terminalPaths[0] ?? '')
-  }, [brokerSlug, pathTouched, preset])
 
   /* Typing a server name is the more reliable signal of which broker this is —
    * people paste it straight from the MT5 login dialog. If it names a broker
@@ -78,6 +77,7 @@ export function AddCopierAccountDialog({ onClose, onSaved }: { onClose: () => vo
         brokerServer: brokerServer.trim(),
         password,
         label: label.trim() || undefined,
+        brokerSlug: isMt5 ? brokerSlug : undefined,
         terminalPath: terminalPath.trim() || undefined,
       })
       setPassword('')
@@ -117,15 +117,16 @@ export function AddCopierAccountDialog({ onClose, onSaved }: { onClose: () => vo
           {isMt5 && (
             <label className={styles.grow}>
               Broker
-              <select value={brokerSlug} onChange={(e) => { setBrokerSlug(e.target.value); setPathTouched(false) }}>
+              <select value={brokerSlug} onChange={(e) => setBrokerSlug(e.target.value)}>
                 <option value="">Select your broker…</option>
                 {BROKER_PRESETS.map((b) => (
                   <option key={b.slug} value={b.slug}>{b.name}{b.verified ? '' : ' *'}</option>
                 ))}
               </select>
               <span className={styles.hint}>
-                Sets the terminal path below. Getting it wrong fails the login in a way that
-                looks like a wrong password.
+                Decides which MT5 install on the worker this account opens with. Brokers are
+                not interchangeable, so getting it wrong fails the login in a way that looks
+                like a wrong password.
               </span>
             </label>
           )}
@@ -188,24 +189,37 @@ export function AddCopierAccountDialog({ onClose, onSaved }: { onClose: () => vo
         </label>
 
         {isMt5 && (
-          <label>
-            Terminal path
-            <input
-              value={terminalPath}
-              onChange={(e) => { setTerminalPath(e.target.value); setPathTouched(true) }}
-              placeholder="C:\\Program Files\\...\\terminal64.exe"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            {/* Not a preference. Every broker ships its own MT5 build, and the
-                worker must launch the matching one or the login fails with what
-                looks like a credentials error. */}
-            <span className={styles.hint}>
-              Which MT5 install on the worker machine this account opens with. Brokers are not
-              interchangeable — an FTMO account cannot be driven through the Exness terminal.
-              Two accounts sharing one path make the worker swap logins on every trade.
-            </span>
-          </label>
+          <div className={styles.advanced}>
+            <button
+              type="button"
+              className={styles.advancedToggle}
+              onClick={() => setShowAdvanced((v) => !v)}
+              aria-expanded={showAdvanced}
+            >
+              {showAdvanced ? '− Advanced' : '+ Advanced'}
+            </button>
+
+            {showAdvanced && (
+              <label>
+                Terminal path
+                <input
+                  value={terminalPath}
+                  onChange={(e) => setTerminalPath(e.target.value)}
+                  placeholder="leave empty — the worker assigns one"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                {/* An escape hatch, not the normal path. Assignment keeps each
+                    account on its own install, which is what makes copies run in
+                    parallel instead of queueing behind a login switch. */}
+                <span className={styles.hint}>
+                  Leave this empty. The worker picks a free MT5 install for this broker and
+                  remembers it. Only set it if you have a non-standard install the worker
+                  cannot find on its own.
+                </span>
+              </label>
+            )}
+          </div>
         )}
 
         {error && <p className={styles.error}>{error}</p>}

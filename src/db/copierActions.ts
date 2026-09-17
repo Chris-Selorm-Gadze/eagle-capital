@@ -69,6 +69,8 @@ export interface NewCopierAccount {
   brokerServer: string
   password: string
   label?: string
+  brokerSlug?: string
+  /** Optional override. Normally the worker assigns one. */
   terminalPath?: string
 }
 
@@ -81,6 +83,7 @@ export async function connectAccount(input: NewCopierAccount): Promise<void> {
     broker_server: input.brokerServer,
     password: input.password,
     account_label: input.label,
+    broker_slug: input.brokerSlug,
     terminal_path: input.terminalPath,
   })
 }

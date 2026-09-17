@@ -556,11 +556,14 @@ function TradeCopierWorkspace() {
                     <div className={styles.row}>
                       <span className={styles.cell}>{accountName(a)}</span>
                       <ConnectionPill account={a} pending={testing} />
+                      {/* An unassigned terminal is the normal state for a new
+                          account, not a fault: the worker claims one on the first
+                          successful connection test. */}
                       {a.terminalPath
                         ? <span className={styles.cellMuted} title={a.terminalPath}>{terminalFolder(a.terminalPath)}</span>
-                        : <span className={styles.badgeOff}>no terminal path</span>}
+                        : <span className={styles.cellMuted}>terminal not assigned yet</span>}
                       <button onClick={() => handleTestConnection(a)} disabled={testing}>
-                        {testing ? 'Queued…' : 'Test connection'}
+                        {testing ? 'Testing…' : 'Retest'}
                       </button>
                       <button onClick={() => setFixingAccount(a)} className="btn-ghost">
                         Fix credentials

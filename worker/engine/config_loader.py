@@ -67,6 +67,9 @@ class AccountConfig:
     api_base_url: Optional[str] = None
     platform: str = "mt5"
     enabled: bool = True
+    # Which broker's MT5 build this account needs. Used to match it to a
+    # terminal when terminal_path is unset -- see engine/terminal_registry.py.
+    broker_slug: Optional[str] = None
 
 
 @dataclass
@@ -144,6 +147,7 @@ def load_accounts() -> list[AccountConfig]:
                 password=str(row["password"]),
                 server=row["server"],
                 terminal_path=row.get("terminal_path"),
+                broker_slug=row.get("broker_slug"),
                 api_base_url=row.get("api_base_url"),
                 platform=str(row.get("platform") or "mt5"),
                 enabled=row.get("enabled", True),
@@ -163,6 +167,7 @@ def load_accounts() -> list[AccountConfig]:
                 password=str(row["password"]),
                 server=row["server"],
                 terminal_path=row.get("terminal_path"),
+                broker_slug=row.get("broker_slug"),
                 enabled=row.get("enabled", True),
             )
         )

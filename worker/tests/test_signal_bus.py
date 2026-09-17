@@ -8,10 +8,25 @@ from pathlib import Path
 from engine.signal_bus import SignalBusReader, bus_file_for_master
 
 
-def test_bus_file_for_master():
+def test_bus_file_for_master(monkeypatch):
+    # Pin the location rather than inheriting the host's. The real resolution is
+    # %APPDATA%\MetaQuotes\Terminal\Common\Files\delta_engine, matching where
+    # DeltaEngineSignalBus.mq5 writes; off Windows there is no APPDATA and the
+    # function falls back elsewhere, which made this assertion host-dependent.
+    monkeypatch.delenv("WORKER_SIGNAL_BUS_DIR", raising=False)
+    monkeypatch.setenv("APPDATA", r"C:\Users\someone\AppData\Roaming")
+
     path = bus_file_for_master("12345678")
     assert path.name == "signals_12345678.jsonl"
     assert path.parent.name == "delta_engine"
+    # The EA writes into the terminal's Common\Files, not the user's home.
+    assert "Common" in path.parts and "Files" in path.parts
+
+
+def test_bus_file_strips_anything_odd_from_the_login(monkeypatch):
+    monkeypatch.delenv("WORKER_SIGNAL_BUS_DIR", raising=False)
+    monkeypatch.setenv("APPDATA", r"C:\Users\someone\AppData\Roaming")
+    assert bus_file_for_master("12/34*56").name == "signals_123456.jsonl"
 
 
 def test_drain_parses_open_and_close(tmp_path, monkeypatch):

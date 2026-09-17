@@ -83,6 +83,109 @@ def flatten_account(session: AccountSession) -> dict[str, Any]:
     }
 
 
+def _folder_of(path: str) -> str:
+    """`C:\\MT5\\exness-2\\terminal64.exe` -> `exness-2`, for a readable message."""
+    import os
+
+    return os.path.basename(os.path.dirname(path)) or path
+
+
+def _other_account_paths(client, account_id: str) -> list[str]:
+    """Terminals this user's OTHER accounts already hold.
+
+    Exclusivity is the whole point of the assignment, so the set of taken
+    terminals has to come from the control plane rather than from anything local
+    -- another account may be connected but idle, holding its terminal without
+    this worker having touched it.
+    """
+    try:
+        me = client.whoami()
+    except Exception as exc:
+        logger.warning("terminal_assign_whoami_failed", error=str(exc))
+        # Returning [] would let two accounts claim one terminal, which is the
+        # exact failure being designed out. Signal "unknown" instead.
+        raise
+
+    return [
+        a.get("terminal_path")
+        for a in (me.get("accounts") or [])
+        if a.get("terminal_path") and a.get("id") != account_id
+    ]
+
+
+def _assign_terminal(client, row: dict[str, Any]) -> str | None:
+    """Claim a free MT5 install matching this account's broker."""
+    from engine.terminal_registry import claim_free_terminal, discover_terminals
+
+    try:
+        taken = _other_account_paths(client, row.get("id"))
+    except Exception:
+        return None
+
+    terminals = discover_terminals()
+    chosen = claim_free_terminal(terminals, row.get("broker_slug"), taken)
+    if chosen:
+        logger.info(
+            "terminal_assigned",
+            account=row.get("id"),
+            broker=row.get("broker_slug"),
+            terminal=chosen,
+        )
+    return chosen
+
+
+def _no_terminal_result(client, row: dict[str, Any]) -> dict[str, Any]:
+    """Explain *why* no terminal could be assigned, in the user's terms."""
+    from engine.terminal_registry import (
+        canonical_slug,
+        capacity_for,
+        discover_terminals,
+    )
+
+    slug = row.get("broker_slug")
+    terminals = discover_terminals()
+
+    if canonical_slug(slug) is None:
+        return {
+            "success": False,
+            "connection_status": "terminal_unavailable",
+            "message": (
+                "This account has no broker recorded, so no terminal could be "
+                "matched to it. Reconnect the account and pick its broker."
+            ),
+        }
+
+    try:
+        taken = _other_account_paths(client, row.get("id"))
+    except Exception:
+        return {
+            "success": False,
+            "connection_status": "terminal_unavailable",
+            "message": "Could not check which terminals are in use. Try again.",
+        }
+
+    used, total = capacity_for(terminals, slug, taken)
+    if total == 0:
+        return {
+            "success": False,
+            "connection_status": "terminal_unavailable",
+            "message": (
+                f"No MT5 install for this broker was found on the worker. "
+                f"Install it, or run clone-terminals.ps1 to add one."
+            ),
+        }
+
+    return {
+        "success": False,
+        "connection_status": "terminal_unavailable",
+        "message": (
+            f"All {total} terminal{'s' if total != 1 else ''} for this broker are "
+            f"already in use by other accounts ({used}/{total}). Run "
+            f"clone-terminals.ps1 on the worker to add another."
+        ),
+    }
+
+
 def test_connection_command(
     command: dict[str, Any],
     *,
@@ -148,6 +251,18 @@ def test_connection_command(
             }
 
     terminal_path = row.get("terminal_path")
+    claimed_path: str | None = None
+
+    if not terminal_path:
+        # No terminal yet: this is a new account, and picking one is the worker's
+        # job rather than the user's. The choice is returned in the result so the
+        # control plane can persist it -- an account must keep its terminal, or
+        # every restart resets its warm session and re-downloads history.
+        terminal_path = _assign_terminal(client, row)
+        if terminal_path is None:
+            return _no_terminal_result(client, row)
+        claimed_path = terminal_path
+
     session = AccountSession(
         account_id=row["id"],
         label=row.get("label") or row["id"],
@@ -171,14 +286,21 @@ def test_connection_command(
         mgr.ensure_account(restore_account)
 
     if ok:
-        return {
+        result = {
             "success": True,
             "message": msg,
             "balance": health.get("balance"),
             "equity": health.get("equity"),
             "currency": health.get("currency"),
         }
+        if claimed_path:
+            result["terminal_path"] = claimed_path
+            result["message"] = f"{msg} (terminal: {_folder_of(claimed_path)})"
+        return result
 
+    # A failed login says nothing about the terminal being the wrong one, so a
+    # claim is NOT persisted here. Retrying down the list of free terminals would
+    # burn every slot on a single mistyped password.
     return {
         "success": False,
         "connection_status": "auth_failed",

@@ -5,7 +5,13 @@ Run this on your Windows machine to verify execution capability.
 
 import os
 import sys
-import MetaTrader5 as mt5
+
+import pytest
+
+# These drive a real terminal against a real broker, so they only run on the
+# Windows machine. Skipping keeps `pytest tests/` usable everywhere instead of
+# failing at collection and taking the whole suite with it.
+mt5 = pytest.importorskip("MetaTrader5", reason="MetaTrader5 is Windows-only")
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from engine.mt5_connector import MT5Connector

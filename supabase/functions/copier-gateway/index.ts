@@ -179,6 +179,9 @@ async function runtimeAccount(row: Record<string, any>, role: string) {
     // host, not the Windows machine that owns the terminal, so on a Linux
     // deployment that check was always false. The worker knows its own disk.
     terminal_path: row.terminal_path ?? null,
+    // Which broker's MT5 build this account needs. The worker uses it to claim a
+    // matching terminal when terminal_path is null.
+    broker_slug: row.broker_slug ?? null,
     api_base_url: row.api_base_url ?? null,
     platform: String(row.platform ?? 'mt5'),
     enabled: row.is_enabled ?? true,
@@ -286,10 +289,20 @@ async function whoami(userId: string): Promise<Response> {
   const { data: user } = await admin
     .from('tc_users').select('id, email').eq('id', userId).maybeSingle()
 
-  const { data: accounts } = await admin
+  // Errors are surfaced, not swallowed. A select naming a column that does not
+  // exist returns no rows and no exception, so a forgotten migration looked
+  // exactly like "this user owns nothing" -- which is the single most
+  // misleading answer a diagnostic can give.
+  const { data: accounts, error: accErr } = await admin
     .from('trading_accounts')
-    .select('account_label, account_number, platform, connection_status, terminal_path')
+    .select('id, account_label, account_number, platform, connection_status, terminal_path, broker_slug, is_enabled')
     .eq('user_id', userId)
+  if (accErr) {
+    return json({
+      detail: `Could not read accounts: ${accErr.message}`,
+      hint: 'A missing column usually means a migration has not been run.',
+    }, 500)
+  }
 
   const { data: relations } = await admin
     .from('copier_relations').select('is_enabled').eq('user_id', userId)
@@ -299,11 +312,16 @@ async function whoami(userId: string): Promise<Response> {
     user_id: userId,
     known_user: Boolean(user),
     email: user?.email ?? null,
+    // The worker reads this to work out which terminals its other accounts
+    // already hold, so it can claim a free one for the account being tested.
     accounts: (accounts ?? []).map((a) => ({
+      id: a.id,
       label: a.account_label || String(a.account_number),
       platform: a.platform,
       connection_status: a.connection_status,
       terminal_path: a.terminal_path,
+      broker_slug: a.broker_slug ?? null,
+      enabled: a.is_enabled ?? true,
     })),
     relations: rels.length,
     enabled_relations: rels.filter((r) => r.is_enabled).length,
@@ -546,14 +564,21 @@ async function completeCommand(commandId: string, body: Record<string, any>): Pr
   if (cmd?.command_type === 'test_connection' && cmd.trading_account_id) {
     const result = body.result ?? {}
     if (success) {
-      await admin.from('trading_accounts').update({
+      const patch: Record<string, unknown> = {
         connection_status: 'connected',
         last_error: null,
         last_connected_at: nowIso(),
         balance: result.balance ?? null,
         equity: result.equity ?? null,
         currency: result.currency ?? null,
-      }).eq('id', cmd.trading_account_id)
+      }
+      // The worker assigns terminals; this is where an assignment becomes
+      // permanent. It must persist or the account would be reassigned on every
+      // restart, resetting its warm session and re-downloading history.
+      if (typeof result.terminal_path === 'string' && result.terminal_path.trim()) {
+        patch.terminal_path = result.terminal_path.trim()
+      }
+      await admin.from('trading_accounts').update(patch).eq('id', cmd.trading_account_id)
     } else {
       await admin.from('trading_accounts').update({
         connection_status: result.connection_status ?? 'auth_failed',
@@ -619,6 +644,40 @@ async function updateBalances(body: Record<string, any>): Promise<Response> {
   return json({ status: 'ok', updated: accounts.length })
 }
 
+/** Queue the connection test nobody should have to click.
+ *
+ * Only the worker can reach a broker, so something must queue work for it --
+ * but that something does not have to be a human pressing a button. Saving
+ * credentials IS the request to verify them.
+ *
+ * Best-effort on purpose: the account row is already written, and failing the
+ * user's save because the follow-up nudge failed would be worse than being
+ * untested. The manual button remains for re-testing.
+ */
+async function queueConnectionTest(userId: string, accountId: string): Promise<void> {
+  try {
+    // Don't stack tests. Each one is a real MT5 login, and on a shared terminal
+    // they serialise.
+    const { data: pending } = await admin
+      .from('worker_commands').select('id')
+      .eq('trading_account_id', accountId)
+      .eq('command_type', 'test_connection')
+      .eq('status', 'pending')
+      .limit(1)
+    if (pending && pending.length > 0) return
+
+    await admin.from('worker_commands').insert({
+      user_id: userId,
+      trading_account_id: accountId,
+      command_type: 'test_connection',
+      status: 'pending',
+      payload: {},
+    })
+  } catch (e) {
+    console.error('queueConnectionTest failed', e instanceof Error ? e.message : e)
+  }
+}
+
 /* ── User-facing: create an account ───────────────────────────────────────── */
 
 /** The only user-facing route here, because it is the only one that needs the
@@ -680,6 +739,8 @@ async function updateCredentials(
 
   const { error } = await admin.from('trading_accounts').update(update).eq('id', accountId)
   if (error) return json({ detail: error.message }, 500)
+
+  await queueConnectionTest(userId, accountId)
   return json({ status: 'ok' })
 }
 
@@ -708,7 +769,11 @@ async function createAccount(req: Request, body: Record<string, any>): Promise<R
     broker_server: brokerServer,
     encrypted_password: encrypted,
     account_label: body.account_label ?? null,
-    terminal_path: body.terminal_path ?? null,
+    broker_slug: body.broker_slug ?? null,
+    // Normally null: the worker claims a free terminal for this broker on the
+    // first connection test. A value here is an explicit override from the
+    // dialog's Advanced section, for a non-standard install.
+    terminal_path: body.terminal_path ? String(body.terminal_path).trim() : null,
     api_base_url: body.api_base_url ?? null,
   }).select('id, account_number, broker_server, account_label, platform, connection_status').single()
 
@@ -722,6 +787,7 @@ async function createAccount(req: Request, body: Record<string, any>): Promise<R
     return json({ detail: error.message }, 500)
   }
 
+  await queueConnectionTest(userId, data.id)
   return json(data, 201)
 }
 

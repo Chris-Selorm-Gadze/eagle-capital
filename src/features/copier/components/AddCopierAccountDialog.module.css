@@ -52,3 +52,39 @@
   border-left: 2px solid var(--border);
   background: var(--surface);
 }
+
+/* The terminal path lives here: an escape hatch for a non-standard install,
+   deliberately out of the normal flow. Normally the worker assigns one. */
+.advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.advancedToggle {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.advancedToggle:hover {
+  color: var(--text-primary);
+}
+
+.checkRow {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+}
+
+.checkRow input {
+  width: auto;
+}

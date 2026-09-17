@@ -3,7 +3,16 @@ import { Modal } from '../../../shared/ui/Modal'
 import { fixCredentials } from '../../../db/copierActions'
 import { getBrokerPreset, matchBrokerFromServer } from '../brokerPresets'
 import type { TradingAccount } from '../../../db/copier'
+
 import styles from './AddCopierAccountDialog.module.css'
+
+/** `C:\Program Files\FTMO ...\terminal64.exe` -> `FTMO ...`. The folder names the
+ * broker build; the full path is noise to anyone who did not type it. */
+function terminalFolder(path: string | null): string {
+  if (!path) return 'not assigned yet'
+  const parts = path.split(/[\\/]/).filter(Boolean)
+  return parts.length >= 2 ? (parts[parts.length - 2] as string) : path
+}
 
 /* Fixes a mistyped password without destroying the account.
  *
@@ -32,6 +41,7 @@ export function FixCredentialsDialog({
   const [password, setPassword] = useState('')
   const [brokerServer, setBrokerServer] = useState(account.brokerServer)
   const [terminalPath, setTerminalPath] = useState(account.terminalPath ?? '')
+  const [reassign, setReassign] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,7 +58,9 @@ export function FixCredentialsDialog({
       await fixCredentials(account.id, {
         password,
         brokerServer: brokerServer.trim() || undefined,
-        terminalPath: isMt5 ? (terminalPath.trim() || null) : undefined,
+        // null releases the terminal so the worker claims a free one again on
+        // the connection test this save triggers.
+        terminalPath: isMt5 ? (reassign ? null : (terminalPath.trim() || null)) : undefined,
       })
       setPassword('')
       onSaved()
@@ -62,7 +74,7 @@ export function FixCredentialsDialog({
     <Modal
       title={`Fix credentials for ${name}`}
       onClose={onClose}
-      dirty={password !== '' || brokerServer !== account.brokerServer}
+      dirty={password !== '' || brokerServer !== account.brokerServer || reassign}
       minWidth={460}
       footer={
         <div className={styles.actions}>
@@ -81,8 +93,8 @@ export function FixCredentialsDialog({
       <div className={styles.form}>
         <p className={styles.presetNote}>
           The account keeps its copy links, symbol mappings and risk limits. Only the
-          credentials change. It goes back to <strong>Disconnected</strong> afterwards —
-          test it again to find out whether the new ones work.
+          credentials change, and the connection is retested automatically as soon as you
+          save.
         </p>
 
         {account.lastError && (
@@ -139,21 +151,44 @@ export function FixCredentialsDialog({
         </label>
 
         {isMt5 && (
-          <label>
-            Terminal path
-            <input
-              value={terminalPath}
-              onChange={(e) => setTerminalPath(e.target.value)}
-              placeholder="C:\\Program Files\\...\\terminal64.exe"
-              autoComplete="off"
-              spellCheck={false}
-            />
+          <div className={styles.advanced}>
             <span className={styles.hint}>
-              Check this before blaming the password. Every broker ships its own MT5 build
-              and they are not interchangeable — the wrong one fails the login and the error
-              looks identical to bad credentials.
+              MT5 install: <strong>{terminalFolder(account.terminalPath)}</strong>
             </span>
-          </label>
+
+            {/* Releasing the terminal is the useful action here. Editing the path
+                by hand is the escape hatch, not the remedy — the worker keeps
+                each account on its own install, which is what stops their copies
+                queueing behind a login switch. */}
+            <label className={styles.checkRow}>
+              <input
+                type="checkbox"
+                checked={reassign}
+                onChange={(e) => setReassign(e.target.checked)}
+              />
+              <span>
+                Let the worker pick a different MT5 install for this account
+              </span>
+            </label>
+
+            {!reassign && (
+              <label>
+                Terminal path
+                <input
+                  value={terminalPath}
+                  onChange={(e) => setTerminalPath(e.target.value)}
+                  placeholder="leave empty — the worker assigns one"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <span className={styles.hint}>
+                  Only set this for a non-standard install. Every broker ships its own MT5
+                  build and they are not interchangeable — the wrong one fails the login and
+                  the error looks identical to bad credentials.
+                </span>
+              </label>
+            )}
+          </div>
         )}
 
         {error && <p className={styles.error}>{error}</p>}

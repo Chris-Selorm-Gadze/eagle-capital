@@ -30,6 +30,10 @@ export interface GatewayAccountInput {
   broker_server: string
   password: string
   account_label?: string
+  /** Which broker preset the user picked. The worker matches it against the MT5
+   * installs on its machine to assign a terminal, so the user never sees a path. */
+  broker_slug?: string
+  /** Normally omitted. An override for a non-standard install. */
   terminal_path?: string
   api_base_url?: string
 }
