@@ -280,13 +280,18 @@ def test_connection_command(
     session._connector.connected = ok
     if ok:
         ok, msg = session.confirm_connected()
+
+    # Read health AND diagnostics while still attached to the account under
+    # test. restore_account switches the terminal back to whatever the copier
+    # was using, and anything read after that describes the restored terminal,
+    # not this one -- which made every account report an identical ping.
     health = session.get_health() if ok else {}
+    diag = session.connector.terminal_diagnostics() if ok else {}
 
     if restore_account:
         mgr.ensure_account(restore_account)
 
     if ok:
-        diag = session.connector.terminal_diagnostics()
         result = {
             "success": True,
             "message": msg,

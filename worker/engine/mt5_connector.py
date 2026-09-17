@@ -154,11 +154,22 @@ class MT5Connector:
         trip to the trade server itself, so it isolates network distance from
         anything in the copier.
 
+        Returns {} unless the terminal is currently logged into THIS account.
+        terminal_info() describes whichever terminal the process is attached to,
+        and a caller that reads it after switching login gets a number belonging
+        to a different account. That happened: every account reported an
+        identical ping, because the read came after the terminal had been
+        restored to the master. Refusing to answer when misattribution is
+        possible is what makes the number worth showing at all.
+
         Every field is read through getattr: terminal_info() is a named tuple
         whose members vary by terminal build, and a diagnostic must never be the
         thing that breaks a connection test.
         """
         if mt5 is None:
+            return {}
+        if self.wrong_account() is not None:
+            logger.debug("terminal_diagnostics_skipped_wrong_account", expected=self.login)
             return {}
         try:
             info = mt5.terminal_info()
