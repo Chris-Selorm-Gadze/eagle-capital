@@ -11,7 +11,8 @@ import {
 	useSidebar,
 } from "@/components/ui/sidebar";
 import { NavGroup } from "@/components/nav-group";
-import { navGroups } from "@/components/app-shared";
+import { visibleNavGroups } from "@/components/app-shared";
+import { brokerSyncConfigured } from "@/lib/brokerSyncClient";
 import { NavUser } from "@/components/nav-user";
 import { useAppNav } from "@/components/app-nav-context";
 import { PlusIcon } from "lucide-react";
@@ -20,6 +21,9 @@ export function AppSidebar({ onAddTrade }: { onAddTrade: () => void }) {
 	const { navigate } = useAppNav();
 	const { state } = useSidebar();
 	const collapsed = state === "collapsed";
+	// Broker Connections and Live Positions are served by a parked backend.
+	// Hidden rather than disabled: a nav entry is a promise the page works.
+	const groups = visibleNavGroups({ brokerSync: brokerSyncConfigured });
 
 	return (
 		<Sidebar collapsible="icon" variant="inset">
@@ -47,7 +51,7 @@ export function AppSidebar({ onAddTrade }: { onAddTrade: () => void }) {
 					</SidebarMenuItem>
 				</SidebarGroup>
 
-				{navGroups.map((group, index) => (
+				{groups.map((group, index) => (
 					<NavGroup key={group.label ?? `group-${index}`} {...group} />
 				))}
 			</SidebarContent>

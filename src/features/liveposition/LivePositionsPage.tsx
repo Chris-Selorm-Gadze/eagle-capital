@@ -4,7 +4,7 @@ import { AuthPage } from '../auth/AuthPage'
 import { ComingSoonSection } from '../../shared/ui/ComingSoonSection'
 import { livePositionsConfigured, type LiveAccountPositions } from '../../lib/livePositionsClient'
 import { subscribeLivePositions } from '../../lib/livePositionsSocket'
-import { setupNotice } from '../../shared/setupNotice'
+import { ParkedFeature } from '../../shared/ui/ParkedFeature'
 import styles from './LivePositionsPage.module.css'
 
 // The backend WS route can be slow to roll out across environments (or not deployed yet) — the
@@ -130,6 +130,33 @@ export function LivePositionsPage() {
 
   if (loading) return null
 
+  // Parked before anything else: LivePositionsWorkspace opens a socket that
+  // retries forever, so mounting it against a backend that isn't there spends
+  // eight seconds arriving at "Loading live positions…" and then a timeout.
+  if (!livePositionsConfigured) {
+    return (
+      <div>
+        <h1 className="page-title" style={{ marginBottom: '0.4rem' }}>Live Positions</h1>
+        <ParkedFeature
+          what={
+            <>
+              This page streamed every connected account’s open positions into one view. It
+              is served by a separate broker-sync service that isn’t running, so there is
+              nothing to show here — nothing is broken and no data has been lost.
+            </>
+          }
+          instead={
+            <>
+              <strong>Trade Copier</strong> shows each account’s live connection, its ping to
+              the broker, and every copy it makes.
+            </>
+          }
+          envVars={['VITE_BROKER_SYNC_API_URL']}
+        />
+      </div>
+    )
+  }
+
   return (
     <div>
       <h1 className="page-title" style={{ marginBottom: '0.4rem' }}>Live Positions</h1>
@@ -137,15 +164,6 @@ export function LivePositionsPage() {
         Every connected account's open positions in one place — no toggling between accounts.
         Updates live as positions open, close, or move.
       </p>
-
-      {!livePositionsConfigured && (
-        <p className={styles.configNotice}>
-          {setupNotice(
-            'Live positions aren’t available right now — this page can’t reach the broker sync service.',
-            ['VITE_BROKER_SYNC_API_URL'],
-          )}
-        </p>
-      )}
 
       {!user ? (
         <>

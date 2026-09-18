@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
 import { ComingSoonSection } from '../../shared/ui/ComingSoonSection'
+import { ParkedFeature } from '../../shared/ui/ParkedFeature'
 import { Modal } from '../../shared/ui/Modal'
 import { supabaseConfigured } from '../../lib/supabaseClient'
 import {
@@ -281,7 +282,10 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
   }
 
   useEffect(() => {
-    if (user) load()
+    // Guarded here as well as at the render below: an early return does not
+    // stop an effect declared above it, and load() calls getDeploymentState
+    // per connection -- a burst of failing requests behind a parked page.
+    if (user && brokerSyncConfigured) load()
   }, [user])
 
   async function handleUndeploy(connectionId: string) {
@@ -378,6 +382,38 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
             ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'],
           )}
         </ComingSoonSection>
+      </div>
+    )
+  }
+
+  // Everything on this page -- credential intake, "Sync now", the MetaApi
+  // deploy/undeploy billing controls -- is an endpoint on the broker-sync
+  // service. With that parked there is no subset worth rendering, and the old
+  // behaviour (the full page with every button disabled) read as broken rather
+  // than switched off. Checked before the sign-in prompt: there is no reason to
+  // ask someone to sign in to reach a parked page.
+  if (!brokerSyncConfigured) {
+    return (
+      <div>
+        <h1 className="page-title">Broker Connections</h1>
+        <ParkedFeature
+          what={
+            <>
+              This page connected a broker once and then kept your journal in step with it —
+              importing closed trades and keeping balances current. It runs on a separate
+              broker-sync service that isn’t deployed, so none of its controls would do
+              anything. Any connections you saved are still stored and untouched.
+            </>
+          }
+          instead={
+            <>
+              <strong>Trade Copier</strong> connects MT5 accounts for copying, through your own
+              worker rather than a hosted service. Trades reach the journal by{' '}
+              <strong>Log a trade</strong> or a CSV import until the sync is revived.
+            </>
+          }
+          envVars={['VITE_BROKER_SYNC_API_URL']}
+        />
       </div>
     )
   }

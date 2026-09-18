@@ -8,6 +8,7 @@ import { notifyPathChange } from './landing/routes'
 import { AppShell } from './components/app-shell'
 import { ConfirmProvider } from './shared/ui/confirm'
 import { navItemFor } from './components/app-shared'
+import { brokerSyncConfigured } from './lib/brokerSyncClient'
 import { DashboardSkeleton } from './features/dashboard/components/DashboardSkeleton'
 import { LoadError } from './shared/ui/LoadError'
 import { buildLedgers } from './utils/ledger'
@@ -305,7 +306,9 @@ export default function App() {
           <AddTradeChooserDialog
             onSelectManual={() => { setChoosingAddMethod(false); setAddingTrade(true) }}
             onSelectImport={() => { setChoosingAddMethod(false); setImportingTrades(true) }}
-            onSelectBroker={() => { setChoosingAddMethod(false); handleNavigate('brokers') }}
+            onSelectBroker={brokerSyncConfigured
+              ? () => { setChoosingAddMethod(false); handleNavigate('brokers') }
+              : undefined}
             onClose={() => setChoosingAddMethod(false)}
           />
         )}

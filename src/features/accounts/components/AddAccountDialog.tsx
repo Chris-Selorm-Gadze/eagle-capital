@@ -352,7 +352,14 @@ export function AddAccountDialog({
         <div className={styles.kindChoice}>
           <button className={styles.kindOption} onClick={() => setKind('live')}>
             <div className={styles.kindTitle}>Live account</div>
-            <div className={styles.kindDesc}>A real broker account you trade on — connect it and we pull balance, currency, and login straight from the broker. No prop-firm rules.</div>
+            {/* The pull is the broker-sync service's job. Promising it while
+                that is parked sends someone down this branch expecting an
+                import and finding an explanation. */}
+            <div className={styles.kindDesc}>
+              {brokerSyncConfigured
+                ? 'A real broker account you trade on — connect it and we pull balance, currency, and login straight from the broker. No prop-firm rules.'
+                : 'A real broker account you trade on, with no prop-firm rules. Automatic balance and history sync is parked.'}
+            </div>
           </button>
           <button className={styles.kindOption} onClick={() => setKind('prop')}>
             <div className={styles.kindTitle}>Prop firm account</div>

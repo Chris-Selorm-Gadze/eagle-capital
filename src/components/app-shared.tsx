@@ -13,10 +13,18 @@ import type { NavKey } from "@/shared/routing";
  * Items carry a NavKey rather than an href: the app routes through App.tsx's
  * history handling, not through anchor navigation. */
 
+/** A backend some pages need that may not be running. Broker Connections and
+ * Live Positions are both served by the separate eaglecapital-broker-sync
+ * service, which is parked -- so the sidebar drops them rather than offering a
+ * door that opens onto a notice. Setting the URL brings both back. */
+export type NavRequirement = "brokerSync";
+
 export type SidebarNavItem = {
 	title: string;
 	key: NavKey;
 	icon?: ReactNode;
+	/** Backend this page needs. Absent means it always works. */
+	requires?: NavRequirement;
 };
 
 export type SidebarNavGroup = {
@@ -28,7 +36,7 @@ export const navGroups: SidebarNavGroup[] = [
 	{
 		items: [
 			{ title: "Dashboard", key: "dashboard", icon: <LayoutGridIcon /> },
-			{ title: "Live Positions", key: "livepositions", icon: <ZapIcon /> },
+			{ title: "Live Positions", key: "livepositions", icon: <ZapIcon />, requires: "brokerSync" },
 		],
 	},
 	{
@@ -52,7 +60,7 @@ export const navGroups: SidebarNavGroup[] = [
 		label: "Accounts",
 		items: [
 			{ title: "Prop Firm Manager", key: "cockpit", icon: <BriefcaseIcon /> },
-			{ title: "Broker Connections", key: "brokers", icon: <PlugIcon /> },
+			{ title: "Broker Connections", key: "brokers", icon: <PlugIcon />, requires: "brokerSync" },
 			{ title: "Trade Copier", key: "tradecopier", icon: <CopyIcon /> },
 		],
 	},
@@ -62,7 +70,31 @@ export const navGroups: SidebarNavGroup[] = [
 	},
 ];
 
-/** Flat lookup, used by the header breadcrumb to name the current page. */
+/** The groups to render, given which optional backends are reachable.
+ *
+ * A group whose every item is unavailable is dropped entirely, so a parked
+ * feature cannot leave a heading with nothing under it.
+ *
+ * Takes the flags rather than reading them, like `isUsableApiUrl(url, isProd)`
+ * and `buildSetupNotice(..., isDev)` -- it keeps the filtering testable without
+ * a build-time environment.
+ */
+export function visibleNavGroups(
+	available: Record<NavRequirement, boolean>,
+): SidebarNavGroup[] {
+	return navGroups
+		.map((g) => ({
+			...g,
+			items: g.items.filter((i) => !i.requires || available[i.requires]),
+		}))
+		.filter((g) => g.items.length > 0);
+}
+
+/** Flat lookup, used by the header breadcrumb to name the current page.
+ *
+ * Deliberately over the FULL list, not the visible one: a parked page reached
+ * by URL or an old bookmark still routes, and its breadcrumb should name it
+ * rather than fall back to "Dashboard". */
 export const navLinks: SidebarNavItem[] = navGroups.flatMap((g) => g.items);
 
 export function navItemFor(key: NavKey): SidebarNavItem | undefined {
