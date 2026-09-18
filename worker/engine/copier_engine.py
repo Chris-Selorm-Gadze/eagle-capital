@@ -24,6 +24,7 @@ from engine.config_loader import (
     load_symbol_mappings,
 )
 from engine.balance_sync import should_sync_balances, sync_all_balances
+from engine.trade_journal import should_sync_trades, sync_all_trades
 from engine.command_processor import process_command
 from engine.dispatch_coordinator import dispatch_to_followers
 from engine.master_source import MasterPositionSource, build_master_source
@@ -575,6 +576,10 @@ class CopierEngine:
                 self._poll_commands(poll_session)
             if should_sync_balances():
                 sync_all_balances(self.accounts, self._sessions)
+            # Journalling is a background reconciliation, like balances -- both
+            # run after dispatch so neither can add latency to a copy.
+            if should_sync_trades():
+                sync_all_trades(self.accounts, self._sessions)
 
         self._last_poll_at = time.time()
 

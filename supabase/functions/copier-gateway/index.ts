@@ -185,6 +185,13 @@ async function runtimeAccount(row: Record<string, any>, role: string) {
     api_base_url: row.api_base_url ?? null,
     platform: String(row.platform ?? 'mt5'),
     enabled: row.is_enabled ?? true,
+    // The dashboard account this account's closed trades are journalled
+    // against, and where its deal-history read should resume from. Null means
+    // "not journalled" -- the worker then does not read history for it at all,
+    // which is also how linking one takes effect on the next config reload
+    // rather than on a restart.
+    journal_account_id: row.account_id ?? null,
+    history_synced_to: row.history_synced_to ?? null,
   }
 }
 
@@ -660,6 +667,151 @@ async function updateBalances(body: Record<string, any>): Promise<Response> {
   return json({ status: 'ok', updated: accounts.length })
 }
 
+/* A side is 'long' or 'short' in this app, and nothing else may reach the
+ * column: every consumer (ledger, win rate, the P&L sign) branches on it. */
+const TRADE_SIDES = new Set(['long', 'short'])
+
+function finiteNumber(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function isoOrNull(value: unknown): string | null {
+  if (typeof value !== 'string' || !value) return null
+  const t = Date.parse(value)
+  return Number.isNaN(t) ? null : new Date(t).toISOString()
+}
+
+/** One worker-reported position as a `trades` row, or null if it is malformed.
+ *
+ * Validated rather than trusted. The worker is authenticated, but a bad row
+ * here becomes a wrong equity curve that is hard to trace back, and NOT NULL
+ * columns would otherwise fail the whole batch over one bad entry.
+ */
+function tradeRow(
+  userId: string,
+  dashboardAccountId: string,
+  t: Record<string, any>,
+): Record<string, unknown> | null {
+  const externalId = typeof t.external_id === 'string' ? t.external_id.trim() : ''
+  const symbol = typeof t.symbol === 'string' ? t.symbol.trim() : ''
+  const side = typeof t.side === 'string' ? t.side.trim().toLowerCase() : ''
+  const qty = finiteNumber(t.qty)
+  const entryPrice = finiteNumber(t.entry_price)
+  const exitPrice = finiteNumber(t.exit_price)
+  const pnl = finiteNumber(t.pnl)
+  const entryTime = isoOrNull(t.entry_time)
+  const exitTime = isoOrNull(t.exit_time)
+
+  if (!externalId || !symbol || !TRADE_SIDES.has(side)) return null
+  if (qty === null || qty <= 0) return null
+  if (entryPrice === null || exitPrice === null || pnl === null) return null
+  if (!entryTime || !exitTime) return null
+
+  const fees = finiteNumber(t.fees)
+
+  return {
+    user_id: userId,
+    account_id: dashboardAccountId,
+    external_id: externalId,
+    symbol,
+    side,
+    qty,
+    entry_price: entryPrice,
+    exit_price: exitPrice,
+    entry_time: entryTime,
+    exit_time: exitTime,
+    fees: fees === null ? null : fees,
+    // MT5's own realised figure, written verbatim. NOT recomputed from the
+    // prices: (exit - entry) * qty assumes one unit of volume is worth one
+    // currency unit per point, which is false for index CFDs, metals and
+    // crypto. src/db/trades.ts carries the same warning as `pnlOverride`.
+    pnl,
+    // NOT NULL, so it needs a value -- but it is not the value the app reads.
+    // src/db/trades.ts `fromRow` derives the trading day from entry_time in the
+    // trader's own zone, precisely because a UTC date files an evening US
+    // session on the following day. This is the same UTC slice existing rows
+    // have, and is corrected on read.
+    date: entryTime.slice(0, 10),
+  }
+}
+
+/** Journal closed positions against the dashboard account this copier account
+ * is linked to.
+ *
+ * The worker cannot do this itself: it does not know the link, and writing
+ * another table on the user's behalf needs the service-role key that only lives
+ * here. Idempotent by (user_id, external_id) -- the worker re-reads its history
+ * window every cycle, so a repeat has to be a no-op rather than a duplicate.
+ */
+async function journalClosedTrades(body: Record<string, any>): Promise<Response> {
+  const userId = body.user_id
+  const tradingAccountId = body.trading_account_id
+  const trades: Record<string, any>[] = Array.isArray(body.trades) ? body.trades : []
+  const syncedTo = isoOrNull(body.synced_to)
+
+  if (!userId) return json({ detail: 'user_id is required' }, 422)
+  if (!tradingAccountId) return json({ detail: 'trading_account_id is required' }, 422)
+
+  const { data: account, error: accErr } = await admin
+    .from('trading_accounts')
+    .select('id, account_id')
+    .eq('id', tradingAccountId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (accErr) {
+    return json({
+      detail: `Could not read the account: ${accErr.message}`,
+      hint: 'A missing column usually means a migration has not been run.',
+    }, 500)
+  }
+  if (!account) return json({ detail: 'Account not found' }, 404)
+
+  // Not linked to a dashboard account yet. Not an error -- and deliberately
+  // does NOT advance history_synced_to, so linking one later still picks these
+  // trades up instead of starting from the moment of the link.
+  if (!account.account_id) {
+    return json({ status: 'ok', written: 0, skipped: trades.length, linked: false })
+  }
+
+  const rows: Record<string, unknown>[] = []
+  let malformed = 0
+  for (const t of trades) {
+    const row = tradeRow(userId, account.account_id, t)
+    if (row) rows.push(row)
+    else malformed += 1
+  }
+
+  if (rows.length > 0) {
+    const { error } = await admin
+      .from('trades')
+      .upsert(rows, { onConflict: 'user_id,external_id' })
+    if (error) {
+      // The mark is not advanced on a failed write, so the next cycle retries
+      // the same window rather than losing these trades.
+      return json({
+        detail: `Could not write trades: ${error.message}`,
+        hint: 'A missing external_id column or unique index usually means a migration has not been run.',
+      }, 500)
+    }
+  }
+
+  if (syncedTo) {
+    await admin
+      .from('trading_accounts')
+      .update({ history_synced_to: syncedTo })
+      .eq('id', tradingAccountId)
+      .eq('user_id', userId)
+  }
+
+  return json({
+    status: 'ok',
+    written: rows.length,
+    skipped: malformed,
+    linked: true,
+  })
+}
+
 /** Queue the connection test nobody should have to click.
  *
  * Only the worker can reach a broker, so something must queue work for it --
@@ -873,6 +1025,7 @@ Deno.serve(async (req) => {
       if (path === '/internal/execution-events' && method === 'POST') return createEvent(body, userId!)
       if (path === '/internal/execution-events/batch' && method === 'POST') return createEventBatch(body, userId!)
       if (path === '/internal/account-balances' && method === 'POST') return updateBalances(body)
+      if (path === '/internal/closed-trades' && method === 'POST') return journalClosedTrades(body)
 
       const trading = path.match(/^\/internal\/trading-accounts\/([^/]+)$/)
       if (trading && method === 'GET') {

@@ -59,6 +59,13 @@ export interface TradingAccount {
    * Copy latency cannot go below it, so it separates "this broker is far away"
    * from "something in the copier is slow". Written by a connection test. */
   brokerPingMs: number | null
+  /** The dashboard account (`accounts`) this account's closed trades are
+   * journalled against, or null for not journalled.
+   *
+   * The copier and the dashboard were two separate universes: copying six
+   * accounts all day left the dashboard reading "Your desk is empty", because
+   * nothing joined `trading_accounts` to `accounts`. This is that join. */
+  journalAccountId: string | null
 }
 
 export interface CopierRelation {
@@ -143,6 +150,7 @@ export function accountFromRow(row: Record<string, any>): TradingAccount {
     lastConnectedAt: row.last_connected_at ?? null,
     lastError: row.last_error ?? null,
     brokerPingMs: num(row.account_metadata?.ping_ms),
+    journalAccountId: row.account_id ?? null,
   }
 }
 

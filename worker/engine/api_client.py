@@ -283,6 +283,40 @@ class ControlApiClient:
             include_user=False,
         )
 
+    def post_closed_trades(
+        self,
+        trading_account_id: str,
+        trades: list[dict[str, Any]],
+        synced_to: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Hand finished positions to the gateway to journal.
+
+        The gateway owns the write because only it knows which dashboard account
+        this copier account is linked to, and only it holds the service-role key
+        that can write another table on the user's behalf.
+
+        Returns the gateway's summary -- {written, skipped, linked} -- so the
+        caller can log what actually landed rather than what was sent. An
+        account with no dashboard account linked yet is a skip, not an error.
+        """
+        if not self.user_id:
+            return {}
+        response = self._request(
+            "POST",
+            "/internal/closed-trades",
+            json={
+                "user_id": self.user_id,
+                "trading_account_id": trading_account_id,
+                "trades": trades,
+                "synced_to": synced_to,
+            },
+            include_user=False,
+        )
+        try:
+            return response.json()
+        except ValueError:
+            return {}
+
 
 _client: Optional[ControlApiClient] = None
 

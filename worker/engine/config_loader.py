@@ -70,6 +70,12 @@ class AccountConfig:
     # Which broker's MT5 build this account needs. Used to match it to a
     # terminal when terminal_path is unset -- see engine/terminal_registry.py.
     broker_slug: Optional[str] = None
+    # The dashboard account (public.accounts) this account's closed trades are
+    # journalled against. None means not journalled, and the worker then never
+    # reads this account's deal history -- see engine/trade_journal.py.
+    journal_account_id: Optional[str] = None
+    # Where the deal-history read resumes from, as the gateway last stored it.
+    history_synced_to: Optional[str] = None
 
 
 @dataclass
@@ -151,6 +157,8 @@ def load_accounts() -> list[AccountConfig]:
                 api_base_url=row.get("api_base_url"),
                 platform=str(row.get("platform") or "mt5"),
                 enabled=row.get("enabled", True),
+                journal_account_id=row.get("journal_account_id"),
+                history_synced_to=row.get("history_synced_to"),
             )
             for row in payload.get("accounts", [])
         ]

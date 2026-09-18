@@ -20,6 +20,9 @@ import { WorkerStatus } from './components/WorkerStatus'
 import { ExecutionLog } from './components/ExecutionLog'
 import { AddCopierAccountDialog } from './components/AddCopierAccountDialog'
 import { FixCredentialsDialog } from './components/FixCredentialsDialog'
+import { JournalLinkDialog } from './components/JournalLinkDialog'
+import { listAccounts } from '../../db/accounts'
+import type { Account } from '../../types'
 import styles from './TradeCopierPage.module.css'
 
 /* Trade Copier.
@@ -254,7 +257,7 @@ function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => 
   )
 }
 
-function TradeCopierWorkspace() {
+function TradeCopierWorkspace({ userId }: { userId: string }) {
   const confirm = useConfirm()
 
   const [accounts, setAccounts] = useState<TradingAccount[]>([])
@@ -272,6 +275,11 @@ function TradeCopierWorkspace() {
   const [notice, setNotice] = useState<string | null>(null)
   const [addingAccount, setAddingAccount] = useState(false)
   const [fixingAccount, setFixingAccount] = useState<TradingAccount | null>(null)
+  const [journallingAccount, setJournallingAccount] = useState<TradingAccount | null>(null)
+  // The dashboard's own accounts, which are a different table from the copier's
+  // -- `accounts` versus `trading_accounts`. Loaded here only so an account can
+  // be pointed at one of them.
+  const [dashboardAccounts, setDashboardAccounts] = useState<Account[]>([])
 
   const [masterId, setMasterId] = useState('')
   const [followerId, setFollowerId] = useState('')
@@ -286,14 +294,16 @@ function TradeCopierWorkspace() {
   const load = useCallback(async () => {
     setLoadError(null)
     try {
-      const [a, r, p, w, e, c] = await Promise.all([
+      const [a, r, p, w, e, c, d] = await Promise.all([
         listTradingAccounts(),
         listCopierRelations(),
         listRiskProfiles(),
         listWorkerNodes(),
         listRecentExecutionEvents(),
         listPendingCommands(),
+        listAccounts(),
       ])
+      setDashboardAccounts(d)
       setAccounts(a)
       setRelations(r)
       setRiskProfiles(p)
@@ -308,6 +318,14 @@ function TradeCopierWorkspace() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  /* Dashboard accounts already receiving trades from a connected account. One
+   * each, or a master and its five followers would all write the same fill to
+   * one account and sextuple its P&L. */
+  const takenJournalIds = useMemo(
+    () => new Set(accounts.map((a) => a.journalAccountId).filter((id): id is string => !!id)),
+    [accounts],
+  )
 
   /* Worker heartbeats and balances change without anything happening in this
    * tab, so the page refreshes itself. Thirty seconds matches the worker's own
@@ -535,6 +553,23 @@ function TradeCopierWorkspace() {
                 therefore per-follower, not flat: the last one in the queue
                 waits for every switch before it. Accounts at different brokers
                 already have separate terminals and cost nothing. */}
+            {/* The question this answers is "I have six accounts copying and my
+                dashboard says my desk is empty". The copier writes
+                trading_accounts and execution_events; the dashboard reads
+                accounts and trades. Nothing joined them until an account is
+                pointed at a dashboard account, and there is no other place in
+                the product where a trader would go looking for that. */}
+            {accounts.length > 0 && takenJournalIds.size === 0 && (
+              <div className={styles.warnStrip}>
+                <div>
+                  None of these accounts report to the dashboard yet, so it has no trades to
+                  show even while copies are running. Use <strong>Journal trades</strong> on an
+                  account to point it at a dashboard account — closed positions then arrive on
+                  their own, with the broker’s own profit figure.
+                </div>
+              </div>
+            )}
+
             {sharedTerminalGroups.length > 0 && (
               <div className={styles.warnStrip}>
                 {sharedTerminalGroups.map((g) => (
@@ -577,6 +612,15 @@ function TradeCopierWorkspace() {
                       <div className={styles.rowButtons}>
                         <button onClick={() => handleTestConnection(a)} disabled={testing}>
                           {testing ? 'Testing…' : 'Retest'}
+                        </button>
+                        <button
+                          onClick={() => setJournallingAccount(a)}
+                          className="btn-ghost"
+                          title={a.journalAccountId
+                            ? 'Closed trades from this account are journalled to the dashboard'
+                            : 'Send this account\u2019s closed trades to the dashboard'}
+                        >
+                          {a.journalAccountId ? 'Journalling' : 'Journal trades'}
                         </button>
                         <button onClick={() => setFixingAccount(a)} className="btn-ghost">
                           Fix credentials
@@ -647,6 +691,21 @@ function TradeCopierWorkspace() {
         />
       )}
 
+      {journallingAccount && (
+        <JournalLinkDialog
+          account={journallingAccount}
+          dashboardAccounts={dashboardAccounts}
+          takenIds={takenJournalIds}
+          userId={userId}
+          onClose={() => setJournallingAccount(null)}
+          onSaved={(message) => {
+            setJournallingAccount(null)
+            setNotice(message)
+            load()
+          }}
+        />
+      )}
+
       {fixingAccount && (
         <FixCredentialsDialog
           account={fixingAccount}
@@ -677,7 +736,7 @@ export function TradeCopierPage() {
           <AuthPage />
         </>
       ) : (
-        <TradeCopierWorkspace />
+        <TradeCopierWorkspace userId={user.id} />
       )}
     </div>
   )

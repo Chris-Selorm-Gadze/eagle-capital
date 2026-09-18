@@ -21,6 +21,7 @@ function account(id: string, over: Partial<TradingAccount> = {}): TradingAccount
     isEnabled: true,
     terminalPath: null,
     brokerPingMs: null,
+    journalAccountId: null,
     lastConnectedAt: null,
     lastError: null,
     ...over,

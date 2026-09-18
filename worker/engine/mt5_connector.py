@@ -7,6 +7,7 @@ Provides a clean interface for initializing, logging in, fetching state, and exe
 import math
 import time
 import structlog
+from datetime import datetime
 from typing import Optional, List, Dict, Any, Tuple
 
 try:
@@ -290,6 +291,52 @@ class MT5Connector:
             logger.error("mt5_get_positions_failed", error=mt5.last_error())
             return []
         return [p._asdict() for p in positions]
+
+    def history_deals_window(
+        self, start: "datetime", end: "datetime"
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Deals closed between two times, for finding which positions finished.
+
+        Returns None rather than [] when the read could not be trusted, because
+        the two mean opposite things to a caller advancing a high-water mark:
+        "nothing closed, move on" versus "I could not tell, do not move on".
+
+        Refuses outright when the terminal is not on this account. MT5 history
+        belongs to whatever login is attached, and a misattributed read here
+        would not be a wrong latency number -- it would journal one account's
+        trades onto another account's dashboard.
+        """
+        if mt5 is None:
+            return None
+        wrong = self.wrong_account()
+        if wrong is not None:
+            logger.warning("history_read_skipped_wrong_account", expected=self.login, detail=wrong)
+            return None
+        deals = mt5.history_deals_get(start, end)
+        if deals is None:
+            logger.debug("history_deals_window_empty", error=mt5.last_error())
+            # An empty window and a failed call are indistinguishable in this
+            # API -- both give None -- so treat it as "could not tell". The next
+            # cycle re-reads the same window; a missed trade is worse than a
+            # repeated read, which the external_id index absorbs anyway.
+            return None
+        return [d._asdict() for d in deals]
+
+    def history_deals_for_position(self, position_ticket: int) -> List[Dict[str, Any]]:
+        """Every deal of one position, however long ago it opened.
+
+        This is what makes a position held across the sync window safe: its
+        opening deal is outside any recent window, and asking by position always
+        returns it.
+        """
+        if mt5 is None:
+            return []
+        if self.wrong_account() is not None:
+            return []
+        deals = mt5.history_deals_get(position=int(position_ticket))
+        if deals is None:
+            return []
+        return [d._asdict() for d in deals]
 
     def place_market_order(
         self, symbol: str, order_type: int, volume: float, sl: float = 0.0, tp: float = 0.0, deviation: int = 10, magic: int = 0, comment: str = "Delta Engine Copy"

@@ -3,6 +3,7 @@ import {
   createAccount as createAccountViaGateway,
   updateCredentials as updateCredentialsViaGateway,
 } from '../lib/copierGateway'
+import { addAccount, deleteAccount } from './accounts'
 import type { RiskMode } from './copier'
 
 /* Everything the Trade Copier page changes.
@@ -99,6 +100,85 @@ export async function updateAccount(
   if (Object.keys(row).length === 0) return
   const { error } = await supabase.from('trading_accounts').update(row).eq('id', accountId)
   if (error) throw error
+}
+
+/** Point a copier account at the dashboard account its trades should be
+ * journalled against, or pass null to stop journalling it.
+ *
+ * A plain RLS-scoped update: `trading_accounts` has an "update own" policy, and
+ * nothing here touches credentials, so it needs no gateway round trip.
+ *
+ * The unique index on account_id is what stops two copier accounts claiming one
+ * dashboard account — six followers mirroring one master would otherwise each
+ * write the same trade there and multiply its P&L. The error is surfaced as
+ * plain language because "duplicate key value violates unique constraint" is
+ * not an answer to anything.
+ */
+export async function linkJournalAccount(
+  tradingAccountId: string,
+  accountId: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('trading_accounts')
+    .update({ account_id: accountId })
+    .eq('id', tradingAccountId)
+  if (error) {
+    if (error.code === '23505' || /duplicate key|unique constraint/i.test(error.message)) {
+      throw new Error(
+        'That dashboard account is already receiving trades from another connected account. '
+        + 'Pick a different one, or create a new account for this.',
+      )
+    }
+    throw error
+  }
+}
+
+/** Create a dashboard account for a copier account, and link the two.
+ *
+ * Named from the broker account rather than asking the user to retype what the
+ * copier already knows. Deliberately fills in NOTHING beyond identity and the
+ * starting balance: max drawdown, daily loss limit and profit target are the
+ * user's own numbers, because every firm's rules differ and a guessed default
+ * reads as authoritative.
+ *
+ * `stage: 'live'` because a copier account is a real broker account. If it is
+ * actually a prop-firm account, the dashboard's own account editor is where
+ * that gets said — this does not try to infer it from the broker's name.
+ */
+export async function createJournalAccount(
+  userId: string,
+  account: {
+    id: string
+    label: string | null
+    accountNumber: string
+    platform: string
+    balance: number | null
+    currency: string | null
+  },
+): Promise<string> {
+  const size = account.balance ?? 0
+  const newAccountId = await addAccount(userId, {
+    label: account.label || `${account.platform.toUpperCase()} · ${account.accountNumber}`,
+    accountNumber: account.accountNumber,
+    size,
+    balance: size,
+    highestBalance: size,
+    currency: account.currency || 'USD',
+    stage: 'live',
+    active: true,
+  })
+
+  try {
+    await linkJournalAccount(account.id, newAccountId)
+  } catch (err) {
+    // The dashboard account was created but could not be linked, which would
+    // leave an orphan on the dashboard that never receives a trade. Undo it, so
+    // a failed attempt leaves nothing behind to clean up by hand.
+    await deleteAccount(newAccountId).catch(() => {})
+    throw err
+  }
+
+  return newAccountId
 }
 
 export interface CredentialFix {
