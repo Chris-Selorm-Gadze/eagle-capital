@@ -4,6 +4,7 @@ import type { Trade } from '../../../../types'
 import { fetchIntradayCandles, fetchDailyCandles, fmpConfigured, type Candle, type IntradayInterval } from '../../../../lib/fmpClient'
 import { getFmpSymbol } from '../../symbolAliasMap'
 import { utcMsToZonedDateStr } from '../../../../utils/timezone'
+import { setupNotice } from '../../../../shared/setupNotice'
 import styles from '../TradeDetailPanel.module.css'
 
 // lightweight-charts renders its time axis/crosshair in UTC by default (all our candle times
@@ -30,6 +31,13 @@ function pickIntervalAndPadding(durationMinutes: number): { interval: IntradayIn
   if (durationMinutes <= 4 * 60) return { interval: '5min', paddingMs: 45 * 60_000 }
   if (durationMinutes <= 3 * 24 * 60) return { interval: '1hour', paddingMs: 6 * 60 * 60_000 }
   return { interval: 'daily', paddingMs: 2 * 24 * 60 * 60_000 }
+}
+
+const INTERVAL_LABEL: Record<IntradayInterval | 'daily', string> = {
+  '1min': '1-minute bars',
+  '5min': '5-minute bars',
+  '1hour': 'hourly bars',
+  daily: 'daily bars',
 }
 
 export function TradeChartTab({ trade }: { trade: Trade }) {
@@ -148,7 +156,11 @@ export function TradeChartTab({ trade }: { trade: Trade }) {
   }, [candles, trade])
 
   if (!fmpConfigured) {
-    return <p className={styles.hint}>Set VITE_FMP_API_KEY in .env.local to enable the price chart.</p>
+    return (
+      <p className={styles.hint}>
+        {setupNotice('The price chart isn’t available right now.', ['VITE_FMP_API_KEY'])}
+      </p>
+    )
   }
 
   if (loading) {
@@ -161,15 +173,18 @@ export function TradeChartTab({ trade }: { trade: Trade }) {
 
   return (
     <div>
-      <p className={styles.hint} style={{ marginBottom: '0.5rem' }}>
-        Plotting <strong>{fmpSymbol}</strong> ({barInterval} bars) · Entry {new Date(trade.entryTime).toLocaleString()} @ {trade.entryPrice}
-        {' '}· Exit {new Date(trade.exitTime).toLocaleString()} @ {trade.exitPrice} — compare against the Stats tab for this same trade.
+      <p className={styles.chartCaption}>
+        <strong>{fmpSymbol}</strong> · {INTERVAL_LABEL[barInterval ?? 'daily']}
       </p>
+      {/* The markers cannot be trusted when the trade's own timestamps fall
+          outside the candles that came back, so say so rather than letting
+          someone read a misaligned entry as a real one. The reason is a data
+          gap for this symbol and period — which vendor and which plan is our
+          problem, not theirs. */}
       {outOfRange && (
-        <p style={{ color: 'var(--critical)', fontSize: '0.82rem', marginBottom: '0.5rem' }}>
-          Warning: this trade's entry/exit time falls outside the candle data actually returned —
-          the markers below are likely misaligned. This can happen if {fmpSymbol} has no data that
-          far back on FMP's free tier, or if the trade's stored time is off.
+        <p className={styles.chartWarning} role="status">
+          Price data for this period is incomplete, so the entry and exit markers below may not
+          line up with the candles.
         </p>
       )}
       <div ref={containerRef} style={{ height: '640px', width: '100%' }} />

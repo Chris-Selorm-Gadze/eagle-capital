@@ -79,9 +79,9 @@ export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: str
 
   return (
     <div>
-      <div className={styles.header}>
+      <div className={`page-header ${styles.header}`}>
         <h1 className="page-title">Playbooks</h1>
-        <button className="btn-primary" onClick={() => setAdding(true)}>+ New Playbook</button>
+        <button className="btn-primary" onClick={() => setAdding(true)}>New playbook</button>
       </div>
 
       {error && <div style={{ color: 'var(--critical)', marginBottom: '1rem' }}>{error}</div>}

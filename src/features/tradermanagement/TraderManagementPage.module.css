@@ -19,7 +19,7 @@
   font-size: 0.85rem;
   padding: 0.45rem 1rem;
   border-radius: 7px;
-  transition: background 0.12s, color 0.12s;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .tab:hover:not(.tabActive) {

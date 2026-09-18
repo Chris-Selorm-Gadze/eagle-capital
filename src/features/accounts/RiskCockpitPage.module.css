@@ -4,12 +4,6 @@
   gap: 1.5rem;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .emptyState {
   padding: 2.5rem 1rem;
   text-align: center;
@@ -54,7 +48,10 @@
 
 .accountsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  /* min(…, 100%) so a container narrower than one card shrinks the card
+     instead of overflowing — a bare 440px minimum is a floor the track keeps
+     even when there is less room than that. */
+  grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr));
   gap: 1.25rem;
 }
 

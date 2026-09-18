@@ -281,7 +281,7 @@ export function AddAccountDialog({
   }
 
   // No choice screen to return to when the caller already forced a kind (e.g. Prop Firm
-  // Management's "+ Add Account" implies prop-firm) — "Back" becomes a plain "Cancel" instead.
+  // Portfolio's "Add account" implies prop-firm) — "Back" becomes a plain "Cancel" instead.
   const backButton = forceKind
     ? <button onClick={handleAbandon} className="btn-ghost">Cancel</button>
     : <button onClick={backToKindChoice} className="btn-ghost">Back</button>

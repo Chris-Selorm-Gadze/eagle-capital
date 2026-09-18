@@ -56,7 +56,7 @@ export function FirmFinanceSection({
 
   return (
     <section className={styles.section}>
-      <h2>Firm Finance</h2>
+      <h2 className="section-title">Firm Finance</h2>
       <div className={styles.row}>
         <div className="card">
           <div className={styles.cardTitle}>Spent vs earned by firm</div>
@@ -71,6 +71,7 @@ export function FirmFinanceSection({
                         : [{ name: 'No data', value: 1 }]
                     }
                     dataKey="value" nameKey="name" innerRadius={44} outerRadius={64}
+                    isAnimationActive={false}
                     paddingAngle={hasFinanceData ? 2 : 0} stroke="var(--surface)" strokeWidth={2}
                   >
                     {hasFinanceData

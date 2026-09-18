@@ -36,10 +36,54 @@
   --warning: #b45309;
   --serious: #c2410c;
   --critical: #b91c1c;
+
+  /* ------------------------------------------------------------------ MOTION
+     One vocabulary for the whole product. The curve is the same
+     cubic-bezier the landing site already uses as `--l-ease`, so the marketing
+     site, the auth screens and the app decelerate identically — the thing that
+     makes three separately-built surfaces read as one product.
+
+     Three durations, and only three. Anything that needs a fourth is either
+     decoration or too slow:
+       · --dur-fast  state feedback under the cursor — hover, press, focus.
+                     Short enough to feel instant, long enough not to snap.
+       · --dur-base  something arriving or leaving — a dialog, a page, a row.
+       · --dur-slow  the largest move on screen. Reserved; most things are base.
+
+     The app deliberately has no stagger and no scroll-reveal. Those belong to
+     the landing site, where the reader is being walked through an argument. In
+     here the numbers are the point, and content that animates in on every tab
+     change is content you have to wait for. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Honour the OS "reduce motion" setting everywhere.
+ *
+ * The landing site had its own copy of this scoped to `.landingRoot`; the app
+ * and the shadcn shell had none, so the sidebar slid, dialogs zoomed and
+ * skeletons pulsed regardless of the setting. This is global and unlayered, so
+ * it also reaches Tailwind's and tw-animate-css's own utilities.
+ *
+ * Near-zero rather than `none`: a duration of 0 still fires transitionend and
+ * animationend, so anything waiting on those events keeps working instead of
+ * hanging. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Firefox + modern Chromium. */
@@ -112,6 +156,17 @@ body {
   padding: 0.4rem 0.8rem;
   font-size: 0.85rem;
   cursor: pointer;
+  /* These buttons changed background and border on hover with no transition at
+     all, next to shadcn buttons in the same header that ease over 200ms — the
+     legacy half of the app felt like a different, older product. Properties are
+     listed rather than `all`, so a width or height change somewhere never
+     animates by accident. */
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 :where(.appSurface button:hover:not(:disabled)) {
@@ -119,9 +174,30 @@ body {
   border-color: var(--accent);
 }
 
+/* One pixel, matching shadcn's own `active:translate-y-px`. It is the whole
+   press affordance — a scale or a shadow on a button this small reads as a
+   wobble. */
+:where(.appSurface button:active:not(:disabled)) {
+  transform: translateY(1px);
+}
+
 :where(.appSurface) button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Legacy buttons had no focus ring whatsoever — only inputs did. Keyboard users
+   navigating the copier or the report card had nothing to follow. */
+:where(.appSurface) button:focus-visible,
+:where(.appSurface) a:focus-visible,
+:where(.appSurface) summary:focus-visible,
+:where(.appSurface) [tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  /* No border-radius here on purpose. Browsers already follow the element's own
+     radius when drawing the outline, and forcing one would square off anything
+     round — the circular `.info-icon` below, for one — the moment it takes
+     focus. */
 }
 
 .appSurface .btn-primary {
@@ -149,7 +225,10 @@ body {
   padding: 0.45rem 0.6rem;
   font-size: 0.9rem;
   font-family: inherit;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 :where(.appSurface input:hover:not(:disabled):not(:focus)),
@@ -164,6 +243,7 @@ body {
   outline: none;
   border-color: var(--accent);
   background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .appSurface input:disabled,
@@ -175,6 +255,7 @@ body {
 
 .appSurface a {
   color: var(--accent);
+  transition: color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
 }
 
 /* The bordered/padded surface used by nearly every card, chart, and tile.
@@ -186,10 +267,168 @@ body {
   background: var(--surface);
 }
 
+/* ---------------------------------------------------------------------------
+   TYPE
+
+   Tailwind's preflight (an `@layer base` import, so ANY unlayered rule beats it
+   regardless of specificity) flattens headings to `font-size: inherit;
+   font-weight: inherit` and zeroes `margin`/`padding` on every element. The
+   landing site defines its own baseline to compensate — see landing.css. The
+   authenticated app never did, so every bare `<h2>` in the CSS-Module pages
+   ("Copy groups", "Connected accounts", "Firm Finance", the report-card section
+   heads) rendered at body size, body weight, and zero margin: indistinguishable
+   from the paragraph under it, and flush against whatever came next. That is
+   what put the copier's "+ Connect an account" button hard against the card
+   below it.
+
+   `:where()` so this is a FLOOR, not a ceiling — a component class that sets its
+   own size/weight/margin still wins (`.secHead h2`, `.firmTitle`, `.hint`).
+
+   Headings deliberately carry NO margin here. Several live inside flex rows
+   whose own padding does the spacing (the report card's `.secHead`, the
+   `.section-title-row` below), and a blanket margin would push their text off
+   the row's baseline. Flow spacing comes from `.section-title`, applied where a
+   heading really does start a block.
+   --------------------------------------------------------------------------- */
+:where(.appSurface) :where(h1, h2, h3, h4, h5, h6) {
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+:where(.appSurface) h1 { font-size: 1.3rem; }
+:where(.appSurface) h2 { font-size: 1.0625rem; }
+:where(.appSurface) h3 { font-size: 0.95rem; }
+:where(.appSurface) :where(h4, h5, h6) { font-size: 0.875rem; }
+
+/* Body copy rhythm. The last child drops its trailing margin so a paragraph
+   ending a card doesn't add phantom padding inside it — wrapped in `:where()`
+   too, so an explicit margin on a last-child paragraph still wins. */
+:where(.appSurface) p {
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+}
+
+:where(.appSurface p:last-child) {
+  margin-bottom: 0;
+}
+
+/* Preflight zeroes list padding as well, which clips the markers off any
+   `<ul>` that isn't explicitly styled. */
+:where(.appSurface) :where(ul, ol) {
+  margin: 0 0 0.75rem;
+  padding-inline-start: 1.25rem;
+}
+
+:where(.appSurface :where(ul, ol):last-child) {
+  margin-bottom: 0;
+}
+
+/* A card whose own children own the padding — a list of rows, or a table.
+   Without it those rows sat inside the card's 1rem AND their own 0.9rem, so the
+   text was inset ~30px while an identical table in the card above it started at
+   the edge; and a row's hover or divider stopped short of the card's border
+   instead of spanning it. Declared after `.card` so it wins the padding at equal
+   specificity. */
+.appSurface .card-flush {
+  padding: 0;
+  overflow: hidden;
+}
+
 /* Page-level heading, used at the top of every page component. */
 .page-title {
-  margin: 0;
+  margin: 0 0 1rem;
   font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+/* A page title sharing its row with actions, counts, or filter pills.
+   The title's own bottom margin is zeroed inside it: in a centre-aligned flex
+   row that margin doesn't push anything down, it just makes the row taller and
+   floats the button beside it off the title's optical centre. The row's parent
+   keeps owning the gap to what follows. */
+.appSurface .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.appSurface .page-header .page-title {
+  margin: 0;
+}
+
+/* A heading that opens a block of content, with the gap to that content built
+   in. Use on the bare `<h2>`s that were relying on the browser default margins
+   preflight removes. */
+.appSurface .section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* Heading plus its own actions on one row — "Copy groups" and the button that
+   connects one. The row owns the gap to the content beneath, so the heading
+   inside it stays margin-free and on the row's baseline. */
+.appSurface .section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.appSurface .section-title-row > .section-title {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   ROUTE + ASYNC MOTION
+
+   One enter, on the page container, when the route changes. Not per section,
+   not per card, and no exit: an exit animation on navigation means every tab
+   change costs the user its duration before the thing they asked for starts
+   arriving, and on a trading desk that reads as lag, not polish.
+
+   6px and 200ms. Far enough to register as arrival, short enough that a fast
+   tab-switcher never waits on it.
+   --------------------------------------------------------------------------- */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* No fill mode on purpose. Once it has run, the element carries no animated
+   transform at all — an element with a transform becomes the containing block
+   for `position: fixed` descendants, and this app renders its dialogs inside
+   the page. */
+.page-enter {
+  animation: page-enter var(--dur-base) var(--ease-out);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* A loading state that only appears if the wait is real.
+   `both` fill plus a delay holds it at opacity 0 for the delay, so a lazy chunk
+   that resolves in 40ms — which is every chunk after its first visit — never
+   flashes a "Loading…" the eye registers as a stutter. No timer, no state. */
+.deferred-fade-in {
+  animation: fade-in var(--dur-base) var(--ease-out) 220ms both;
 }
 
 /* Form field utilities — the label+input block and side-by-side field row

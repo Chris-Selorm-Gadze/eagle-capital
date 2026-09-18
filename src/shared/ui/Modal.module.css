@@ -1,3 +1,29 @@
+/* Enter motion, matching shadcn's own Dialog (fade + zoom-95).
+ *
+ * This app runs two dialog systems side by side — Radix AlertDialog for
+ * confirmations, this one for every legacy form — and only one of them moved.
+ * Opening "Log session" after dismissing a confirm looked like two different
+ * apps.
+ *
+ * Enter only. Closing unmounts immediately, which needs no presence tracking and
+ * reads as responsive; an exit animation here would mean holding `onClose` for
+ * its duration and racing every caller that refetches on close. */
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -7,6 +33,7 @@
   justify-content: center;
   z-index: 100;
   padding: 1.5rem;
+  animation: modal-overlay-in var(--dur-fast) var(--ease-out);
 }
 
 .panel {
@@ -23,10 +50,21 @@
      change (e.g. a focus ring appearing on a toggled checkbox), and the panel's inner width
      jumps by the scrollbar's width each time — the "jitter" this fixes. */
   scrollbar-gutter: stable;
+  /* No fill mode: once it has run the panel carries no transform, so it stays a
+     plain containing block for anything inside it. */
+  animation: modal-panel-in var(--dur-base) var(--ease-out);
 }
 
+/* Every legacy dialog's title. It carried only `margin-top: 0`, which under
+   Tailwind's preflight (h1–h6 reset to `font-size: inherit; font-weight:
+   inherit`) left it rendering as plain body text — the same size and weight as
+   the form labels beneath it, in the one place a dialog needs a clear title. */
 .title {
-  margin-top: 0;
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 
 .footer {

@@ -102,12 +102,13 @@
 .secHead h2 { font-weight: 600; font-size: 0.95rem; letter-spacing: 0.02em; text-transform: uppercase; }
 .secNote { margin-left: auto; font-size: 0.7rem; color: var(--text-muted); }
 
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
-.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
-.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
-@media (max-width: 640px) {
-  .grid2, .grid3, .grid4 { grid-template-columns: 1fr; }
-}
+/* Field grids. auto-fit so they reflow on the pane's own width — the 640px
+   viewport breakpoint they used to share measured the wrong box (the report card
+   renders inside the viewport minus the sidebar), which left four number fields
+   fighting over ~150px each on a laptop before anything collapsed. */
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 0.85rem; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 0.85rem; }
+.grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 0.75rem; }
 .field { margin-bottom: 0.85rem; }
 .fieldKey {
   display: block; font-size: 0.65rem;
@@ -160,7 +161,7 @@
 .stamps { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 .stamp {
   flex: 1; min-width: 90px; border: 1.5px solid var(--border); border-radius: 6px; padding: 0.9rem 0.5rem;
-  text-align: center; cursor: pointer; transition: border-color 0.12s; background: var(--surface-2);
+  text-align: center; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); background: var(--surface-2);
 }
 .stamp .g { font-weight: 700; font-size: 1.5rem; letter-spacing: -0.01em; display: block; }
 .stamp .d { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-top: 0.3rem; display: block; }
@@ -215,7 +216,7 @@
 }
 .saved {
   font-size: 0.68rem; color: var(--good);
-  align-self: center; letter-spacing: 0.06em; opacity: 0; transition: opacity 0.2s;
+  align-self: center; letter-spacing: 0.06em; opacity: 0; transition: opacity var(--dur-base) var(--ease-out);
 }
 .savedShow { opacity: 1; }
 
@@ -229,7 +230,7 @@
 /* Trade screenshot upload (used in TradeLinkSection) */
 .previewGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(90px, 100%), 1fr));
   gap: 0.6rem;
   margin-top: 0.75rem;
 }

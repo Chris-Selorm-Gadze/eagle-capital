@@ -58,7 +58,7 @@ export function TradeJournalPage({
 
   return (
     <div>
-      <div className={styles.header}>
+      <div className={`page-header ${styles.header}`}>
         <div className={styles.titleGroup}>
           <h1 className="page-title">Trade Journal</h1>
           {ordered.length > 0 && <span className={styles.count}>{ordered.length} trade{ordered.length === 1 ? '' : 's'}</span>}

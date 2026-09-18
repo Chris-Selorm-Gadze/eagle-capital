@@ -6,31 +6,44 @@
 
 /* One continuous two-column flow for everything below the calendar row — not split into
    separate grid rows, since a shared row track always sizes to its tallest column, leaving
-   a gap below the shorter one before the next section can start. */
+   a gap below the shorter one before the next section can start.
+
+   Flex-wrap rather than a grid with a `@media` breakpoint. A media query measures
+   the VIEWPORT; this layout lives inside the viewport minus the sidebar (16rem)
+   minus the page padding (3rem), so a `max-width: 900px` rule collapsed the
+   columns a full 300px after they had already overrun their container — the
+   dashboard scrolled sideways on any laptop between roughly 900 and 1200px.
+   Wrapping on flex-basis measures the real box, at every sidebar state, with no
+   number to keep in sync. `min-width: 0` lets a lone column shrink under its
+   basis instead of overflowing. */
 .columns {
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
-  align-items: start;
+  align-items: flex-start;
 }
 
-@media (max-width: 900px) {
-  .columns {
-    grid-template-columns: 1fr;
-  }
+.columns > * {
+  flex: 1 1 320px;
+  min-width: 0;
 }
 
 .topRow {
-  display: grid;
-  grid-template-columns: minmax(440px, 1.7fr) minmax(260px, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
-  align-items: start;
+  align-items: flex-start;
 }
 
-@media (max-width: 900px) {
-  .topRow {
-    grid-template-columns: 1fr;
-  }
+/* The calendar wants the wider share; the balance chart reads fine narrow. Two
+   different bases keep that proportion on one line and let either stand alone. */
+.topRow > * {
+  flex: 1 1 440px;
+  min-width: 0;
+}
+
+.topRow > *:last-child {
+  flex: 1 1 260px;
 }
 
 .stack {

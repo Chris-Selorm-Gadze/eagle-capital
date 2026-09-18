@@ -84,9 +84,9 @@ export function RiskCockpitPage({
 
   return (
     <div className={styles.root}>
-      <div className={styles.header}>
+      <div className="page-header">
         <h1 className="page-title">Prop Firm Portfolio</h1>
-        <button onClick={() => setAdding(true)} className="btn-primary">+ Add Account</button>
+        <button onClick={() => setAdding(true)} className="btn-primary">Add account</button>
       </div>
 
       <DashboardSummary accounts={activeAccounts} ledgers={ledgers} />
@@ -101,14 +101,14 @@ export function RiskCockpitPage({
 
       {activeAccounts.length === 0 && (
         <div className={styles.emptyState}>
-          No active accounts yet. Click "+ Add Account" to get started.
+          No active accounts yet — use <strong>Add account</strong> above to get started.
         </div>
       )}
 
       {groups.map((group) => {
         const totalBalance = group.accounts.reduce((sum, a) => sum + balanceOf(a), 0)
         return (
-          <section key={group.title} style={{ marginBottom: '2rem' }}>
+          <section key={group.title}>
             <div className={styles.groupHeader}>
               <span className={styles.groupAccent} style={{ background: group.accent }} />
               <h2 className={styles.firmTitle}>{group.title}</h2>

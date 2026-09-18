@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { latencySummary, type ExecutionEvent, type ExecutionStatus, type TradingAccount } from '../../../db/copier'
 import styles from './ExecutionLog.module.css'
 
@@ -7,7 +8,14 @@ import styles from './ExecutionLog.module.css'
  * trades is unfalsifiable without it; with it, a trader can point at a row and
  * see the master ticket, the follower ticket, the slippage and the milliseconds.
  * It is also where a latency regression shows up first, which is why the timing
- * summary sits above the rows rather than buried in a report. */
+ * summary sits above the rows rather than buried in a report.
+ *
+ * It is also the one surface here that grows without bound. The page loads the
+ * last 200 attempts, and rendering all 200 in flow turned the log into the page:
+ * everything else scrolled away above it, and finding the failure you came for
+ * meant reading every success in between. So the rows now scroll inside their own
+ * box, one page at a time, behind a filter — the summary and the controls stay
+ * put while you move through them. */
 
 const STATUS_TONE: Record<ExecutionStatus, string> = {
   success: 'toneGood',
@@ -29,8 +37,11 @@ const STATUS_TONE: Record<ExecutionStatus, string> = {
  * carried the comment "Request executed". Rendering that in red under a green
  * "Copied" pill said two opposite things about the same row.
  *
- * So the message takes its colour from the status, never from the fact that the
- * field happens to be populated. */
+ * Colouring it by status fixed the contradiction but not the noise: on a copy
+ * that worked there is nothing to explain, and "Request executed" under "Copied"
+ * is a log line, not information. So a settled-good row drops the message
+ * entirely (see `showsMessage`) and the remaining tones cover the rows where the
+ * broker's wording is the whole point. */
 const MESSAGE_TONE: Record<ExecutionStatus, string> = {
   success: 'msgGood',
   closed: 'msgGood',
@@ -42,6 +53,14 @@ const MESSAGE_TONE: Record<ExecutionStatus, string> = {
   duplicate_ignored: 'msgMuted',
   failed: 'msgBad',
   rejected: 'msgBad',
+}
+
+/** Statuses that need no explanation. The order went through; the broker's
+ * retcode comment on it is our plumbing, not the trader's business. */
+const SETTLED_GOOD: ReadonlySet<ExecutionStatus> = new Set<ExecutionStatus>(['success', 'closed', 'modified'])
+
+function showsMessage(e: ExecutionEvent): boolean {
+  return Boolean(e.errorMessage) && !SETTLED_GOOD.has(e.status)
 }
 
 const STATUS_LABEL: Record<ExecutionStatus, string> = {
@@ -56,6 +75,33 @@ const STATUS_LABEL: Record<ExecutionStatus, string> = {
   failed: 'Failed',
   rejected: 'Rejected by broker',
 }
+
+/* Filtering by the ten raw statuses would put a ten-item dropdown in front of a
+ * question people actually ask in three: did it copy, did something stop it, or
+ * did it break. */
+type Outcome = 'all' | 'copied' | 'stopped' | 'failed'
+
+const OUTCOME_TABS: { key: Outcome; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'copied', label: 'Copied' },
+  { key: 'stopped', label: 'Stopped' },
+  { key: 'failed', label: 'Failed' },
+]
+
+const OUTCOME_OF: Record<ExecutionStatus, Exclude<Outcome, 'all'>> = {
+  success: 'copied',
+  closed: 'copied',
+  modified: 'copied',
+  partial: 'copied',
+  pending: 'stopped',
+  skipped_risk: 'stopped',
+  skipped_slippage: 'stopped',
+  duplicate_ignored: 'stopped',
+  failed: 'failed',
+  rejected: 'failed',
+}
+
+const PAGE_SIZE = 25
 
 function ms(value: number | null): string {
   return value === null ? '—' : `${value} ms`
@@ -86,6 +132,48 @@ function accountLabel(accounts: TradingAccount[], id: string | null): string {
 }
 
 export function ExecutionLog({ events, accounts }: { events: ExecutionEvent[]; accounts: TradingAccount[] }) {
+  const [outcome, setOutcome] = useState<Outcome>('all')
+  const [followerId, setFollowerId] = useState('all')
+  const [symbolQuery, setSymbolQuery] = useState('')
+  const [page, setPage] = useState(0)
+
+  const filtered = useMemo(() => {
+    const needle = symbolQuery.trim().toUpperCase()
+    return events.filter((e) => {
+      if (outcome !== 'all' && OUTCOME_OF[e.status] !== outcome) return false
+      if (followerId !== 'all' && e.followerAccountId !== followerId) return false
+      if (needle) {
+        const haystack = `${e.symbolFollower ?? ''} ${e.symbolMaster ?? ''}`.toUpperCase()
+        if (!haystack.includes(needle)) return false
+      }
+      return true
+    })
+  }, [events, outcome, followerId, symbolQuery])
+
+  /* Narrowing the filter can leave you past the end of the result — on page 4 of
+   * something that now has one page. Clamping on change keeps the rows visible
+   * instead of showing an empty box over a non-empty count. */
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(pageCount - 1)
+  }, [page, pageCount])
+
+  const safePage = Math.min(page, pageCount - 1)
+  const pageRows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
+
+  /* Timing is summarised over the FILTERED set, not all 200 events: with one
+   * follower selected the useful median is that follower's, and a summary that
+   * silently ignored the filter above it would contradict the rows below it. */
+  const summary = latencySummary(filtered)
+
+  /* Only accounts that actually appear as a follower in the loaded window — a
+   * dropdown listing every connected account would offer choices that can only
+   * ever return nothing. */
+  const followerOptions = useMemo(() => {
+    const ids = new Set(events.map((e) => e.followerAccountId).filter((id): id is string => Boolean(id)))
+    return [...ids].map((id) => ({ id, label: accountLabel(accounts, id) })).sort((a, b) => a.label.localeCompare(b.label))
+  }, [events, accounts])
+
   if (events.length === 0) {
     return (
       <p className={styles.empty}>
@@ -95,7 +183,14 @@ export function ExecutionLog({ events, accounts }: { events: ExecutionEvent[]; a
     )
   }
 
-  const summary = latencySummary(events)
+  const filtersActive = outcome !== 'all' || followerId !== 'all' || symbolQuery.trim() !== ''
+
+  function resetFilters() {
+    setOutcome('all')
+    setFollowerId('all')
+    setSymbolQuery('')
+    setPage(0)
+  }
 
   return (
     <div className={styles.wrap}>
@@ -131,65 +226,136 @@ export function ExecutionLog({ events, accounts }: { events: ExecutionEvent[]; a
         </div>
       </div>
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Follower</th>
-              <th>Symbol</th>
-              <th>Side</th>
-              <th className={styles.numCol}>Lot</th>
-              <th className={styles.numCol}>Slippage</th>
-              <th className={styles.numCol}>Latency</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((e) => (
-              <tr key={e.id}>
-                <td className={styles.num}>{shortTime(e.createdAt)}</td>
-                <td>{accountLabel(accounts, e.followerAccountId)}</td>
-                <td>
-                  {e.symbolFollower ?? e.symbolMaster ?? '—'}
-                  {/* A mapped symbol is worth showing: XAUUSD on the master can be
-                      GOLD.m on the follower, and a mismatch here is a real failure
-                      mode people otherwise debug blind. */}
-                  {e.symbolMaster && e.symbolFollower && e.symbolMaster !== e.symbolFollower && (
-                    <span className={styles.mapped}> ← {e.symbolMaster}</span>
-                  )}
-                </td>
-                <td>{e.side ?? '—'}</td>
-                <td className={styles.num}>{e.executedLot ?? e.requestedLot ?? '—'}</td>
-                <td className={styles.num}>{e.slippagePoints ?? '—'}</td>
-                <td className={styles.num}>
-                  {ms(e.e2eMs)}
-                  {/* The breakdown is the only thing that answers "why is this
-                      broker slower than that one". order_ms is the broker round
-                      trip -- a floor set by network distance, which no local
-                      change can improve. switch_ms is a login swap, which
-                      giving the account its own terminal removes entirely.
-                      Without these, a slow copy is indistinguishable from a
-                      badly configured one. */}
-                  {latencyBreakdown(e) && (
-                    <div className={styles.breakdown}>{latencyBreakdown(e)}</div>
-                  )}
-                </td>
-                <td>
-                  <span className={`${styles.tone} ${styles[STATUS_TONE[e.status] ?? 'toneMuted']}`}>
-                    {STATUS_LABEL[e.status] ?? e.status}
-                  </span>
-                  {e.errorMessage && (
-                    <div className={`${styles.message} ${styles[MESSAGE_TONE[e.status] ?? 'msgMuted']}`}>
-                      {e.errorMessage}
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className={styles.filters}>
+        <div className={styles.outcomeTabs} role="group" aria-label="Filter by outcome">
+          {OUTCOME_TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              aria-pressed={outcome === t.key}
+              className={`${styles.outcomeTab} ${outcome === t.key ? styles.outcomeTabActive : ''}`}
+              onClick={() => { setOutcome(t.key); setPage(0) }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {followerOptions.length > 1 && (
+          <label className={styles.filterField}>
+            <span className={styles.filterLabel}>Follower</span>
+            <select value={followerId} onChange={(e) => { setFollowerId(e.target.value); setPage(0) }}>
+              <option value="all">All followers</option>
+              {followerOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          </label>
+        )}
+
+        <label className={styles.filterField}>
+          <span className={styles.filterLabel}>Symbol</span>
+          <input
+            type="search"
+            value={symbolQuery}
+            placeholder="e.g. XAUUSD"
+            onChange={(e) => { setSymbolQuery(e.target.value); setPage(0) }}
+          />
+        </label>
+
+        {filtersActive && (
+          <button type="button" className={`btn-ghost ${styles.clearFilters}`} onClick={resetFilters}>
+            Clear filters
+          </button>
+        )}
       </div>
+
+      {filtered.length === 0 ? (
+        <p className={styles.empty}>
+          No copy attempts match these filters. {events.length} attempt{events.length === 1 ? '' : 's'} loaded in total.
+        </p>
+      ) : (
+        <>
+          {/* max-height + its own scroll: the log is the longest thing on this
+              page, and letting it push the page down meant the worker status,
+              the copy groups and the account list all scrolled out of reach to
+              read it. The header stays stuck to the top of this box so the
+              columns are still named 20 rows in. */}
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Follower</th>
+                  <th>Symbol</th>
+                  <th>Side</th>
+                  <th className={styles.numCol}>Lot</th>
+                  <th className={styles.numCol}>Slippage</th>
+                  <th className={styles.numCol}>Latency</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map((e) => (
+                  <tr key={e.id}>
+                    <td className={styles.num}>{shortTime(e.createdAt)}</td>
+                    <td>{accountLabel(accounts, e.followerAccountId)}</td>
+                    <td>
+                      {e.symbolFollower ?? e.symbolMaster ?? '—'}
+                      {/* A mapped symbol is worth showing: XAUUSD on the master can be
+                          GOLD.m on the follower, and a mismatch here is a real failure
+                          mode people otherwise debug blind. */}
+                      {e.symbolMaster && e.symbolFollower && e.symbolMaster !== e.symbolFollower && (
+                        <span className={styles.mapped}> ← {e.symbolMaster}</span>
+                      )}
+                    </td>
+                    <td>{e.side ?? '—'}</td>
+                    <td className={styles.num}>{e.executedLot ?? e.requestedLot ?? '—'}</td>
+                    <td className={styles.num}>{e.slippagePoints ?? '—'}</td>
+                    <td className={styles.num}>
+                      {ms(e.e2eMs)}
+                      {/* The breakdown is the only thing that answers "why is this
+                          broker slower than that one". order_ms is the broker round
+                          trip -- a floor set by network distance, which no local
+                          change can improve. switch_ms is a login swap, which
+                          giving the account its own terminal removes entirely.
+                          Without these, a slow copy is indistinguishable from a
+                          badly configured one. */}
+                      {latencyBreakdown(e) && (
+                        <div className={styles.breakdown}>{latencyBreakdown(e)}</div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`${styles.tone} ${styles[STATUS_TONE[e.status] ?? 'toneMuted']}`}>
+                        {STATUS_LABEL[e.status] ?? e.status}
+                      </span>
+                      {showsMessage(e) && (
+                        <div className={`${styles.message} ${styles[MESSAGE_TONE[e.status] ?? 'msgMuted']}`}>
+                          {e.errorMessage}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className={styles.pager}>
+            <span className={styles.pagerCount}>
+              {safePage * PAGE_SIZE + 1}–{safePage * PAGE_SIZE + pageRows.length} of {filtered.length}
+              {filtersActive && ` matching (${events.length} loaded)`}
+            </span>
+            {pageCount > 1 && (
+              <div className={styles.pagerControls}>
+                <button type="button" onClick={() => setPage(0)} disabled={safePage === 0}>First</button>
+                <button type="button" onClick={() => setPage(safePage - 1)} disabled={safePage === 0}>Previous</button>
+                <span className={styles.pagerPosition}>Page {safePage + 1} of {pageCount}</span>
+                <button type="button" onClick={() => setPage(safePage + 1)} disabled={safePage >= pageCount - 1}>Next</button>
+                <button type="button" onClick={() => setPage(pageCount - 1)} disabled={safePage >= pageCount - 1}>Last</button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

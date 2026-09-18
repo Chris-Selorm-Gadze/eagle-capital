@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react'
 import * as Sentry from '@sentry/react'
+import { unexpectedErrorMessage } from '../setupNotice'
 
 interface Props {
   children: ReactNode
@@ -31,8 +32,16 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="appSurface" style={{ padding: '3rem', maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
           <h1 className="page-title" style={{ marginBottom: '0.75rem' }}>Something went wrong</h1>
+          {/* The raw message here is a JavaScript one — "Cannot read properties
+              of undefined (reading 'map')". It tells the reader nothing they can
+              act on, names internals, and reads like data loss on a page about
+              their trading records. Sentry already has it, and a dev build still
+              prints it. */}
           <p style={{ color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-            {this.state.error.message || 'An unexpected error occurred.'}
+            {unexpectedErrorMessage(
+              this.state.error.message,
+              'This page hit an unexpected problem. Nothing you have logged has been changed — reloading usually clears it.',
+            )}
           </p>
           <button className="btn-primary" onClick={() => window.location.reload()}>Reload</button>
         </div>

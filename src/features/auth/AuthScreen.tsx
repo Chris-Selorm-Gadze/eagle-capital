@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from './AuthContext'
 import { supabaseConfigured } from '../../lib/supabaseClient'
+import { setupNotice } from '../../shared/setupNotice'
 import { Link } from '../../landing/components/Link'
 import { navigate } from '../../landing/routes'
 import { pathForNav } from '../../shared/routing'
@@ -137,13 +138,22 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
           </Link>
 
           <div className={styles.formWrap}>
-            <h1 className={styles.title}>{copy.title}</h1>
-            <p className={styles.sub}>{copy.sub}</p>
+            {/* Keyed on the mode so the heading replays its entrance when you
+                move between sign-in, sign-up and password reset. Only the
+                heading: the email and password fields are the same two fields in
+                every mode, and re-mounting an input someone is typing into to
+                animate it would take focus away mid-keystroke. */}
+            <div className={styles.modeHead} key={mode}>
+              <h1 className={styles.title}>{copy.title}</h1>
+              <p className={styles.sub}>{copy.sub}</p>
+            </div>
 
             {!supabaseConfigured ? (
               <div className={`${styles.message} ${styles.error}`} style={{ marginTop: '2rem' }}>
-                Supabase isn’t configured — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in
-                <code> .env.local</code> to enable sign-in.
+                {setupNotice(
+                  'Sign-in is temporarily unavailable. Please try again in a few minutes.',
+                  ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'],
+                )}
               </div>
             ) : (
               <>

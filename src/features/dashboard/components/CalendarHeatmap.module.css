@@ -32,7 +32,7 @@
 
 .weekdayRow {
   display: grid;
-  grid-template-columns: repeat(7, 1fr) minmax(64px, 0.9fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, 0.9fr);
   gap: 6px;
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -50,7 +50,7 @@
 
 .weekRow {
   display: grid;
-  grid-template-columns: repeat(7, 1fr) minmax(64px, 0.9fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, 0.9fr);
   gap: 6px;
   margin-bottom: 6px;
 }

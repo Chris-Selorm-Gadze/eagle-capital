@@ -21,7 +21,7 @@
   padding: 0.9rem 1.1rem;
   background: var(--surface);
   cursor: pointer;
-  transition: border-color 0.12s, background 0.12s, transform 0.12s;
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 .row:hover {
   border-top-color: var(--accent);

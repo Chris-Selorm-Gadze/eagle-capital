@@ -19,7 +19,7 @@
   padding: 0.6rem 0.75rem;
   background: var(--surface);
   cursor: pointer;
-  transition: border-color 0.12s, background 0.12s;
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 .row:hover {
   border-color: var(--text-muted);

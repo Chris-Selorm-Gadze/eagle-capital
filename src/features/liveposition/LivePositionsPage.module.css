@@ -33,7 +33,7 @@
 
 .accountGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr));
   gap: 1.25rem;
 }
 
@@ -93,7 +93,9 @@
 
 .positionRow {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr 0.7fr 1fr 1fr 1fr;
+  /* minmax(0, …): a bare fr keeps its content width as a floor, so one long
+     price or quantity widened every row past the card. */
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 0.7fr) repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
   font-size: 0.82rem;
   padding: 0.35rem 0;

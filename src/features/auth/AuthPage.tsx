@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useAuth } from './AuthContext'
 import { supabaseConfigured } from '../../lib/supabaseClient'
+import { setupNotice } from '../../shared/setupNotice'
 import styles from './AuthPage.module.css'
 
 export function AuthPage() {
@@ -31,7 +32,10 @@ export function AuthPage() {
       <div className={styles.root}>
         <h2 className={styles.title}>Sign in</h2>
         <p className={styles.subtitle}>
-          Supabase isn't configured yet — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local.
+          {setupNotice(
+            'Sign-in is temporarily unavailable. Please try again in a few minutes.',
+            ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'],
+          )}
         </p>
       </div>
     )

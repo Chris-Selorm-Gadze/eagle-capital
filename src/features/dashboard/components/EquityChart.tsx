@@ -15,6 +15,15 @@ import { DashboardCard } from '@/components/dashboard-card'
 import { formatDate } from '@/components/formater'
 import { cumulativeSeries, type DailyPnl } from '@/utils/tradeAggregates'
 
+/* Recharts animates every series by default, for 1500ms, on mount AND on every
+ * data change. Six charts on this dashboard meant six independent 1.5s draws
+ * competing on arrival, on a curve that matches nothing else in the product —
+ * and a full redraw-from-zero every time the account filter changed, which is
+ * exactly when someone is trying to COMPARE two pictures.
+ *
+ * The page's own 200ms enter (see `.page-enter` in theme.css) is the entrance.
+ * The chart arrives with the page it belongs to, as one movement. */
+
 const chartConfig = {
 	cumulative: { label: 'Cumulative P&L', color: 'var(--accent)' },
 } satisfies ChartConfig
@@ -66,6 +75,7 @@ export function EquityChart({ daily }: { daily: DailyPnl[] }) {
 						<Area
 							dataKey="cumulative"
 							fill="url(#equityFill)"
+							isAnimationActive={false}
 							stroke="var(--color-cumulative)"
 							strokeWidth={2}
 							type="monotone"

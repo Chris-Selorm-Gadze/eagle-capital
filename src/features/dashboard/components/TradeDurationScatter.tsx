@@ -38,8 +38,8 @@ export function TradeDurationScatter({ trades }: { trades: Trade[] }) {
             labelStyle={TOOLTIP_LABEL_STYLE}
             itemStyle={TOOLTIP_ITEM_STYLE}
           />
-          <Scatter data={wins} fill={COLOR_GOOD} />
-          <Scatter data={losses} fill={COLOR_CRITICAL} />
+          <Scatter data={wins} fill={COLOR_GOOD} isAnimationActive={false} />
+          <Scatter data={losses} fill={COLOR_CRITICAL} isAnimationActive={false} />
         </ScatterChart>
       </ResponsiveContainer>
     </div>

@@ -17,12 +17,20 @@ import { MetaApiCredentialFields } from './MetaApiCredentialFields'
 import type { Account } from '../../types'
 import styles from './BrokerConnectionsPage.module.css'
 import { useConfirm } from '../../shared/ui/confirm'
+import { setupNotice } from '../../shared/setupNotice'
 
 const BADGE_CLASS: Record<BrokerConnection['status'], string> = {
   pending: styles.badgePending,
   connected: styles.badgeConnected,
   error: styles.badgeError,
   disconnected: styles.badgeDisconnected,
+}
+
+const STATUS_LABEL: Record<BrokerConnection['status'], string> = {
+  pending: 'Not connected',
+  connected: 'Connected',
+  error: 'Needs attention',
+  disconnected: 'Disconnected',
 }
 
 function brokerName(brokerId: string): string {
@@ -365,8 +373,10 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
       <div>
         <h1 className="page-title">Broker Connections</h1>
         <ComingSoonSection>
-          Supabase isn't configured yet — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local to enable
-          accounts and broker connections.
+          {setupNotice(
+            'Broker connections aren’t available right now. Nothing is wrong with your accounts — this page just can’t reach the service that stores them.',
+            ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'],
+          )}
         </ComingSoonSection>
       </div>
     )
@@ -409,114 +419,119 @@ export function BrokerConnectionsPage({ accounts, userId }: { accounts: Account[
       ) : connections.length === 0 ? (
         <p style={{ color: 'var(--text-muted)' }}>No broker connections yet.</p>
       ) : (
-        <div className={`card ${styles.list}`}>
+        <div className={`card card-flush ${styles.list}`}>
           {connections.map((c) => (
-            <div key={c.id} className={styles.row}>
-              <span className={styles.broker}>{brokerName(c.brokerId)}</span>
-              <span className={styles.label}>{c.label}</span>
-              <span className={`${styles.badge} ${BADGE_CLASS[c.status]}`}>{c.status}</span>
+            <div key={c.id} className={styles.connectionEntry}>
+              <div className={styles.row}>
+                <span className={styles.broker}>{brokerName(c.brokerId)}</span>
+                <span className={styles.label}>{c.label}</span>
+                <span className={`${styles.badge} ${BADGE_CLASS[c.status]}`}>{STATUS_LABEL[c.status] ?? c.status}</span>
 
-              {c.brokerId === 'mt5' && (
-                <div className={styles.linkRow}>
-                  <select value={c.accountId ?? ''} onChange={(e) => handleLinkAccount(c.id, e.target.value)}>
-                    <option value="">— link to an account —</option>
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.label}</option>
-                    ))}
-                  </select>
+                {c.brokerId === 'mt5' && (
+                  <div className={styles.linkRow}>
+                    <select value={c.accountId ?? ''} onChange={(e) => handleLinkAccount(c.id, e.target.value)}>
+                      <option value="">— link to an account —</option>
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>{a.label}</option>
+                      ))}
+                    </select>
 
-                  {c.accountId && c.status !== 'connected' && (
-                    <button onClick={() => setCredentialTarget(c)} disabled={!brokerSyncConfigured}>Connect credentials</button>
-                  )}
+                    {c.accountId && c.status !== 'connected' && (
+                      <button onClick={() => setCredentialTarget(c)} disabled={!brokerSyncConfigured}>Connect credentials</button>
+                    )}
 
-                  {c.status === 'connected' && (
-                    <>
-                      <span className={styles.syncMeta}>
-                        {c.lastSyncedAt ? `Synced ${relativeTime(c.lastSyncedAt)}` : 'Not synced yet'}
-                      </span>
-                      <button onClick={() => handleSync(c.id)} disabled={syncingId === c.id || !brokerSyncConfigured}>
-                        {syncingId === c.id ? 'Syncing…' : 'Sync now'}
-                      </button>
-                    </>
-                  )}
+                    {c.status === 'connected' && (
+                      <>
+                        <span className={styles.syncMeta}>
+                          {c.lastSyncedAt ? `Synced ${relativeTime(c.lastSyncedAt)}` : 'Not synced yet'}
+                        </span>
+                        <button onClick={() => handleSync(c.id)} disabled={syncingId === c.id || !brokerSyncConfigured}>
+                          {syncingId === c.id ? 'Syncing…' : 'Sync now'}
+                        </button>
+                      </>
+                    )}
 
-                  {c.status === 'connected' && (() => {
-                    const state = deploymentStates[c.id]
-                    const busy = deployBusyId === c.id
-                    if (state === 'UNDEPLOYED' || state === 'UNDEPLOYING') {
+                    {c.status === 'connected' && (() => {
+                      const state = deploymentStates[c.id]
+                      const busy = deployBusyId === c.id
+                      if (state === 'UNDEPLOYED' || state === 'UNDEPLOYING') {
+                        return (
+                          <button onClick={() => handleDeploy(c.id)} disabled={busy || state === 'UNDEPLOYING' || !brokerSyncConfigured} title="Redeploys the cloud terminal before use">
+                            {busy || state === 'UNDEPLOYING' ? 'Resuming…' : 'Resume'}
+                          </button>
+                        )
+                      }
                       return (
-                        <button onClick={() => handleDeploy(c.id)} disabled={busy || state === 'UNDEPLOYING' || !brokerSyncConfigured} title="Redeploys the cloud terminal before use">
-                          {busy || state === 'UNDEPLOYING' ? 'Resuming…' : 'Resume'}
+                        <button onClick={() => handleUndeploy(c.id)} disabled={busy || state === 'DEPLOYING' || !brokerSyncConfigured} title="Stops MetaApi hosting cost until resumed">
+                          {busy || state === 'DEPLOYING' ? 'Pausing…' : 'Pause'}
                         </button>
                       )
-                    }
-                    return (
-                      <button onClick={() => handleUndeploy(c.id)} disabled={busy || state === 'DEPLOYING' || !brokerSyncConfigured} title="Stops MetaApi hosting cost until resumed">
-                        {busy || state === 'DEPLOYING' ? 'Pausing…' : 'Pause'}
-                      </button>
-                    )
-                  })()}
+                    })()}
 
-                  {c.lastError && <span className={styles.syncError} title={c.lastError}>⚠ sync error</span>}
-                </div>
-              )}
-
-              {/* Tradovate skips the "link an existing account first" step entirely — one login can
-                  expose several real accounts, discovered only after credentials verify, so linking
-                  happens afterward via the import picker instead of a pre-existing dropdown. */}
-              {c.brokerId === 'tradovate' && (() => {
-                const subAccounts = subAccountsByConnection[c.id] ?? []
-                return (
-                  <div className={styles.tradovateBlock}>
-                    <div className={styles.linkRow}>
-                      <button onClick={() => setCredentialTarget(c)} disabled={!brokerSyncConfigured}>
-                        {c.status === 'connected' ? 'Import more accounts' : 'Connect credentials'}
-                      </button>
-
-                      {c.status === 'connected' && (
-                        <>
-                          <span className={styles.syncMeta}>
-                            {c.lastSyncedAt ? `Synced ${relativeTime(c.lastSyncedAt)}` : 'Not synced yet'}
-                          </span>
-                          <button onClick={() => handleSync(c.id)} disabled={syncingId === c.id || !brokerSyncConfigured || subAccounts.length === 0}>
-                            {syncingId === c.id ? 'Syncing…' : 'Sync now'}
-                          </button>
-                        </>
-                      )}
-
-                      {c.lastError && <span className={styles.syncError} title={c.lastError}>⚠ sync error</span>}
-                    </div>
-
-                    {subAccounts.length > 0 && (
-                      <div className={styles.subAccountList}>
-                        {subAccounts.map((s) => (
-                          <div key={s.id} className={styles.subAccountRow}>
-                            <span>{s.externalLabel ?? s.externalAccountId}</span>
-                            <span className={styles.syncMeta}>
-                              {s.lastSyncedAt ? `Synced ${relativeTime(s.lastSyncedAt)}` : 'Not synced yet'}
-                            </span>
-                            {s.lastError && <span className={styles.syncError} title={s.lastError}>⚠</span>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
-                )
-              })()}
+                )}
 
-              <button onClick={() => handleDelete(c.id)} className="btn-ghost">Delete</button>
+                {/* Tradovate skips the "link an existing account first" step entirely — one login can
+                    expose several real accounts, discovered only after credentials verify, so linking
+                    happens afterward via the import picker instead of a pre-existing dropdown. */}
+                {c.brokerId === 'tradovate' && (() => {
+                  const subAccounts = subAccountsByConnection[c.id] ?? []
+                  return (
+                    <div className={styles.tradovateBlock}>
+                      <div className={styles.linkRow}>
+                        <button onClick={() => setCredentialTarget(c)} disabled={!brokerSyncConfigured}>
+                          {c.status === 'connected' ? 'Import more accounts' : 'Connect credentials'}
+                        </button>
+
+                        {c.status === 'connected' && (
+                          <>
+                            <span className={styles.syncMeta}>
+                              {c.lastSyncedAt ? `Synced ${relativeTime(c.lastSyncedAt)}` : 'Not synced yet'}
+                            </span>
+                            <button onClick={() => handleSync(c.id)} disabled={syncingId === c.id || !brokerSyncConfigured || subAccounts.length === 0}>
+                              {syncingId === c.id ? 'Syncing…' : 'Sync now'}
+                            </button>
+                          </>
+                        )}
+
+                      </div>
+
+                      {subAccounts.length > 0 && (
+                        <div className={styles.subAccountList}>
+                          {subAccounts.map((s) => (
+                            <div key={s.id} className={styles.subAccountRow}>
+                              <span>{s.externalLabel ?? s.externalAccountId}</span>
+                              <span className={styles.syncMeta}>
+                                {s.lastSyncedAt ? `Synced ${relativeTime(s.lastSyncedAt)}` : 'Not synced yet'}
+                              </span>
+                              {s.lastError && (
+                                <span className={styles.subAccountError} title={s.lastError}>⚠ sync failed</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                <button onClick={() => handleDelete(c.id)} className="btn-ghost">Delete</button>
+              </div>
+              {c.lastError && (
+                <p className={styles.syncError}>
+                  <span aria-hidden="true">⚠</span> Last sync failed: {c.lastError}
+                </p>
+              )}
             </div>
           ))}
         </div>
       )}
 
       {!connections.some((c) => c.status === 'connected') && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <ComingSoonSection>
-            Add a broker connection above and connect credentials to start syncing real balance and
-            trade history automatically.
-          </ComingSoonSection>
-        </div>
+        <ComingSoonSection>
+          Add a broker connection above and connect credentials to start syncing real balance and
+          trade history automatically.
+        </ComingSoonSection>
       )}
 
       {credentialTarget && (

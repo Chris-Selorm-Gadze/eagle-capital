@@ -65,8 +65,8 @@ export function WorkerStatus({ workers, loading }: { workers: WorkerNode[]; load
         <span className={`${styles.pill} ${styles.pillOffline}`}>No worker</span>
         <span className={styles.headline}>Nothing is executing trades.</span>
         <span className={styles.meta}>
-          No worker has registered with the control plane, so armed copy links will not mirror anything.
-          Start the Delta Engine worker on your Windows machine. Until then every account below reads
+          No worker has checked in, so armed copy links will not mirror anything. Start the Delta
+          Engine worker on your Windows machine. Until then every account below reads
           <strong> Disconnected</strong> and <strong>Test connection</strong> has nothing to answer it —
           neither is a verdict on your credentials.
         </span>

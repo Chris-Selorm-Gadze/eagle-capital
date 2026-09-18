@@ -4,6 +4,7 @@ import { AuthPage } from '../auth/AuthPage'
 import { ComingSoonSection } from '../../shared/ui/ComingSoonSection'
 import { livePositionsConfigured, type LiveAccountPositions } from '../../lib/livePositionsClient'
 import { subscribeLivePositions } from '../../lib/livePositionsSocket'
+import { setupNotice } from '../../shared/setupNotice'
 import styles from './LivePositionsPage.module.css'
 
 // The backend WS route can be slow to roll out across environments (or not deployed yet) — the
@@ -139,7 +140,10 @@ export function LivePositionsPage() {
 
       {!livePositionsConfigured && (
         <p className={styles.configNotice}>
-          Broker sync isn't configured yet — set VITE_BROKER_SYNC_API_URL in .env.local for this page to actually work.
+          {setupNotice(
+            'Live positions aren’t available right now — this page can’t reach the broker sync service.',
+            ['VITE_BROKER_SYNC_API_URL'],
+          )}
         </p>
       )}
 

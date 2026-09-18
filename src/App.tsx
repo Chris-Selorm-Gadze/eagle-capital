@@ -37,6 +37,17 @@ const EconomicCalendarPage = lazy(() => import('./features/calendar/EconomicCale
 const BrokerConnectionsPage = lazy(() => import('./features/brokers/BrokerConnectionsPage').then((m) => ({ default: m.BrokerConnectionsPage })))
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 
+/* Every lazy route shares one fallback. `deferred-fade-in` (theme.css) keeps it
+ * invisible for 220ms, so the common case — a chunk already in memory — shows
+ * nothing at all rather than a one-frame "Loading…" flicker between pages. */
+function RouteFallback() {
+  return (
+    <p className="deferred-fade-in text-muted-foreground text-sm" role="status" aria-live="polite">
+      Loading…
+    </p>
+  )
+}
+
 /** Pages whose contents come from `useSupabaseData`. They wait for the load and
  * surface its failure; the rest (broker sync, copier, calendar, settings) own
  * their own fetching and must not be blocked by it. */
@@ -52,6 +63,12 @@ const DATA_PAGES: NavKey[] = [
  * no visible control and no way to clear it. The control is now shown on
  * exactly the pages it affects. */
 const ACCOUNT_SCOPED_PAGES: NavKey[] = ['dashboard', 'tradelog', 'tradejournal', 'insights', 'charting']
+
+/** Pages that fetch their own data, so the `useSupabaseData` load never gates
+ * them. Listed rather than inferred, because the enter wrapper below has to know
+ * whether this branch renders anything at all: an empty wrapper is still a flex
+ * child of a `gap-4` column, and would leave a phantom gap on every other page. */
+const SELF_FETCHING_PAGES: NavKey[] = ['tradecopier', 'livepositions', 'calendar', 'brokers']
 
 export default function App() {
   const { user } = useAuth()
@@ -120,6 +137,15 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // The page scrolls inside `mainRef`, not the window, so nothing reset it on a
+  // route change: arriving at the Dashboard from halfway down a long Trade Log
+  // dropped you halfway down the Dashboard, and the enter animation played
+  // somewhere above the fold where it could not be seen. Instant, not smooth —
+  // scrolling a page you have only just asked for reads as lag.
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: 'auto' })
+  }, [nav])
 
   async function handleSnapshot() {
     if (!mainRef.current) return
@@ -197,56 +223,66 @@ export default function App() {
             <LoadError message={error} onRetry={refresh} />
           ) : blocked ? (
             <DashboardSkeleton />
-          ) : (
-            <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
-              {nav === 'dashboard' && (
-                <DashboardPage
-                  trades={filteredTrades}
-                  accounts={dashboardAccounts}
-                  payouts={filteredPayouts}
-                  sessions={filteredSessions}
-                  ledgers={ledgers}
-                  onOpenDateInJournal={handleOpenDateInJournal}
-                  onAddAccount={() => setAddingAccount(true)}
-                  onAddTrade={() => setChoosingAddMethod(true)}
-                />
-              )}
-              {nav === 'cockpit' && (
-                <RiskCockpitPage
-                  accounts={accounts}
-                  payouts={payouts}
-                  rewards={rewards}
-                  trades={trades}
-                  sessionsByAccountId={sessionsByAccountId}
-                  ledgers={ledgers}
-                  userId={userId}
-                  onChanged={refresh}
-                />
-              )}
-              {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
-              {nav === 'tradejournal' && (
-                <TradeJournalPage
-                  trades={filteredTrades}
-                  accounts={accounts}
-                  userId={userId}
-                  onChanged={refresh}
-                  initialDateFilter={pendingJournalDate}
-                />
-              )}
-              {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
-              {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
-              {nav === 'insights' && <InsightsPage trades={filteredTrades} accounts={accounts} userId={userId} />}
-              {nav === 'charting' && <ChartingPage trades={filteredTrades} />}
+          ) : dataPage ? (
+            <Suspense fallback={<RouteFallback />}>
+              {/* Keyed on the route so the enter animation replays on each
+                  arrival. Every nav key maps to its own component, so the key
+                  changes nothing about what mounts — it only restarts the
+                  animation. */}
+              <div className="page-enter" key={nav}>
+                {nav === 'dashboard' && (
+                  <DashboardPage
+                    trades={filteredTrades}
+                    accounts={dashboardAccounts}
+                    payouts={filteredPayouts}
+                    sessions={filteredSessions}
+                    ledgers={ledgers}
+                    onOpenDateInJournal={handleOpenDateInJournal}
+                    onAddAccount={() => setAddingAccount(true)}
+                    onAddTrade={() => setChoosingAddMethod(true)}
+                  />
+                )}
+                {nav === 'cockpit' && (
+                  <RiskCockpitPage
+                    accounts={accounts}
+                    payouts={payouts}
+                    rewards={rewards}
+                    trades={trades}
+                    sessionsByAccountId={sessionsByAccountId}
+                    ledgers={ledgers}
+                    userId={userId}
+                    onChanged={refresh}
+                  />
+                )}
+                {nav === 'tradelog' && <TradeLogPage trades={filteredTrades} accounts={accounts} userId={userId} onChanged={refresh} />}
+                {nav === 'tradejournal' && (
+                  <TradeJournalPage
+                    trades={filteredTrades}
+                    accounts={accounts}
+                    userId={userId}
+                    onChanged={refresh}
+                    initialDateFilter={pendingJournalDate}
+                  />
+                )}
+                {nav === 'tradermanagement' && <TraderManagementPage userId={userId} trades={trades} />}
+                {nav === 'playbooks' && <PlaybooksPage trades={trades} userId={userId} />}
+                {nav === 'insights' && <InsightsPage trades={filteredTrades} accounts={accounts} userId={userId} />}
+                {nav === 'charting' && <ChartingPage trades={filteredTrades} />}
+              </div>
             </Suspense>
-          )}
+          ) : null}
 
           {/* Pages that fetch their own data — unaffected by the load above. */}
-          <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
-            {nav === 'tradecopier' && <TradeCopierPage />}
-            {nav === 'livepositions' && <LivePositionsPage />}
-            {nav === 'calendar' && <EconomicCalendarPage />}
-            {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}
-          </Suspense>
+          {SELF_FETCHING_PAGES.includes(nav) && (
+            <Suspense fallback={<RouteFallback />}>
+              <div className="page-enter" key={nav}>
+                {nav === 'tradecopier' && <TradeCopierPage />}
+                {nav === 'livepositions' && <LivePositionsPage />}
+                {nav === 'calendar' && <EconomicCalendarPage />}
+                {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}
+              </div>
+            </Suspense>
+          )}
         </div>
 
         {/* Settings deliberately sits OUTSIDE `appSurface`. It's built from
@@ -255,9 +291,13 @@ export default function App() {
             specificity — so inside the wrapper a `variant="destructive"`
             button would still render in the legacy grey. Any new page built on
             shadcn belongs out here too. */}
-        <Suspense fallback={<p className="text-muted-foreground text-sm">Loading…</p>}>
-          {nav === 'settings' && <SettingsPage onChanged={refresh} />}
-        </Suspense>
+        {nav === 'settings' && (
+          <Suspense fallback={<RouteFallback />}>
+            <div className="page-enter">
+              <SettingsPage onChanged={refresh} />
+            </div>
+          </Suspense>
+        )}
       </AppShell>
 
       <div className="appSurface">

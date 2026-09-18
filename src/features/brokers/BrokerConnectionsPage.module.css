@@ -5,27 +5,38 @@
   margin-bottom: 1.25rem;
 }
 
+/* Rows own their padding (see .card-flush), separated by a rule rather than a
+   gap so the list reads as one surface. */
 .list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
+.list > * + * {
+  border-top: 1px solid var(--gridline);
+}
+
+/* Wraps — see the same note in TradeCopierPage.module.css. */
 .row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
   padding: 0.6rem 0.9rem;
 }
 
 .broker {
   font-weight: 600;
-  min-width: 160px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .label {
   color: var(--text-secondary);
-  flex: 1;
+  /* min-width: 0 so a long connection label shrinks with the row instead of
+     setting a floor the row can't wrap below. */
+  flex: 1 1 8rem;
+  min-width: 0;
 }
 
 .badge {
@@ -58,8 +69,10 @@
 .linkRow {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  flex: 1;
+  flex: 1 1 18rem;
+  min-width: 0;
 }
 
 .syncMeta {
@@ -68,9 +81,24 @@
   white-space: nowrap;
 }
 
+/* One connection row plus, when there is one, why its last sync failed. */
+.connectionEntry {
+  display: flex;
+  flex-direction: column;
+}
+
 .syncError {
+  margin: 0;
+  padding: 0 0.9rem 0.6rem;
   color: var(--critical);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.subAccountError {
+  color: var(--critical);
+  font-size: 0.75rem;
+  white-space: nowrap;
   cursor: help;
 }
 
@@ -117,6 +145,7 @@
   border-radius: 6px;
   padding: 0.6rem 0.75rem;
   cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
 .subAccountPickerRow:hover {
   border-color: var(--text-muted);

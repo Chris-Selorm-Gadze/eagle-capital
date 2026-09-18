@@ -58,7 +58,7 @@ export function DailyPnlChart({ daily }: { daily: DailyPnl[] }) {
 								/>
 							}
 						/>
-						<Bar dataKey="pnl" radius={2}>
+						<Bar dataKey="pnl" isAnimationActive={false} radius={2}>
 							{daily.map((d) => (
 								<Cell
 									fill={d.pnl >= 0 ? 'var(--good)' : 'var(--critical)'}

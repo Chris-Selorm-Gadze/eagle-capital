@@ -66,8 +66,8 @@ export function AccountBalanceChart({ data, currentBalance }: { data: LedgerPoin
               labelStyle={TOOLTIP_LABEL_STYLE}
               itemStyle={TOOLTIP_ITEM_STYLE}
             />
-            <Line type="monotone" dataKey="balance" name="Account Balance" stroke={COLOR_ACCENT} strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="withdrawals" name="Deposits / Withdrawals" stroke={COLOR_CRITICAL} strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="balance" name="Account Balance" stroke={COLOR_ACCENT} strokeWidth={2} dot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="withdrawals" name="Deposits / Withdrawals" stroke={COLOR_CRITICAL} strokeWidth={2} dot={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

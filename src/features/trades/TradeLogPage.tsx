@@ -21,6 +21,11 @@ export function TradeLogPage({
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // What the table's own symbol/side/outcome filters currently leave visible.
+  // "Delete all" acts on this rather than on every trade passed in, so it can
+  // never remove rows the filters are hiding — the button says "shown here" and
+  // now that is literally true.
+  const [visible, setVisible] = useState<Trade[]>(trades)
 
   // The row's Delete button used to fire straight through: no confirmation, no
   // error handling, no undo. It was the only destructive action in the app
@@ -44,13 +49,21 @@ export function TradeLogPage({
   }
 
   async function handleDeleteAll() {
-    const count = trades.length
+    const count = visible.length
     if (count === 0) return
-    if (!(await confirm({ title: `Delete all ${count} trade${count === 1 ? '' : 's'} shown here?`, description: 'This cannot be undone.', confirmLabel: 'Delete all', destructive: true }))) return
+    const narrowed = count < trades.length
+    if (!(await confirm({
+      title: `Delete all ${count} trade${count === 1 ? '' : 's'} shown here?`,
+      description: narrowed
+        ? `This cannot be undone. The ${trades.length - count} trade${trades.length - count === 1 ? '' : 's'} hidden by the filters will be kept.`
+        : 'This cannot be undone.',
+      confirmLabel: 'Delete all',
+      destructive: true,
+    }))) return
     setError(null)
     setDeleting(true)
     try {
-      await deleteTrades(trades.map((t) => t.id!))
+      await deleteTrades(visible.map((t) => t.id!))
       onChanged()
     } catch (err) {
       setError(errorMessage(err))
@@ -61,10 +74,10 @@ export function TradeLogPage({
 
   return (
     <div>
-      {trades.length > 0 && (
+      {visible.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
           <button type="button" className="btn-ghost" onClick={handleDeleteAll} disabled={deleting}>
-            {deleting ? 'Deleting…' : 'Delete all'}
+            {deleting ? 'Deleting…' : `Delete all ${visible.length}`}
           </button>
         </div>
       )}
@@ -76,6 +89,7 @@ export function TradeLogPage({
         title={`All trades (${trades.length})`}
         onEdit={(t) => setEditingTrade(t)}
         onDelete={handleDelete}
+        onVisibleChange={setVisible}
       />
       {editingTrade && (
         <AddTradeDialog

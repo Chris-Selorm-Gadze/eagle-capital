@@ -179,6 +179,30 @@
   color: var(--text-muted);
   font-size: 0.85rem;
 }
+
+/* Which series and resolution is on screen — a label for the chart, so it keeps
+   the tighter gap to the chart rather than the paragraph rhythm. */
+.chartCaption {
+  margin: 0 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+}
+
+.chartCaption strong {
+  color: var(--text-secondary);
+}
+
+.chartWarning {
+  margin: 0 0 0.6rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--warning);
+  border-radius: 6px;
+  background: rgba(180, 83, 9, 0.08);
+  color: var(--warning);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
 .chipRow {
   display: flex;
   gap: 0.4rem;

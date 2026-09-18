@@ -3,8 +3,14 @@
   margin: 3rem auto;
 }
 
+/* The inline signed-out form's heading. It had size and weight from nothing but
+   the browser default, which Tailwind's preflight removes — so "Sign in" was the
+   same plain text as the labels under it. */
 .title {
-  margin-bottom: 0.25rem;
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .subtitle {

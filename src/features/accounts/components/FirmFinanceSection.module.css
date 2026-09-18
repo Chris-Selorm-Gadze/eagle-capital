@@ -2,10 +2,19 @@
   margin-bottom: 2rem;
 }
 
+/* Wraps on its own container width. As a grid with two 320px minimums and no
+   breakpoint at all, this row overflowed on every phone and in every narrow
+   desktop pane. */
 .row {
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
+  align-items: flex-start;
+}
+
+.row > * {
+  flex: 1 1 320px;
+  min-width: 0;
 }
 
 .cardTitle {
@@ -80,7 +89,7 @@
 
 .pathGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
   gap: 1rem;
 }
 

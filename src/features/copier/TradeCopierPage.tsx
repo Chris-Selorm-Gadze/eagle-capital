@@ -462,9 +462,9 @@ function TradeCopierWorkspace() {
       )}
 
       <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2>Copy groups</h2>
-          <button onClick={() => setAddingAccount(true)} className="btn-primary">+ Connect an account</button>
+        <div className="section-title-row">
+          <h2 className="section-title">Copy groups</h2>
+          <button onClick={() => setAddingAccount(true)} className="btn-primary">Connect an account</button>
         </div>
 
         {groups.length === 0 ? (
@@ -524,7 +524,7 @@ function TradeCopierWorkspace() {
       </section>
 
       <section className={styles.section}>
-        <h2>Connected accounts</h2>
+        <h2 className="section-title">Connected accounts</h2>
         {accounts.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>No accounts connected yet.</p>
         ) : (
@@ -548,7 +548,7 @@ function TradeCopierWorkspace() {
                 ))}
               </div>
             )}
-            <div className={`card ${styles.list}`}>
+            <div className={`card card-flush ${styles.list}`}>
               {accounts.map((a) => {
                 const testing = hasPendingTest(pending, a.id)
                 return (
@@ -574,15 +574,17 @@ function TradeCopierWorkspace() {
                           {a.brokerPingMs} ms to broker
                         </span>
                       )}
-                      <button onClick={() => handleTestConnection(a)} disabled={testing}>
-                        {testing ? 'Testing…' : 'Retest'}
-                      </button>
-                      <button onClick={() => setFixingAccount(a)} className="btn-ghost">
-                        Fix credentials
-                      </button>
-                      <button onClick={() => handleRemoveAccount(a)} className="btn-ghost">
-                        Remove
-                      </button>
+                      <div className={styles.rowButtons}>
+                        <button onClick={() => handleTestConnection(a)} disabled={testing}>
+                          {testing ? 'Testing…' : 'Retest'}
+                        </button>
+                        <button onClick={() => setFixingAccount(a)} className="btn-ghost">
+                          Fix credentials
+                        </button>
+                        <button onClick={() => handleRemoveAccount(a)} className="btn-ghost">
+                          Remove
+                        </button>
+                      </div>
                     </div>
                     {/* The worker writes the broker's own words here when a test
                         fails. It was previously a `title` tooltip only, which is
@@ -605,13 +607,13 @@ function TradeCopierWorkspace() {
       </section>
 
       <section className={styles.section}>
-        <h2>Risk profiles</h2>
+        <h2 className="section-title">Risk profiles</h2>
         {riskProfiles.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>
             No risk profiles yet — one is created per account when you set loss limits on it.
           </p>
         ) : (
-          <div className={`card ${styles.list}`}>
+          <div className={`card card-flush ${styles.list}`}>
             {riskProfiles.map((p) => {
               const account = accounts.find((a) => a.id === p.accountId)
               return (
@@ -634,7 +636,7 @@ function TradeCopierWorkspace() {
       </section>
 
       <section className={styles.section}>
-        <h2>Copy log</h2>
+        <h2 className="section-title">Copy log</h2>
         <ExecutionLog events={events} accounts={accounts} />
       </section>
 

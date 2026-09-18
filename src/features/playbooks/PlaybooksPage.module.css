@@ -1,19 +1,16 @@
+/* Layout comes from the shared .page-header utility; this only owns the gap to
+   the grid below. */
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 1.25rem;
 }
 
+/* auto-fit off the real container width rather than a viewport breakpoint — the
+   grid sits inside the viewport minus the sidebar, so `max-width: 700px` fired
+   about 300px late and the cards were already squeezed. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 1.25rem;
-}
-@media (max-width: 700px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .card {
@@ -23,7 +20,7 @@
   padding: 1.25rem;
   background: var(--surface);
   cursor: pointer;
-  transition: border-color 0.12s, transform 0.12s;
+  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
   display: flex;
   flex-direction: column;
 }
@@ -225,7 +222,10 @@
    dead space whenever the description + performance tiles run taller than a single thumbnail. */
 .overview {
   display: grid;
-  grid-template-columns: 3fr 2fr;
+  /* minmax(0, …) — a bare `3fr` floors the track at its CONTENT width, so a long
+     unbroken description or a wide example image pushed this dialog's own
+     columns past the panel. */
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 1.5rem;
 }
 .overviewLeft {
@@ -331,7 +331,7 @@
 /* Staged image previews (used in the New/Edit Playbook form before saving) */
 .previewGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(90px, 100%), 1fr));
   gap: 0.6rem;
   margin-top: 0.75rem;
 }

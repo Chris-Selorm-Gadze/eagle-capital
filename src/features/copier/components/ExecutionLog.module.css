@@ -11,7 +11,7 @@
 
 .summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
   gap: 0.75rem;
 }
 
@@ -45,10 +45,90 @@
   line-height: 1.35;
 }
 
-/* The log can be wider than the page on a narrow window; it scrolls inside its
-   own box so the page body never scrolls sideways. */
+/* Filter bar. Wraps rather than scrolls — it is short enough to stack on a phone,
+   and a horizontally scrolling set of controls hides the ones you need. */
+.filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.75rem;
+}
+
+.outcomeTabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+/* Zero-specificity element rules in theme.css set the button floor, so a plain
+   class is enough to win here — no !important, no compound selector. */
+.outcomeTab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.outcomeTab:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--surface);
+}
+
+.outcomeTabActive {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.filterLabel {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* The label's own control, sized so a symbol search doesn't stretch the bar. */
+.filterField input,
+.filterField select {
+  font-size: 0.82rem;
+  padding: 0.32rem 0.5rem;
+  max-width: 14rem;
+}
+
+.clearFilters {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.6rem;
+  color: var(--text-secondary);
+}
+
+/* The log scrolls inside its own box, in BOTH directions.
+   · sideways, because the eight columns are wider than a narrow window and the
+     page body must never scroll horizontally;
+   · vertically, because this is the longest thing on the copier page — letting a
+     full page of rows extend the document pushed the worker status, the copy
+     groups and the account list off-screen, so reading the log meant losing
+     everything it was about.
+   The header is sticky against this box, so the columns are still named once you
+   are twenty rows down. */
 .tableWrap {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 27rem;
+  overscroll-behavior: contain;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -56,14 +136,23 @@
 
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.85rem;
 }
 
 .table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   text-align: left;
   padding: 0.55rem 0.7rem;
-  border-bottom: 1px solid var(--border);
+  /* A sticky header over scrolling rows needs an opaque ground of its own —
+     `background: var(--surface)` on the wrapper scrolls with the content. And
+     with border-collapse: separate, a `border-bottom` on a sticky cell scrolls
+     away with it, so the rule is a box-shadow instead. */
+  background: var(--surface-2);
+  box-shadow: inset 0 -1px 0 var(--border);
   font-size: 0.7rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -77,7 +166,7 @@
   vertical-align: top;
 }
 
-.table tr:last-child td {
+.table tbody tr:last-child td {
   border-bottom: none;
 }
 
@@ -142,4 +231,39 @@
   font-weight: 400;
   color: var(--text-secondary);
   white-space: nowrap;
+}
+
+/* Row count and pager. Always shows the count, even on a single page — "12 of
+   200 matching" is how you know a filter is doing something. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.pagerCount {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pagerControls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.pagerControls button {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.pagerPosition {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  padding: 0 0.35rem;
+  font-variant-numeric: tabular-nums;
 }

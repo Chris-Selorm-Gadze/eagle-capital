@@ -3,7 +3,10 @@
   top: 0;
   z-index: 50;
   border-bottom: 1px solid transparent;
-  transition: background-color 0.4s ease, border-color 0.4s ease, backdrop-filter 0.4s ease;
+  transition:
+    background-color 0.4s var(--l-ease),
+    border-color 0.4s var(--l-ease),
+    backdrop-filter 0.4s var(--l-ease);
 }
 
 /* Only commits to a solid ground once you've scrolled — over the hero it
@@ -137,7 +140,7 @@
   width: 1rem;
   height: 1px;
   background: currentColor;
-  transition: transform 0.35s var(--l-ease), opacity 0.2s ease;
+  transition: transform 0.35s var(--l-ease), opacity 0.2s var(--l-ease);
 }
 
 .menuBar + .menuBar { margin-top: 0.3rem; }

@@ -1,10 +1,7 @@
+/* Layout comes from the shared .page-header utility; this only owns the gap to
+   the panes below. */
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 1.25rem;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 .titleGroup {
@@ -35,24 +32,30 @@
    comparing a trade's numbers against its price action doesn't require switching away from either. */
 .layout {
   display: grid;
-  grid-template-columns: 320px minmax(360px, 1fr) minmax(420px, 1.3fr);
+  /* minmax(0, …) on the flexible panes. Their old 360px/420px minimums plus the
+     320px list and two 1.25rem gaps needed 1140px of CONTENT — about 1445px of
+     viewport once the sidebar and page padding are taken out — while the
+     breakpoint below only collapsed them at 1300px, so the journal scrolled
+     sideways across that whole band. The breakpoints now match the width this
+     layout actually gets. */
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr) minmax(0, 1.3fr);
   grid-template-areas: "list detail chart";
   gap: 1.25rem;
   align-items: start;
 }
 
-@media (max-width: 1300px) {
+@media (max-width: 1450px) {
   .layout {
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
     grid-template-areas:
       "list detail"
       "list chart";
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "list"
       "detail"
