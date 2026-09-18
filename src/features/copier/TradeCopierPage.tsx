@@ -10,6 +10,7 @@ import {
 import {
   createCopierLink, setCopierEnabled, deleteCopierLink,
   unlockRiskProfile, flattenAccount, testConnection, disconnectAccount,
+  createJournalAccount,
 } from '../../db/copierActions'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
@@ -439,6 +440,69 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
    * recoverable, so the confirmation says what goes rather than asking "are you
    * sure" — and a mistyped password does not need any of it, which is what the
    * second line is for. */
+  /* Give every unjournalled account its own dashboard account, in one go.
+   *
+   * The alternative was seven dialogs, each repeating the same two choices the
+   * user already made once. It creates rather than links because there is
+   * nothing to link to yet, and it only ever touches accounts that are not
+   * already journalled, so pressing it twice cannot produce duplicates.
+   */
+  async function handleJournalAll() {
+    const unjournalled = accounts.filter((a) => !a.journalAccountId)
+    if (unjournalled.length === 0) return
+
+    const ok = await confirm({
+      title: `Journal ${unjournalled.length} account${unjournalled.length === 1 ? '' : 's'}?`,
+      description:
+        'This creates one dashboard account for each, named after the broker account: '
+        + `${unjournalled.map(accountName).join(', ')}. `
+        + 'Their closed trades then arrive on the dashboard on their own. '
+        + 'Drawdown limits and profit targets are left blank for you to fill in.',
+      confirmLabel: 'Create and journal',
+    })
+    if (!ok) return
+
+    setActionError(null)
+    setNotice(`Creating ${unjournalled.length} dashboard accounts…`)
+
+    const failed: string[] = []
+    let created = 0
+    // Sequential, not Promise.all: each one inserts a row and then links it, and
+    // a failure part way through should leave the ones before it done rather
+    // than racing seven writes and reporting a single opaque error.
+    for (const account of unjournalled) {
+      try {
+        await createJournalAccount(userId, {
+          id: account.id,
+          label: account.label,
+          accountNumber: account.accountNumber,
+          platform: account.platform,
+          balance: account.balance,
+          currency: account.currency,
+        })
+        created += 1
+      } catch {
+        failed.push(accountName(account))
+      }
+    }
+
+    await load()
+    onAccountsChanged?.()
+
+    if (failed.length > 0) {
+      setNotice(null)
+      setActionError(
+        `Journalled ${created}, but could not do ${failed.join(', ')}. `
+        + 'Use Journal trades on those to see why.',
+      )
+    } else {
+      setNotice(
+        `${created} account${created === 1 ? '' : 's'} journalled. Closed trades arrive `
+        + 'within a few minutes, and the first sync reaches back 72 hours.',
+      )
+    }
+  }
+
   async function handleRemoveAccount(account: TradingAccount) {
     const linked = relations.filter(
       (r) => r.masterAccountId === account.id || r.followerAccountId === account.id,
@@ -569,9 +633,13 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
               <div className={styles.warnStrip}>
                 <div>
                   None of these accounts report to the dashboard yet, so it has no trades to
-                  show even while copies are running. Use <strong>Journal trades</strong> on an
-                  account to point it at a dashboard account — closed positions then arrive on
-                  their own, with the broker’s own profit figure.
+                  show even while copies are running. Closed positions arrive on their own once
+                  an account is journalled, with the broker’s own profit figure.
+                  <div className={styles.stripActions}>
+                    <button type="button" onClick={handleJournalAll}>
+                      Journal all {accounts.length} account{accounts.length === 1 ? '' : 's'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
