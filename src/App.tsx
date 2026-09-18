@@ -277,7 +277,11 @@ export default function App() {
           {SELF_FETCHING_PAGES.includes(nav) && (
             <Suspense fallback={<RouteFallback />}>
               <div className="page-enter" key={nav}>
-                {nav === 'tradecopier' && <TradeCopierPage />}
+                {/* Creating a dashboard account from the copier writes to
+                    `accounts`, which this component holds and the copier page
+                    does not — without this the new account is invisible on the
+                    dashboard until a full page reload. */}
+                {nav === 'tradecopier' && <TradeCopierPage onAccountsChanged={refresh} />}
                 {nav === 'livepositions' && <LivePositionsPage />}
                 {nav === 'calendar' && <EconomicCalendarPage />}
                 {nav === 'brokers' && <BrokerConnectionsPage accounts={accounts} userId={userId} />}

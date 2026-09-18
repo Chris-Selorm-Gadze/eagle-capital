@@ -198,6 +198,49 @@ def _serve_commands_while_idle() -> None:
             logger.warning("idle_command_failed", command=cmd.get("id"), error=str(exc))
 
 
+def _journal_while_idle(accounts: list[AccountConfig]) -> None:
+    """Journal closed trades even when no copy link is armed.
+
+    Journalling is not conditional on copying. Someone who connected an account
+    so its history reaches the dashboard, and has not armed a copy link, still
+    expects their trades to appear -- and the periodic pass normally runs inside
+    CopierEngine, which never starts without an armed link. Without this, that
+    user's dashboard stays empty forever with nothing on screen explaining why.
+
+    Building an AccountSession is just config; the terminal work happens in
+    connect(), which sync_all_trades calls for the one account it picks.
+    """
+    from engine.account_session import AccountSession
+    from engine.trade_journal import journallable, should_sync_trades, sync_all_trades
+
+    if not should_sync_trades():
+        return
+
+    candidates = journallable(accounts)
+    if not candidates:
+        return
+
+    sessions = {
+        a.id: AccountSession(
+            account_id=a.id,
+            label=a.label,
+            role=a.role,
+            login=a.login,
+            password=a.password,
+            server=a.server,
+            terminal_path=a.terminal_path,
+            platform=a.platform,
+            api_base_url=a.api_base_url,
+        )
+        for a in candidates
+    }
+
+    try:
+        sync_all_trades(candidates, sessions)
+    except Exception as exc:
+        logger.warning("idle_trade_journal_failed", error=str(exc))
+
+
 def run_all_masters() -> None:
     """Entrypoint used by the production copier loop.
 
@@ -261,6 +304,9 @@ def run_all_masters() -> None:
             )
             idle_logged = True
         _serve_commands_while_idle()
+        # Accounts are known here even though no master is armed, so anything
+        # pointed at a dashboard account still gets journalled.
+        _journal_while_idle(accounts)
         time.sleep(idle_poll_s)
 
     from engine.copier_engine import CopierEngine

@@ -257,7 +257,13 @@ function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => 
   )
 }
 
-function TradeCopierWorkspace({ userId }: { userId: string }) {
+function TradeCopierWorkspace({ userId, onAccountsChanged }: {
+  userId: string
+  /** Refetches the app's own `accounts`/`trades`. Journalling writes to a table
+   * this page does not own, so without telling App the dashboard shows stale
+   * data until a reload. */
+  onAccountsChanged?: () => void
+}) {
   const confirm = useConfirm()
 
   const [accounts, setAccounts] = useState<TradingAccount[]>([])
@@ -702,6 +708,7 @@ function TradeCopierWorkspace({ userId }: { userId: string }) {
             setJournallingAccount(null)
             setNotice(message)
             load()
+            onAccountsChanged?.()
           }}
         />
       )}
@@ -721,7 +728,7 @@ function TradeCopierWorkspace({ userId }: { userId: string }) {
   )
 }
 
-export function TradeCopierPage() {
+export function TradeCopierPage({ onAccountsChanged }: { onAccountsChanged?: () => void }) {
   const { user, loading } = useAuth()
 
   if (loading) return null
@@ -736,7 +743,7 @@ export function TradeCopierPage() {
           <AuthPage />
         </>
       ) : (
-        <TradeCopierWorkspace userId={user.id} />
+        <TradeCopierWorkspace userId={user.id} onAccountsChanged={onAccountsChanged} />
       )}
     </div>
   )
