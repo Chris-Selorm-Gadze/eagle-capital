@@ -188,6 +188,15 @@ alter table public.trades add column if not exists stop_loss numeric;
 alter table public.trades add column if not exists profit_target numeric;
 alter table public.trades add column if not exists rating smallint;
 alter table public.trades add column if not exists tags text[];
+-- Stable id of the source position for an imported trade, e.g.
+-- mt5:<trading_account_id>:<position_ticket>. Null for hand-entered trades.
+-- The worker re-reads its deal-history window every cycle, so a repeat has to
+-- be a no-op rather than a duplicate. NOT a partial index: Postgres cannot
+-- infer one for `on conflict (user_id, external_id)`, and a unique index
+-- already treats NULLs as distinct, so manual trades are unaffected.
+alter table public.trades add column if not exists external_id text;
+create unique index if not exists trades_user_external_id_key
+  on public.trades(user_id, external_id);
 alter table public.trades enable row level security;
 drop policy if exists "own trades" on public.trades;
 create policy "own trades" on public.trades for all using (auth.uid() = user_id);

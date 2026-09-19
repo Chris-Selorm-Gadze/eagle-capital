@@ -189,6 +189,12 @@ alter table public.trading_accounts add column if not exists broker_slug varchar
 alter table public.trading_accounts add column if not exists api_base_url text;
 alter table public.trading_accounts add column if not exists account_metadata jsonb not null default '{}'::jsonb;
 alter table public.trading_accounts add column if not exists last_balance_sync_at timestamptz;
+alter table public.trading_accounts add column if not exists account_id uuid references public.accounts(id) on delete set null;
+alter table public.trading_accounts add column if not exists history_synced_to timestamptz;
+-- One dashboard account per copier account: a master and its followers would
+-- otherwise all journal the same fill to one account and multiply its P&L.
+create unique index if not exists trading_accounts_account_id_key
+  on public.trading_accounts(account_id) where account_id is not null;
 
 comment on column public.trading_accounts.api_base_url is 'REST API root for non-terminal platforms (e.g. https://dxtrade.ftmo.com).';
 comment on column public.trading_accounts.terminal_path is 'Per-account MT5 install, ASSIGNED BY THE WORKER. NULL means unassigned — never "use whatever terminal is running". A UNIQUE path per account is what removes switch_ms — see terminal_pool.py.';
