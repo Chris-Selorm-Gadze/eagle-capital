@@ -667,6 +667,60 @@ async function updateBalances(body: Record<string, any>): Promise<Response> {
   return json({ status: 'ok', updated: accounts.length })
 }
 
+/* Replace each account's open-position snapshot.
+ *
+ * Whole snapshots, never deltas. The worker can only read the account its
+ * terminal is attached to, so it cannot tell "this position closed" from "I
+ * was not on that account this cycle" -- it sends what it actually saw and
+ * this replaces the row. Accounts absent from the payload are left alone, so
+ * an unvisited account keeps its last snapshot and its stale reported_at
+ * instead of appearing flat.
+ *
+ * balance/equity/currency are only written when the worker read them on the
+ * same visit; otherwise the stored figures stand rather than being blanked. */
+async function updateOpenPositions(body: Record<string, any>): Promise<Response> {
+  const userId = body.user_id
+  const accounts: Record<string, any>[] = body.accounts ?? []
+  if (!userId) return json({ detail: 'user_id is required' }, 422)
+
+  const now = nowIso()
+  const rows: Record<string, unknown>[] = []
+
+  for (const row of accounts) {
+    const id = row.trading_account_id
+    if (!id) continue
+    const snapshot: Record<string, unknown> = {
+      trading_account_id: id,
+      user_id: userId,
+      positions: Array.isArray(row.positions) ? row.positions : [],
+      reported_at: now,
+    }
+    if (row.balance !== null && row.balance !== undefined) snapshot.balance = row.balance
+    if (row.equity !== null && row.equity !== undefined) snapshot.equity = row.equity
+    if (row.currency) snapshot.currency = row.currency
+    rows.push(snapshot)
+  }
+
+  if (!rows.length) return json({ status: 'ok', updated: 0 })
+
+  /* Scoped to the caller's own accounts before writing. The worker key is
+   * shared infrastructure, so a wrong or stale trading_account_id in a payload
+   * must not be able to plant a row against somebody else's account. */
+  const ids = rows.map((r) => r.trading_account_id as string)
+  const { data: owned } = await admin.from('trading_accounts')
+    .select('id').eq('user_id', userId).in('id', ids)
+  const allowed = new Set((owned ?? []).map((r: { id: string }) => r.id))
+  const writable = rows.filter((r) => allowed.has(r.trading_account_id as string))
+
+  if (!writable.length) return json({ status: 'ok', updated: 0, skipped: rows.length })
+
+  const { error } = await admin.from('live_positions')
+    .upsert(writable, { onConflict: 'trading_account_id' })
+  if (error) return json({ detail: error.message }, 500)
+
+  return json({ status: 'ok', updated: writable.length, skipped: rows.length - writable.length })
+}
+
 /* A side is 'long' or 'short' in this app, and nothing else may reach the
  * column: every consumer (ledger, win rate, the P&L sign) branches on it. */
 const TRADE_SIDES = new Set(['long', 'short'])
@@ -1026,6 +1080,7 @@ Deno.serve(async (req) => {
       if (path === '/internal/execution-events/batch' && method === 'POST') return createEventBatch(body, userId!)
       if (path === '/internal/account-balances' && method === 'POST') return updateBalances(body)
       if (path === '/internal/closed-trades' && method === 'POST') return journalClosedTrades(body)
+      if (path === '/internal/open-positions' && method === 'POST') return updateOpenPositions(body)
 
       const trading = path.match(/^\/internal\/trading-accounts\/([^/]+)$/)
       if (trading && method === 'GET') {

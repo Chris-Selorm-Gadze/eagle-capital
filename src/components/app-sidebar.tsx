@@ -21,7 +21,7 @@ export function AppSidebar({ onAddTrade }: { onAddTrade: () => void }) {
 	const { navigate } = useAppNav();
 	const { state } = useSidebar();
 	const collapsed = state === "collapsed";
-	// Broker Connections and Live Positions are served by a parked backend.
+	// Broker Connections is served by a parked backend.
 	// Hidden rather than disabled: a nav entry is a promise the page works.
 	const groups = visibleNavGroups({ brokerSync: brokerSyncConfigured });
 

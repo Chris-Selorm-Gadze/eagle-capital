@@ -15,8 +15,11 @@ describe('visibleNavGroups', () => {
 
   it('hides the pages served by the parked broker-sync service', () => {
     const keys = keysOf(visibleNavGroups(NONE))
-    expect(keys).not.toContain('livepositions')
     expect(keys).not.toContain('brokers')
+  })
+
+  it('keeps Live Trading, which reads the worker snapshots rather than that service', () => {
+    expect(keysOf(visibleNavGroups(NONE))).toContain('livepositions')
   })
 
   it('leaves every other page alone', () => {
@@ -25,7 +28,7 @@ describe('visibleNavGroups', () => {
     )
     // The blast radius of parking a backend, stated as a list. A page landing
     // here by accident is a page that silently vanished from the sidebar.
-    expect(hidden).toEqual(['livepositions', 'brokers'])
+    expect(hidden).toEqual(['brokers'])
   })
 
   it('drops a group whose every item is unavailable', () => {
@@ -45,7 +48,7 @@ describe('navItemFor', () => {
   it('still names a parked page, so a bookmark to one is not labelled Dashboard', () => {
     // Deliberately resolved from the full list: hiding a page from the sidebar
     // must not break the breadcrumb of a URL someone already has.
-    expect(navItemFor('livepositions')?.title).toBe('Live Positions')
+    expect(navItemFor('livepositions')?.title).toBe('Live Trading')
     expect(navItemFor('brokers')?.title).toBe('Broker Connections')
   })
 })

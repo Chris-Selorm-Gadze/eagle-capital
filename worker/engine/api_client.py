@@ -317,6 +317,24 @@ class ControlApiClient:
         except ValueError:
             return {}
 
+    def post_open_positions(self, accounts: list[dict[str, Any]]) -> None:
+        """Replace each account's open-position snapshot in the control plane.
+
+        Whole snapshots, not deltas: the worker cannot reliably tell a position
+        that closed from one it simply could not read this cycle, so it sends
+        what it saw and the gateway replaces the row. An account the worker did
+        not visit is left out entirely, which keeps its last good snapshot and
+        its age visible rather than blanking it.
+        """
+        if not self.user_id or not accounts:
+            return
+        self._request(
+            "POST",
+            "/internal/open-positions",
+            json={"user_id": self.user_id, "accounts": accounts},
+            include_user=False,
+        )
+
 
 _client: Optional[ControlApiClient] = None
 

@@ -210,7 +210,6 @@ def _journal_while_idle(accounts: list[AccountConfig]) -> None:
     Building an AccountSession is just config; the terminal work happens in
     connect(), which sync_all_trades calls for the one account it picks.
     """
-    from engine.account_session import AccountSession
     from engine.trade_journal import journallable, should_sync_trades, sync_all_trades
 
     if not should_sync_trades():
@@ -220,7 +219,21 @@ def _journal_while_idle(accounts: list[AccountConfig]) -> None:
     if not candidates:
         return
 
-    sessions = {
+    try:
+        sync_all_trades(candidates, _idle_sessions(candidates))
+    except Exception as exc:
+        logger.warning("idle_trade_journal_failed", error=str(exc))
+
+
+def _idle_sessions(accounts: list[AccountConfig]) -> dict:
+    """Sessions for accounts the supervisor drives directly while nothing copies.
+
+    Building one is just config -- the terminal work happens in connect(), which
+    each caller does for only the accounts it actually reads.
+    """
+    from engine.account_session import AccountSession
+
+    return {
         a.id: AccountSession(
             account_id=a.id,
             label=a.label,
@@ -232,13 +245,29 @@ def _journal_while_idle(accounts: list[AccountConfig]) -> None:
             platform=a.platform,
             api_base_url=a.api_base_url,
         )
-        for a in candidates
+        for a in accounts
     }
 
+
+def _sync_state_while_idle(accounts: list[AccountConfig]) -> None:
+    """Balances and open positions for a worker with no copy link armed.
+
+    Same reason as _journal_while_idle: this sweep normally runs inside
+    CopierEngine, which never starts without an armed link, so a user who
+    connected accounts purely to watch them saw stale balances and an empty
+    Live Trading page indefinitely. The terminal is otherwise unused here, so
+    the switches this costs compete with nothing.
+    """
+    from engine.balance_sync import should_sync_balances, sync_all_balances
+
+    enabled = [a for a in accounts if a.enabled]
+    if not enabled or not should_sync_balances():
+        return
+
     try:
-        sync_all_trades(candidates, sessions)
+        sync_all_balances(enabled, _idle_sessions(enabled))
     except Exception as exc:
-        logger.warning("idle_trade_journal_failed", error=str(exc))
+        logger.warning("idle_balance_sync_failed", error=str(exc))
 
 
 def run_all_masters() -> None:
@@ -307,6 +336,7 @@ def run_all_masters() -> None:
         # Accounts are known here even though no master is armed, so anything
         # pointed at a dashboard account still gets journalled.
         _journal_while_idle(accounts)
+        _sync_state_while_idle(accounts)
         time.sleep(idle_poll_s)
 
     from engine.copier_engine import CopierEngine

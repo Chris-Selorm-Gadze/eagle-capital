@@ -14,7 +14,7 @@ export interface FeatureItem {
 /** The 12 shipped tools. Order matches the sidebar's own priority. */
 export const TOOLS: FeatureItem[] = [
   { n: '01', name: 'Dashboard', body: 'KPIs, cumulative P&L, a calendar heatmap and time-of-day scatters that show when you actually make money.' },
-  { n: '02', name: 'Live Positions', body: 'Open positions across connected accounts, streaming over WebSocket, with unrealized P&L in one total.' },
+  { n: '02', name: 'Live Trading', body: 'Every connected account’s open positions in one view, with unrealized P&L in one total and each account stamped with when the worker last read it.' },
   { n: '03', name: 'Trade Journal', body: 'Three panes: your trades, the analysis, the chart. Tag it, rate it, write the note you’ll need to read next month.' },
   { n: '04', name: 'Trader Management', body: 'A daily report card with a 5 Whys review — and an execution checklist built from your rules, not a generic list someone else wrote.' },
   { n: '05', name: 'Playbooks', body: 'Document a setup, attach real trades to it, and find out whether it actually works. Export to PDF or Word.' },
@@ -138,7 +138,7 @@ export const FEATURE_PAGES: FeaturePage[] = [
     intro: ['Set a master, add followers, and your orders mirror across accounts in real time. Built on MetaApi’s CopyFactory — real orders, real fills, not a simulation.'],
     bullets: [
       { label: 'Master/follower groups you configure per strategy' },
-      { label: 'Live P&L per account, streaming over WebSocket' },
+      { label: 'Live P&L per account, with the age of every reading shown' },
       { label: 'Risk-profile stopouts, with unlock when you’re ready' },
       { label: 'Flatten-all, for the day it’s needed' },
     ],
@@ -181,9 +181,9 @@ export const FEATURE_PAGES: FeaturePage[] = [
     nav: 'Broker Connections',
     eyebrow: 'Capture',
     h1: 'Connect the real account.',
-    subhead: 'Real balances, real fills, streaming positions.',
+    subhead: 'Real balances, real fills, live positions.',
     intro: [
-      'Link a live MT5 account and EagleCapital pulls real balance and trade history — no CSV, no typing. Open positions stream to the Live Positions page over WebSocket, with unrealized P&L totalled across every connected account.',
+      'Link a live MT5 account and EagleCapital pulls real balance and trade history — no CSV, no typing. Open positions appear on the Live Trading page, with unrealized P&L totalled across every connected account.',
       'One broker login often exposes several accounts. Rather than assuming one login equals one account, EagleCapital fetches the real list and lets you choose which to import.',
     ],
     aside: {
@@ -272,7 +272,7 @@ export const FEATURE_PAGES: FeaturePage[] = [
 
 export const FEATURE_LAYERS = [
   { name: 'Track', body: 'Where the accounts and the numbers live.', tools: ['Prop Firm Manager', 'Dashboard', 'Trade Log'] },
-  { name: 'Capture', body: 'How trades get in: by hand, by CSV, or straight from your broker.', tools: ['Trade Journal', 'Broker Connections', 'Live Positions'] },
+  { name: 'Capture', body: 'How trades get in: by hand, by CSV, or straight from your broker.', tools: ['Trade Journal', 'Broker Connections', 'Live Trading'] },
   { name: 'Review', body: 'What you did, whether the setup works, and what to fix tomorrow.', tools: ['AI Insights', 'Playbooks', 'Trader Management'] },
   { name: 'Execute', body: 'Acting on it, across every account at once.', tools: ['Trade Copier', 'Charting', 'Economic Calendar'] },
 ]

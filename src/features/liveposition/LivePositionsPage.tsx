@@ -1,20 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
-import { ComingSoonSection } from '../../shared/ui/ComingSoonSection'
-import { livePositionsConfigured, type LiveAccountPositions } from '../../lib/livePositionsClient'
-import { subscribeLivePositions } from '../../lib/livePositionsSocket'
-import { ParkedFeature } from '../../shared/ui/ParkedFeature'
+import {
+  freshnessLabel,
+  listLivePositions,
+  snapshotAgeSeconds,
+  type LiveAccountPositions,
+  type LivePosition,
+} from '../../db/livePositions'
 import styles from './LivePositionsPage.module.css'
 
-// The backend WS route can be slow to roll out across environments (or not deployed yet) — the
-// socket itself retries forever with silent backoff, so without a cap here a not-yet-live backend
-// leaves this page stuck on "Loading live positions…" with no feedback that anything is wrong.
-const CONNECT_TIMEOUT_MS = 8_000
+/* Every connected account's open positions in one view.
+ *
+ * Refreshed on a timer rather than pushed. The limit on how fresh this page can
+ * be is the worker, not the transport: MT5 allows one login per terminal, so an
+ * account is only readable while the worker is attached to it. A socket would
+ * deliver the same rows at the same age over a dependency the app does not
+ * otherwise have. Each account therefore shows when it was last read.
+ */
+const REFRESH_MS = 3_000
 
 function money(n: number): string {
   const sign = n < 0 ? '-' : ''
   return `${sign}$${Math.round(Math.abs(n)).toLocaleString()}`
+}
+
+function price(n: number | null): string {
+  return n === null ? '—' : String(n)
 }
 
 function pnlClass(n: number): string {
@@ -23,7 +35,25 @@ function pnlClass(n: number): string {
   return styles.pnlNeutral
 }
 
-function AccountPanel({ account }: { account: LiveAccountPositions }) {
+function PositionRow({ position }: { position: LivePosition }) {
+  return (
+    <div className={styles.positionRow}>
+      <span className={styles.positionSymbol}>{position.symbol}</span>
+      <span className={position.side === 'long' ? styles.sideLong : styles.sideShort}>
+        {position.side}
+      </span>
+      <span>{position.volume}</span>
+      <span>{price(position.openPrice)}</span>
+      <span>{price(position.currentPrice)}</span>
+      <span className={pnlClass(position.unrealizedPnl)}>{money(position.unrealizedPnl)}</span>
+    </div>
+  )
+}
+
+function AccountPanel({ account, now }: { account: LiveAccountPositions; now: number }) {
+  const age = snapshotAgeSeconds(account.reportedAt, now)
+  const offline = account.connectionStatus !== 'connected'
+
   return (
     <div className={`card ${styles.accountCard}`}>
       <div className={styles.accountHeader}>
@@ -31,38 +61,32 @@ function AccountPanel({ account }: { account: LiveAccountPositions }) {
           <span className={styles.accountLabel}>{account.label}</span>
           <span className={styles.accountBroker}>{account.broker}</span>
         </div>
-        {account.balance !== null && account.equity !== null && (
-          <div className={styles.accountBalances}>
-            <span>Balance <strong>{money(account.balance)}</strong></span>
-            <span>Equity <strong>{money(account.equity)}</strong></span>
-          </div>
-        )}
+        <div className={styles.accountBalances}>
+          {account.balance !== null && <span>Balance <strong>{money(account.balance)}</strong></span>}
+          {account.equity !== null && <span>Equity <strong>{money(account.equity)}</strong></span>}
+          <span className={styles.accountBroker}>{freshnessLabel(age)}</span>
+        </div>
       </div>
 
-      {account.error ? (
-        <p className={styles.accountError}>{account.error}</p>
+      {account.reportedAt === null ? (
+        <p className={styles.empty}>
+          {offline
+            ? 'Not connected — the worker has not been able to read this account.'
+            : 'Waiting for the worker’s first read of this account.'}
+        </p>
       ) : account.positions.length === 0 ? (
-        <p className={styles.empty}>No open positions right now.</p>
+        <p className={styles.empty}>No open positions.</p>
       ) : (
         <div className={styles.positionList}>
           <div className={`${styles.positionRow} ${styles.positionHeaderRow}`}>
             <span>Symbol</span>
             <span>Side</span>
-            <span>Qty</span>
+            <span>Lots</span>
             <span>Open</span>
             <span>Current</span>
             <span>P&amp;L</span>
           </div>
-          {account.positions.map((p) => (
-            <div key={p.positionId} className={styles.positionRow}>
-              <span className={styles.positionSymbol}>{p.symbol}</span>
-              <span className={p.side === 'long' ? styles.sideLong : styles.sideShort}>{p.side}</span>
-              <span>{p.qty}</span>
-              <span>{p.openPrice}</span>
-              <span>{p.currentPrice ?? '—'}</span>
-              <span className={pnlClass(p.unrealizedPnl)}>{money(p.unrealizedPnl)}</span>
-            </div>
-          ))}
+          {account.positions.map((p) => <PositionRow key={p.ticket} position={p} />)}
         </div>
       )}
     </div>
@@ -72,53 +96,79 @@ function AccountPanel({ account }: { account: LiveAccountPositions }) {
 function LivePositionsWorkspace() {
   const [accounts, setAccounts] = useState<LiveAccountPositions[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [timedOut, setTimedOut] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+  // A refresh already in flight must not be stacked on by the next tick — a
+  // slow round trip would otherwise queue requests faster than they return.
+  const inFlight = useRef(false)
 
-  useEffect(() => {
-    const unsubscribe = subscribeLivePositions(setAccounts, setError)
-    return unsubscribe
+  const refresh = useCallback(async () => {
+    if (inFlight.current) return
+    inFlight.current = true
+    try {
+      setAccounts(await listLivePositions())
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      inFlight.current = false
+      setNow(Date.now())
+    }
   }, [])
 
   useEffect(() => {
-    if (accounts !== null) return
-    const timer = setTimeout(() => setTimedOut(true), CONNECT_TIMEOUT_MS)
-    return () => clearTimeout(timer)
-  }, [accounts])
+    let timer: ReturnType<typeof setInterval> | null = null
 
-  const loaded = accounts !== null
-  const safeAccounts = accounts ?? []
-  const totalPositions = safeAccounts.reduce((s, a) => s + a.positions.length, 0)
-  const totalUnrealized = safeAccounts.reduce((s, a) => s + a.positions.reduce((s2, p) => s2 + p.unrealizedPnl, 0), 0)
+    const start = () => {
+      if (timer !== null) return
+      void refresh()
+      timer = setInterval(() => { void refresh() }, REFRESH_MS)
+    }
+    const stop = () => {
+      if (timer === null) return
+      clearInterval(timer)
+      timer = null
+    }
+    // A backgrounded tab polls nothing: the numbers are stale the moment it is
+    // hidden, and resuming reads them fresh anyway.
+    const onVisibility = () => (document.visibilityState === 'visible' ? start() : stop())
 
-  if (!loaded && timedOut) {
-    return (
-      <ComingSoonSection>
-        Live position streaming is still rolling out — check back soon.
-      </ComingSoonSection>
-    )
+    onVisibility()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      stop()
+    }
+  }, [refresh])
+
+  if (accounts === null) {
+    return error
+      ? <div className={styles.error}>{error}</div>
+      : <p style={{ color: 'var(--text-muted)' }}>Loading live positions…</p>
   }
+
+  const open = accounts.flatMap((a) => a.positions)
+  const unrealized = open.reduce((sum, p) => sum + p.unrealizedPnl, 0)
 
   return (
     <div>
       {error && <div className={styles.error}>{error}</div>}
 
-      {loaded && safeAccounts.length > 0 && (
+      {accounts.length > 0 && (
         <div className={styles.summaryRow}>
-          <span><strong>{safeAccounts.length}</strong> account{safeAccounts.length === 1 ? '' : 's'}</span>
-          <span><strong>{totalPositions}</strong> open position{totalPositions === 1 ? '' : 's'}</span>
-          <span className={pnlClass(totalUnrealized)}>Unrealized <strong>{money(totalUnrealized)}</strong></span>
+          <span><strong>{accounts.length}</strong> account{accounts.length === 1 ? '' : 's'}</span>
+          <span><strong>{open.length}</strong> open position{open.length === 1 ? '' : 's'}</span>
+          <span className={pnlClass(unrealized)}>Unrealized <strong>{money(unrealized)}</strong></span>
         </div>
       )}
 
-      {!loaded ? (
-        <p style={{ color: 'var(--text-muted)' }}>Loading live positions…</p>
-      ) : safeAccounts.length === 0 ? (
+      {accounts.length === 0 ? (
         <p style={{ color: 'var(--text-muted)' }}>
-          No connected accounts yet — add one from Broker Connections or the Trade Copier page to see live positions here.
+          No connected accounts yet — add one on the Trade Copier page and its open positions
+          appear here.
         </p>
       ) : (
         <div className={styles.accountGrid}>
-          {safeAccounts.map((a) => <AccountPanel key={a.connectionId} account={a} />)}
+          {accounts.map((a) => <AccountPanel key={a.accountId} account={a} now={now} />)}
         </div>
       )}
     </div>
@@ -130,39 +180,13 @@ export function LivePositionsPage() {
 
   if (loading) return null
 
-  // Parked before anything else: LivePositionsWorkspace opens a socket that
-  // retries forever, so mounting it against a backend that isn't there spends
-  // eight seconds arriving at "Loading live positions…" and then a timeout.
-  if (!livePositionsConfigured) {
-    return (
-      <div>
-        <h1 className="page-title" style={{ marginBottom: '0.4rem' }}>Live Positions</h1>
-        <ParkedFeature
-          what={
-            <>
-              This page streamed every connected account’s open positions into one view. It
-              is served by a separate broker-sync service that isn’t running, so there is
-              nothing to show here — nothing is broken and no data has been lost.
-            </>
-          }
-          instead={
-            <>
-              <strong>Trade Copier</strong> shows each account’s live connection, its ping to
-              the broker, and every copy it makes.
-            </>
-          }
-          envVars={['VITE_BROKER_SYNC_API_URL']}
-        />
-      </div>
-    )
-  }
-
   return (
     <div>
-      <h1 className="page-title" style={{ marginBottom: '0.4rem' }}>Live Positions</h1>
+      <h1 className="page-title" style={{ marginBottom: '0.4rem' }}>Live Trading</h1>
       <p className={styles.hint}>
-        Every connected account's open positions in one place — no toggling between accounts.
-        Updates live as positions open, close, or move.
+        Every connected account’s open positions in one place. Each account shows when the
+        worker last read it — an account being copied is read every cycle, one that is idle is
+        read on the balance sweep.
       </p>
 
       {!user ? (

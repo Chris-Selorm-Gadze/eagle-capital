@@ -13,10 +13,13 @@ import type { NavKey } from "@/shared/routing";
  * Items carry a NavKey rather than an href: the app routes through App.tsx's
  * history handling, not through anchor navigation. */
 
-/** A backend some pages need that may not be running. Broker Connections and
- * Live Positions are both served by the separate eaglecapital-broker-sync
- * service, which is parked -- so the sidebar drops them rather than offering a
- * door that opens onto a notice. Setting the URL brings both back. */
+/** A backend some pages need that may not be running. Broker Connections is
+ * served by the separate eaglecapital-broker-sync service, which is parked --
+ * so the sidebar drops it rather than offering a door that opens onto a
+ * notice. Setting the URL brings it back.
+ *
+ * Live Trading no longer carries this: it reads the worker's own snapshots out
+ * of Postgres, so it works with the copier alone and needs nothing parked. */
 export type NavRequirement = "brokerSync";
 
 export type SidebarNavItem = {
@@ -36,7 +39,7 @@ export const navGroups: SidebarNavGroup[] = [
 	{
 		items: [
 			{ title: "Dashboard", key: "dashboard", icon: <LayoutGridIcon /> },
-			{ title: "Live Positions", key: "livepositions", icon: <ZapIcon />, requires: "brokerSync" },
+			{ title: "Live Trading", key: "livepositions", icon: <ZapIcon /> },
 		],
 	},
 	{

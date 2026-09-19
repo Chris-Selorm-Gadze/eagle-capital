@@ -24,6 +24,7 @@ from engine.config_loader import (
     load_symbol_mappings,
 )
 from engine.balance_sync import should_sync_balances, sync_all_balances
+from engine.position_feed import report_master
 from engine.trade_journal import should_sync_trades, sync_all_trades
 from engine.command_processor import process_command
 from engine.dispatch_coordinator import dispatch_to_followers
@@ -580,6 +581,10 @@ class CopierEngine:
             # run after dispatch so neither can add latency to a copy.
             if should_sync_trades():
                 sync_all_trades(self.accounts, self._sessions)
+            # The live feed rides the snapshot the diff engine already polled,
+            # so showing the master's open positions costs no terminal switch
+            # and no extra latency. Followers are reported by the balance sweep.
+            report_master(master_cfg_id, positions)
 
         self._last_poll_at = time.time()
 
