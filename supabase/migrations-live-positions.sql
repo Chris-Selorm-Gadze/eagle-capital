@@ -40,6 +40,9 @@ create policy "read own live positions" on public.live_positions for select usin
 -- only their own rows.
 do $$
 begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    return;
+  end if;
   if not exists (
     select 1 from pg_publication_tables
     where pubname = 'supabase_realtime'
@@ -57,6 +60,9 @@ end $$;
 -- unseen until someone reloaded the page. RLS applies to the stream.
 do $$
 begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    return;
+  end if;
   if not exists (
     select 1 from pg_publication_tables
     where pubname = 'supabase_realtime'

@@ -468,6 +468,9 @@ create index if not exists ai_usage_user_created_idx on public.ai_usage (user_id
 -- unseen until someone reloaded the page. RLS applies to the stream.
 do $$
 begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    return;
+  end if;
   if not exists (
     select 1 from pg_publication_tables
     where pubname = 'supabase_realtime'
