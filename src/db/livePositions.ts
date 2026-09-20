@@ -1,4 +1,5 @@
 import { selectAll } from './paginate'
+import { errorMessage } from '../utils/errors'
 import { listTradingAccounts, type ConnectionStatus, type TradingAccount } from './copier'
 
 /* What is open right now, per account.
@@ -118,6 +119,41 @@ export function mergeAccounts(
       reportedAt: (snapshot?.reported_at as string | null) ?? null,
     }
   })
+}
+
+/* PostgREST codes for "that table is not there". PGRST205 is the schema-cache
+ * miss it returns as a 404; 42P01 is Postgres's own undefined_table, which
+ * surfaces when the cache is warm but the relation is gone. */
+const MISSING_TABLE_CODES = new Set(['PGRST205', '42P01'])
+
+export interface LoadFailure {
+  message: string
+  /** Retrying will not fix it, so the page should stop polling and say so. */
+  fatal: boolean
+}
+
+/** Turns a failed read into something the reader can act on.
+ *
+ * The migration being unrun is the one failure worth naming outright: it is the
+ * expected state of a database that has not had it applied, it produces a 404
+ * every three seconds until someone does, and "Could not find the table
+ * 'public.live_positions' in the schema cache" tells a trader nothing. */
+export function describeLoadFailure(err: unknown): LoadFailure {
+  const code = err && typeof err === 'object' && 'code' in err
+    ? String((err as { code: unknown }).code)
+    : ''
+  const message = errorMessage(err)
+
+  if (MISSING_TABLE_CODES.has(code) || /live_positions/.test(message)) {
+    return {
+      fatal: true,
+      message:
+        'Live Trading needs one database change that has not been applied yet — run '
+        + 'supabase/migrations-live-positions.sql against this project, then reload.',
+    }
+  }
+
+  return { message, fatal: false }
 }
 
 export async function listLivePositions(): Promise<LiveAccountPositions[]> {

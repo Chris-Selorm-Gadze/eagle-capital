@@ -3,7 +3,7 @@ import { isUsableApiUrl } from './apiUrl'
 
 /* The bug this guards against: every backend client gated on `Boolean(apiUrl)`,
  * which is true for "http://localhost:8787". In production that made the Trade
- * Copier, Live Positions and Broker Connections pages render their full UI over
+ * Copier, Live Trading and Broker Connections pages render their full UI over
  * a host that does not exist outside a developer's machine — the features looked
  * available and silently failed on every request. */
 

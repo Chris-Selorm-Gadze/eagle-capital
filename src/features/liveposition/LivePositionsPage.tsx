@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
 import {
+  describeLoadFailure,
   freshnessLabel,
   listLivePositions,
   snapshotAgeSeconds,
@@ -100,6 +101,10 @@ function LivePositionsWorkspace() {
   // A refresh already in flight must not be stacked on by the next tick — a
   // slow round trip would otherwise queue requests faster than they return.
   const inFlight = useRef(false)
+  // A failure no amount of retrying fixes — the migration being unrun is the
+  // one that actually happens. Polling through it just prints a 404 every
+  // three seconds behind a page that already said what is wrong.
+  const [stopped, setStopped] = useState(false)
 
   const refresh = useCallback(async () => {
     if (inFlight.current) return
@@ -108,7 +113,9 @@ function LivePositionsWorkspace() {
       setAccounts(await listLivePositions())
       setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      const failure = describeLoadFailure(err)
+      setError(failure.message)
+      if (failure.fatal) setStopped(true)
     } finally {
       inFlight.current = false
       setNow(Date.now())
@@ -116,6 +123,7 @@ function LivePositionsWorkspace() {
   }, [])
 
   useEffect(() => {
+    if (stopped) return
     let timer: ReturnType<typeof setInterval> | null = null
 
     const start = () => {
@@ -138,7 +146,7 @@ function LivePositionsWorkspace() {
       document.removeEventListener('visibilitychange', onVisibility)
       stop()
     }
-  }, [refresh])
+  }, [refresh, stopped])
 
   if (accounts === null) {
     return error

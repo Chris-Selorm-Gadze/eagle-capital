@@ -11,9 +11,10 @@
  * has to know which build it is in.
  *
  * The Trade Copier no longer needs this — its backend moved into this Supabase
- * project, so there is no second URL to misconfigure. Broker Connections and
- * Live Positions still talk to the separate eaglecapital-broker-sync service and
- * still do.
+ * project, so there is no second URL to misconfigure. Live Trading no longer
+ * needs it either: it reads the worker's own snapshots out of Postgres. Broker
+ * Connections still talks to the separate eaglecapital-broker-sync service and
+ * still does.
  */
 export function isUsableApiUrl(url: string | undefined, isProd: boolean): boolean {
   if (!url || !url.trim()) return false

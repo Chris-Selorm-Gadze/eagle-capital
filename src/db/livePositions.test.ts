@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  describeLoadFailure,
   freshnessLabel,
   mergeAccounts,
   positionsFromRow,
@@ -160,5 +161,35 @@ describe('freshnessLabel', () => {
     // an idle follower is read on the balance sweep, not every cycle.
     expect(freshnessLabel(9)).toBe('live')
     expect(freshnessLabel(10)).toBe('10s ago')
+  })
+})
+
+describe('describeLoadFailure', () => {
+  it('names the unrun migration instead of quoting PostgREST', () => {
+    // This is the expected state of a database that has not had the migration
+    // applied, and "schema cache" means nothing to the person reading it.
+    const failure = describeLoadFailure({
+      code: 'PGRST205',
+      message: "Could not find the table 'public.live_positions' in the schema cache",
+    })
+    expect(failure.fatal).toBe(true)
+    expect(failure.message).toContain('migrations-live-positions.sql')
+  })
+
+  it('also catches Postgres undefined_table', () => {
+    expect(describeLoadFailure({ code: '42P01', message: 'relation does not exist' }).fatal).toBe(true)
+  })
+
+  it('reads a Supabase error object rather than stringifying it', () => {
+    // PostgrestError is a plain object, so String(err) is "[object Object]" —
+    // which is what the page showed before this went through errorMessage.
+    const failure = describeLoadFailure({ code: '42501', message: 'permission denied for table' })
+    expect(failure.message).toBe('permission denied for table')
+    expect(failure.fatal).toBe(false)
+  })
+
+  it('leaves a transient failure retryable', () => {
+    const failure = describeLoadFailure(new Error('Failed to fetch'))
+    expect(failure).toEqual({ message: 'Failed to fetch', fatal: false })
   })
 })
