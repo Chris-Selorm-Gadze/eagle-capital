@@ -22,6 +22,8 @@ export function DashboardPage({
   onOpenDateInJournal,
   onAddAccount,
   onAddTrade,
+  userId,
+  onAccountsChanged,
 }: {
   trades: Trade[]
   accounts: Account[]
@@ -31,15 +33,19 @@ export function DashboardPage({
   onOpenDateInJournal: (date: string) => void
   onAddAccount: () => void
   onAddTrade: () => void
+  userId: string
+  onAccountsChanged?: () => void
 }) {
   // With nothing logged there is no dashboard to draw — every tile would render
   // a zero or an empty frame. Show the way in instead.
   if (trades.length === 0) {
     return (
       <EmptyDesk
+        userId={userId}
         hasAccounts={accounts.length > 0}
         onAddAccount={onAddAccount}
         onAddTrade={onAddTrade}
+        onAccountsChanged={onAccountsChanged}
       />
     )
   }

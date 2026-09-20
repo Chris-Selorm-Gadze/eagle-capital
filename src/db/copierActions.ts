@@ -181,6 +181,49 @@ export async function createJournalAccount(
   return newAccountId
 }
 
+export interface JournalAllResult {
+  created: number
+  /** Names of the accounts that could not be journalled, for the caller to report. */
+  failed: string[]
+}
+
+/** Give every unjournalled account a dashboard account, one at a time.
+ *
+ * Sequential rather than Promise.all: each one inserts a row and then links it,
+ * and a failure part way through should leave the ones before it done rather
+ * than racing N writes and reporting a single opaque error.
+ *
+ * Shared by the Trade Copier and the empty dashboard, because both arrive at
+ * the same dead end -- accounts connected, no history flowing -- and a second
+ * copy of this loop would be a second place for the two to disagree.
+ */
+export async function journalAllAccounts(
+  userId: string,
+  accounts: {
+    id: string
+    label: string | null
+    accountNumber: string
+    platform: string
+    balance: number | null
+    currency: string | null
+    journalAccountId?: string | null
+  }[],
+): Promise<JournalAllResult> {
+  const result: JournalAllResult = { created: 0, failed: [] }
+
+  for (const account of accounts) {
+    if (account.journalAccountId) continue
+    try {
+      await createJournalAccount(userId, account)
+      result.created += 1
+    } catch {
+      result.failed.push(account.label || account.accountNumber)
+    }
+  }
+
+  return result
+}
+
 export interface CredentialFix {
   password: string
   brokerServer?: string

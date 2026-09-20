@@ -10,7 +10,7 @@ import {
 import {
   createCopierLink, setCopierEnabled, deleteCopierLink,
   unlockRiskProfile, flattenAccount, testConnection, disconnectAccount,
-  createJournalAccount,
+  journalAllAccounts,
 } from '../../db/copierActions'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
@@ -465,26 +465,7 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
     setActionError(null)
     setNotice(`Creating ${unjournalled.length} dashboard accounts…`)
 
-    const failed: string[] = []
-    let created = 0
-    // Sequential, not Promise.all: each one inserts a row and then links it, and
-    // a failure part way through should leave the ones before it done rather
-    // than racing seven writes and reporting a single opaque error.
-    for (const account of unjournalled) {
-      try {
-        await createJournalAccount(userId, {
-          id: account.id,
-          label: account.label,
-          accountNumber: account.accountNumber,
-          platform: account.platform,
-          balance: account.balance,
-          currency: account.currency,
-        })
-        created += 1
-      } catch {
-        failed.push(accountName(account))
-      }
-    }
+    const { created, failed } = await journalAllAccounts(userId, unjournalled)
 
     await load()
     onAccountsChanged?.()

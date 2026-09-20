@@ -241,6 +241,8 @@ export default function App() {
                     onOpenDateInJournal={handleOpenDateInJournal}
                     onAddAccount={() => setAddingAccount(true)}
                     onAddTrade={() => setChoosingAddMethod(true)}
+                    userId={userId}
+                    onAccountsChanged={refresh}
                   />
                 )}
                 {nav === 'cockpit' && (
