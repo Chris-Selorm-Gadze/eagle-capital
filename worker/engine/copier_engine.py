@@ -24,7 +24,7 @@ from engine.config_loader import (
     load_symbol_mappings,
 )
 from engine.balance_sync import should_sync_balances, sync_all_balances
-from engine.position_feed import report_master
+from engine.position_feed import should_report_positions, sweep_in_background
 from engine.trade_journal import should_sync_trades, sync_all_trades
 from engine.command_processor import process_command
 from engine.dispatch_coordinator import dispatch_to_followers
@@ -151,14 +151,24 @@ class CopierEngine:
         }
 
     def _rebuild_terminal_pool(self, master_id: str) -> None:
-        """Build or refresh follower subprocess pool for the active master."""
-        copier_list = dedupe_copiers_by_follower(
-            get_copiers_for_master(self.copiers, master_id)
-        )
-        follower_ids = {c.follower_id for c in copier_list}
+        """Build or refresh the subprocess pool of terminals this worker drives.
+
+        Every enabled MT5 account with a terminal path gets routed, not just the
+        followers of the active master. Copy dispatch only ever submits to
+        followers, so that set is unchanged for orders -- the widening is for
+        reads. The live feed sweeps every account, and doing that through the
+        main process meant one shutdown+initialize per broker per sweep, each
+        with a settling window, contending with the copy loop for the single
+        attach the main process is allowed. Routed here instead, accounts on
+        different terminals are read at the same time and a repeat read of the
+        same account costs no switch.
+
+        The master stays out deliberately: the main process holds its attach for
+        the copy loop, and a second process on that same terminal would fight it.
+        """
         pool_accounts: dict[str, str] = {}
         for account in self.accounts:
-            if account.id not in follower_ids or not account.enabled:
+            if account.id == master_id or not account.enabled:
                 continue
             if not is_mt5(account.platform) or not account.terminal_path:
                 continue
@@ -173,7 +183,7 @@ class CopierEngine:
         self._pool_fingerprint = fingerprint
         logger.info(
             "terminal_pool_ready",
-            followers=len(pool_accounts),
+            accounts_routed=len(pool_accounts),
             workers=self._terminal_pool.worker_count(),
             accounts=list(pool_accounts.keys()),
         )
@@ -581,10 +591,15 @@ class CopierEngine:
             # run after dispatch so neither can add latency to a copy.
             if should_sync_trades():
                 sync_all_trades(self.accounts, self._sessions)
-            # The live feed rides the snapshot the diff engine already polled,
-            # so showing the master's open positions costs no terminal switch
-            # and no extra latency. Followers are reported by the balance sweep.
-            report_master(master_cfg_id, positions)
+            # The live feed. The master's snapshot is the one the diff engine
+            # just polled, so it is free; every other account is read in its own
+            # terminal subprocess, in parallel, off this thread -- a sweep can
+            # take seconds and this loop runs every 50ms, so doing it inline
+            # would put broker round-trips straight into copy latency.
+            if should_report_positions():
+                sweep_in_background(
+                    self.accounts, self._terminal_pool, (master_cfg_id, positions)
+                )
 
         self._last_poll_at = time.time()
 

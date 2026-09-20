@@ -249,6 +249,83 @@ def _idle_sessions(accounts: list[AccountConfig]) -> dict:
     }
 
 
+_idle_pool = None
+_idle_pool_fingerprint = ""
+
+
+def _idle_terminal_pool(accounts: list[AccountConfig]):
+    """Terminal subprocesses for an idle worker, rebuilt when the accounts change.
+
+    An idle worker has no CopierEngine and therefore none of its pool, so
+    without this every live-position read would go through this process's single
+    MT5 attach -- one shutdown+initialize per broker, serially, for a page that
+    is meant to update every couple of seconds.
+    """
+    global _idle_pool, _idle_pool_fingerprint
+    from engine.terminal_pool import TerminalPool, pool_plan_fingerprint
+    from engine.terminal_session_manager import normalize_terminal_path
+
+    routed = {
+        a.id: normalize_terminal_path(a.terminal_path)
+        for a in accounts
+        if a.enabled and is_mt5(a.platform) and a.terminal_path
+    }
+
+    fingerprint = pool_plan_fingerprint(routed)
+    if _idle_pool is not None and fingerprint == _idle_pool_fingerprint:
+        return _idle_pool
+
+    if _idle_pool is not None:
+        try:
+            _idle_pool.shutdown()
+        except Exception:
+            pass
+
+    _idle_pool = TerminalPool(routed)
+    _idle_pool_fingerprint = fingerprint
+    logger.info("idle_terminal_pool_ready", accounts_routed=len(routed),
+                workers=_idle_pool.worker_count())
+    return _idle_pool
+
+
+def _feed_positions_while_idle(accounts: list[AccountConfig]) -> None:
+    """Live positions for a worker with no copy link armed.
+
+    Same gap as _journal_while_idle and _sync_state_while_idle: this runs inside
+    CopierEngine normally, which never starts without an armed link, so someone
+    who connected accounts purely to watch them saw the Live Trading page go
+    stale between 90-second balance sweeps.
+    """
+    from engine.position_feed import should_report_positions, sweep_in_background
+
+    enabled = [a for a in accounts if a.enabled]
+    if not enabled or not should_report_positions():
+        return
+
+    try:
+        sweep_in_background(enabled, _idle_terminal_pool(enabled))
+    except Exception as exc:
+        logger.warning("idle_position_sweep_failed", error=str(exc))
+
+
+def _idle_wait(seconds: float, accounts: list[AccountConfig]) -> None:
+    """Wait out the idle interval, sweeping positions while it passes.
+
+    Commands and journalling are fine on a 15-second beat; a live P&L is not.
+    Rather than shortening the whole idle loop -- which would also poll the
+    gateway for commands thirty times a minute for a worker doing nothing --
+    the sweep gets its own tighter beat inside the wait.
+    """
+    step = float(os.environ.get("WORKER_IDLE_SWEEP_STEP_SECONDS", "0.5"))
+    end = time.time() + seconds
+    while True:
+        _feed_positions_while_idle(accounts)
+        remaining = end - time.time()
+        if remaining <= 0:
+            return
+        time.sleep(min(step, remaining))
+
+
 def _sync_state_while_idle(accounts: list[AccountConfig]) -> None:
     """Balances and open positions for a worker with no copy link armed.
 
@@ -337,7 +414,7 @@ def run_all_masters() -> None:
         # pointed at a dashboard account still gets journalled.
         _journal_while_idle(accounts)
         _sync_state_while_idle(accounts)
-        time.sleep(idle_poll_s)
+        _idle_wait(idle_poll_s, accounts)
 
     from engine.copier_engine import CopierEngine
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { useAuth } from './features/auth/AuthContext'
 import { useSupabaseData } from './db/useSupabaseData'
+import { useTradeStream } from './db/useTradeStream'
 import { downloadElementAsImage } from './utils/snapshot'
 import { todayISO } from './db/sessions'
 import { pathForNav, navForPath, type NavKey } from './shared/routing'
@@ -75,6 +76,9 @@ export default function App() {
   const { user } = useAuth()
   const userId = user!.id
   const { accounts, sessions, payouts, rewards, trades, loading, error, refresh } = useSupabaseData(userId)
+  // Trades the worker journals arrive from outside the browser; without this
+  // they sat in Postgres unseen until someone reloaded the page.
+  useTradeStream(userId, refresh)
 
   const [nav, setNavState] = useState<NavKey>(() => navForPath(window.location.pathname))
   const [accountFilter, setAccountFilter] = useState<string | 'all'>('all')

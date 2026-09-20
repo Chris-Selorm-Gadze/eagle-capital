@@ -600,6 +600,24 @@ alter table public.worker_commands add constraint worker_commands_known_type
 drop policy if exists "read own live positions" on public.live_positions;
 create policy "read own live positions" on public.live_positions for select using (auth.uid() = user_id);
 
+-- Realtime: the page is told the moment a snapshot lands, instead of asking
+-- every few seconds. Polling put the browser's interval on top of the worker's
+-- own -- a position could be read, written, and still sit unseen for the rest
+-- of a poll window. RLS still applies to the stream, so a subscriber receives
+-- only their own rows.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'live_positions'
+  ) then
+    alter publication supabase_realtime add table public.live_positions;
+  end if;
+end $$;
+
+
 drop policy if exists "read own equity snapshots" on public.account_equity_snapshots;
 create policy "read own equity snapshots" on public.account_equity_snapshots for select using (auth.uid() = user_id);
 

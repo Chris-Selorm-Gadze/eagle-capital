@@ -11,6 +11,7 @@ import { TradeTimeScatter } from './components/TradeTimeScatter'
 import { TradeDurationScatter } from './components/TradeDurationScatter'
 import { RecentTradesTable } from '../trades/components/RecentTradesTable'
 import { EmptyDesk } from './components/EmptyDesk'
+import { LiveStrip } from './components/LiveStrip'
 import styles from './DashboardPage.module.css'
 
 export function DashboardPage({
@@ -61,6 +62,10 @@ export function DashboardPage({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Open risk first, and kept out of everything below it — the stats and
+          the curve are closed trades through utils/ledger.ts. */}
+      <LiveStrip />
+
       {/* Hairline grid from the dashboard block: cells are separated by the
           container's background showing through a 1px gap, so the KPI row and
           the charts read as one instrument panel rather than floating cards. */}

@@ -7,7 +7,6 @@ from engine.position_feed import (
     account_payload,
     position_row,
     positions_from_mt5,
-    report_master,
     should_report_positions,
 )
 
@@ -122,50 +121,19 @@ class TestCadence:
         assert should_report_positions(now=1000.0) is True
 
     def test_a_second_call_inside_the_interval_does_not(self):
+        # The default interval is 2s -- a live P&L, not a background sync.
         should_report_positions(now=1000.0)
-        assert should_report_positions(now=1002.0) is False
+        assert should_report_positions(now=1001.0) is False
 
     def test_reports_again_once_the_interval_has_passed(self):
         should_report_positions(now=1000.0)
-        assert should_report_positions(now=1010.0) is True
+        assert should_report_positions(now=1002.5) is True
 
     def test_interval_is_configurable(self, monkeypatch):
         monkeypatch.setenv("WORKER_POSITION_SYNC_SECONDS", "30")
         should_report_positions(now=1000.0)
         assert should_report_positions(now=1010.0) is False
         assert should_report_positions(now=1031.0) is True
-
-
-class TestReportMaster:
-    def setup_method(self):
-        position_feed.reset_state()
-        self.sent = []
-
-        def fake(payloads):
-            self.sent.append(payloads)
-            return len(payloads)
-
-        self.fake = fake
-
-    def test_a_failed_poll_is_not_reported_as_a_flat_account(self, monkeypatch):
-        # None means "I could not read it". Sending [] would tell the page
-        # every position had closed, which is the opposite of the truth.
-        monkeypatch.setattr(position_feed, "report_accounts", self.fake)
-        assert report_master("acc-1", None) == 0
-        assert self.sent == []
-
-    def test_an_account_with_nothing_open_is_reported(self, monkeypatch):
-        # Genuinely flat is worth saying: it is how a closed position leaves
-        # the page.
-        monkeypatch.setattr(position_feed, "report_accounts", self.fake)
-        assert report_master("acc-1", []) == 1
-        assert self.sent[0][0]["positions"] == []
-
-    def test_is_rate_limited(self, monkeypatch):
-        monkeypatch.setattr(position_feed, "report_accounts", self.fake)
-        report_master("acc-1", [mt5_position()])
-        report_master("acc-1", [mt5_position()])
-        assert len(self.sent) == 1
 
 
 class TestReportAccounts:
@@ -184,3 +152,208 @@ class TestReportAccounts:
 
         monkeypatch.setattr("engine.api_client.get_api_client", lambda: Boom())
         assert position_feed.report_accounts([{"trading_account_id": "a"}]) == 0
+
+
+class FakeFuture:
+    def __init__(self, value=None, raises=None, blocks=False):
+        self._value = value
+        self._raises = raises
+        self._blocks = blocks
+
+    def result(self, timeout=None):
+        if self._blocks:
+            raise TimeoutError("still reading")
+        if self._raises:
+            raise self._raises
+        return self._value
+
+
+class FakePool:
+    """Stands in for TerminalPool: routes some accounts, not others."""
+
+    def __init__(self, routed, results=None):
+        self.routed = set(routed)
+        self.results = results or {}
+        self.submitted = []
+
+    def has(self, account_id):
+        return account_id in self.routed
+
+    def submit_read(self, account_id, job):
+        self.submitted.append((account_id, job))
+        if account_id not in self.routed:
+            return None
+        return self.results.get(account_id, FakeFuture({"ok": False}))
+
+
+class FakeAccount:
+    def __init__(self, account_id, enabled=True, terminal_path="C:/mt5/a"):
+        self.id = account_id
+        self.label = account_id
+        self.role = "follower"
+        self.login = "1001"
+        self.password = "pw"
+        self.server = "Broker-Demo"
+        self.platform = "mt5"
+        self.enabled = enabled
+        self.terminal_path = terminal_path
+
+
+def ok_result(account_id, positions=None, info=None):
+    return FakeFuture({
+        "ok": True,
+        "trading_account_id": account_id,
+        "positions": positions if positions is not None else [mt5_position()],
+        "info": info,
+    })
+
+
+class TestSweepable:
+    def test_only_pool_routed_accounts_are_swept(self):
+        # The main process holds one MT5 login for the copy loop. Switching it
+        # from the sweep's thread would land a read on whichever account the
+        # copier had just attached -- one account's positions under another's
+        # name, which is worse than no reading at all.
+        accounts = [FakeAccount("a"), FakeAccount("b")]
+        assert [a.id for a in position_feed.sweepable(accounts, FakePool(["a"]))] == ["a"]
+
+    def test_no_pool_means_nothing_is_swept(self):
+        assert position_feed.sweepable([FakeAccount("a")], None) == []
+
+    def test_the_master_is_excluded(self):
+        # The copy loop owns the master's attach and already polled it.
+        accounts = [FakeAccount("m"), FakeAccount("f")]
+        swept = position_feed.sweepable(accounts, FakePool(["m", "f"]), master_id="m")
+        assert [a.id for a in swept] == ["f"]
+
+    def test_disabled_accounts_are_skipped(self):
+        accounts = [FakeAccount("a", enabled=False), FakeAccount("b")]
+        assert [a.id for a in position_feed.sweepable(accounts, FakePool(["a", "b"]))] == ["b"]
+
+
+class TestPayloadFromResult:
+    def test_reads_a_successful_result(self):
+        payload = position_feed.payload_from_result({
+            "ok": True, "trading_account_id": "a", "positions": [mt5_position()],
+        })
+        assert payload["trading_account_id"] == "a"
+        assert len(payload["positions"]) == 1
+
+    def test_a_failed_read_is_dropped_not_sent_as_empty(self):
+        # The gateway replaces whatever it is given, so an empty account would
+        # erase a live position from the page and claim it had closed.
+        assert position_feed.payload_from_result({"ok": False, "trading_account_id": "a"}) is None
+
+    def test_nonsense_from_a_worker_is_dropped(self):
+        assert position_feed.payload_from_result(None) is None
+        assert position_feed.payload_from_result("crashed") is None
+        assert position_feed.payload_from_result({"ok": True}) is None
+
+    def test_carries_figures_read_on_the_same_visit(self):
+        payload = position_feed.payload_from_result({
+            "ok": True, "trading_account_id": "a", "positions": [],
+            "info": {"balance": 500.0, "equity": 505.0, "currency": "USD"},
+        })
+        assert payload["balance"] == 500.0
+        assert payload["currency"] == "USD"
+
+
+class TestSweepPositions:
+    def setup_method(self):
+        position_feed.reset_state()
+        self.sent = []
+
+    def _capture(self, monkeypatch):
+        def fake(payloads):
+            self.sent.append(payloads)
+            return len(payloads)
+        monkeypatch.setattr(position_feed, "report_accounts", fake)
+
+    def test_submits_every_account_before_waiting_on_any(self, monkeypatch):
+        # The whole point: three brokers read at the same time rather than one
+        # shutdown+initialize after another.
+        self._capture(monkeypatch)
+        pool = FakePool(["a", "b", "c"], {
+            "a": ok_result("a"), "b": ok_result("b"), "c": ok_result("c"),
+        })
+        position_feed.sweep_positions([FakeAccount(i) for i in "abc"], pool)
+        assert [aid for aid, _ in pool.submitted] == ["a", "b", "c"]
+        assert {p["trading_account_id"] for p in self.sent[0]} == {"a", "b", "c"}
+
+    def test_the_master_snapshot_rides_along_for_free(self, monkeypatch):
+        self._capture(monkeypatch)
+        pool = FakePool(["f"], {"f": ok_result("f")})
+        position_feed.sweep_positions(
+            [FakeAccount("m"), FakeAccount("f")], pool,
+            master_snapshot=("m", [mt5_position()]),
+        )
+        assert {p["trading_account_id"] for p in self.sent[0]} == {"m", "f"}
+        # And it is not read a second time through the pool.
+        assert [aid for aid, _ in pool.submitted] == ["f"]
+
+    def test_one_slow_account_does_not_hold_up_the_others(self, monkeypatch):
+        # A hung broker must cost that account its update, not the whole sweep.
+        self._capture(monkeypatch)
+        pool = FakePool(["slow", "fast"], {
+            "slow": FakeFuture(blocks=True), "fast": ok_result("fast"),
+        })
+        position_feed.sweep_positions(
+            [FakeAccount("slow"), FakeAccount("fast")], pool
+        )
+        assert [p["trading_account_id"] for p in self.sent[0]] == ["fast"]
+
+    def test_a_crashed_worker_does_not_stop_the_sweep(self, monkeypatch):
+        self._capture(monkeypatch)
+        pool = FakePool(["bad", "good"], {
+            "bad": FakeFuture(raises=RuntimeError("pool worker died")),
+            "good": ok_result("good"),
+        })
+        position_feed.sweep_positions([FakeAccount("bad"), FakeAccount("good")], pool)
+        assert [p["trading_account_id"] for p in self.sent[0]] == ["good"]
+
+    def test_nothing_routed_reports_nothing(self, monkeypatch):
+        self._capture(monkeypatch)
+        position_feed.sweep_positions([FakeAccount("a")], FakePool([]))
+        assert self.sent == [[]] or self.sent == []
+
+
+class TestSweepInBackground:
+    def setup_method(self):
+        position_feed.reset_state()
+
+    def test_runs_off_the_callers_thread(self, monkeypatch):
+        import threading
+        seen = {}
+
+        def fake(accounts, pool, master_snapshot=None):
+            seen["thread"] = threading.current_thread().name
+            return 1
+
+        monkeypatch.setattr(position_feed, "sweep_positions", fake)
+        assert position_feed.sweep_in_background([], FakePool([])) is True
+        position_feed._sweep_thread.join(timeout=2)
+        assert seen["thread"] != threading.current_thread().name
+
+    def test_a_second_sweep_does_not_stack_on_a_running_one(self, monkeypatch):
+        # Two sweeps would queue on the same pool workers and the second would
+        # report nothing newer than the first.
+        import threading
+        release = threading.Event()
+
+        def fake(accounts, pool, master_snapshot=None):
+            release.wait(timeout=2)
+            return 1
+
+        monkeypatch.setattr(position_feed, "sweep_positions", fake)
+        assert position_feed.sweep_in_background([], FakePool([])) is True
+        assert position_feed.sweep_in_background([], FakePool([])) is False
+        release.set()
+        position_feed._sweep_thread.join(timeout=2)
+
+    def test_a_failing_sweep_does_not_escape_the_thread(self, monkeypatch):
+        def boom(accounts, pool, master_snapshot=None):
+            raise RuntimeError("gateway down")
+
+        monkeypatch.setattr(position_feed, "sweep_positions", boom)
+        assert position_feed.sweep_in_background([], FakePool([])) is True
+        position_feed._sweep_thread.join(timeout=2)

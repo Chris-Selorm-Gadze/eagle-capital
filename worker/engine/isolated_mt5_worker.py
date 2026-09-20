@@ -99,6 +99,75 @@ def _session_for_follower(follower: dict[str, Any], path: str):
     return session, int((time.perf_counter() - t_switch) * 1000)
 
 
+def read_account_state(job: dict[str, Any]) -> dict[str, Any]:
+    """Read one account's open positions and figures, inside this terminal's process.
+
+    The live feed's whole latency problem is that the main process holds one MT5
+    attach: sweeping seven accounts across three brokers there means three
+    shutdown+initialize cycles, each with a settling window, all of it competing
+    with the copy loop for the same terminal. Here each pool worker owns its own
+    terminal and keeps a warm session, so a repeat read of the same account costs
+    no switch at all and accounts on different brokers are read at the same time.
+
+    Never raises: a read that fails comes back as ok=False, and the caller leaves
+    that account's last good snapshot alone rather than reporting it as flat.
+    """
+    account = job["account"]
+    account_id = account.get("id", "")
+    path = job.get("terminal_path") or _POOL_TERMINAL_PATH
+    started = time.perf_counter()
+
+    try:
+        session, switch_ms = _session_for_follower(account, path)
+    except Exception as exc:
+        invalidate_warm_session()
+        return {"trading_account_id": account_id, "ok": False, "error": str(exc)}
+
+    if session is None:
+        return {
+            "trading_account_id": account_id,
+            "ok": False,
+            "error": "connect failed",
+            "switch_ms": switch_ms,
+        }
+
+    try:
+        positions = session.connector.get_open_positions()
+        info = session.connector.get_account_info()
+    except Exception as exc:
+        # A throw here usually means the warm session is pointing at a terminal
+        # that went away. Drop it so the next read reconnects instead of
+        # repeating the same failure every sweep.
+        invalidate_warm_session()
+        return {"trading_account_id": account_id, "ok": False, "error": str(exc)}
+
+    # Price precision per symbol, looked up here because this is where the
+    # terminal is. get_symbol_info caches for ten minutes, so this is one local
+    # call per symbol per process, not per sweep.
+    digits: dict[str, int] = {}
+    for pos in positions or []:
+        symbol = str(pos.get("symbol") or "")
+        if not symbol or symbol in digits:
+            continue
+        try:
+            spec = session.connector.get_symbol_info(symbol) or {}
+        except Exception:
+            continue
+        value = spec.get("digits")
+        if isinstance(value, int):
+            digits[symbol] = value
+
+    return {
+        "trading_account_id": account_id,
+        "ok": True,
+        "positions": positions or [],
+        "info": info or None,
+        "digits": digits,
+        "switch_ms": switch_ms,
+        "read_ms": int((time.perf_counter() - started) * 1000),
+    }
+
+
 def run_isolated_copy_job(job: dict[str, Any]) -> dict[str, Any]:
     """Execute one copy action on a dedicated terminal path process."""
     from engine.account_session import AccountSession

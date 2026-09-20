@@ -28,6 +28,9 @@ export interface LivePosition {
   stopLoss: number | null
   takeProfit: number | null
   openedAt: string | null
+  /** The broker's own price precision, so a quote does not gain and lose
+   * digits as it moves. Null when the worker could not read it. */
+  digits: number | null
 }
 
 export interface LiveAccountPositions {
@@ -77,6 +80,7 @@ function positionFromJson(raw: Record<string, unknown>): LivePosition | null {
     openedAt: typeof raw.opened_at === 'number'
       ? new Date(raw.opened_at * 1000).toISOString()
       : null,
+    digits: Number.isInteger(raw.digits) ? (raw.digits as number) : null,
   }
 }
 

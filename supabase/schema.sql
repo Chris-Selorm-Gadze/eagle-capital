@@ -461,3 +461,19 @@ alter table public.ai_usage enable row level security;
 drop policy if exists "read own ai usage" on public.ai_usage;
 create policy "read own ai usage" on public.ai_usage for select using (auth.uid() = user_id);
 create index if not exists ai_usage_user_created_idx on public.ai_usage (user_id, created_at);
+
+
+-- The dashboard is built from closed trades, and the worker writes them from
+-- outside the browser -- so without this a journalled trade sat in Postgres
+-- unseen until someone reloaded the page. RLS applies to the stream.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'trades'
+  ) then
+    alter publication supabase_realtime add table public.trades;
+  end if;
+end $$;

@@ -1,4 +1,4 @@
--- Live positions — run once against the live database.
+-- Live trading — run once against the live database.
 -- Folded into delta-engine-schema.sql in the same change; this file is the
 -- delta for a database that already exists.
 
@@ -32,3 +32,37 @@ alter table public.live_positions enable row level security;
 
 drop policy if exists "read own live positions" on public.live_positions;
 create policy "read own live positions" on public.live_positions for select using (auth.uid() = user_id);
+
+-- Realtime: the page is told the moment a snapshot lands, instead of asking
+-- every few seconds. Polling put the browser's interval on top of the worker's
+-- own -- a position could be read, written, and still sit unseen for the rest
+-- of a poll window. RLS still applies to the stream, so a subscriber receives
+-- only their own rows.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'live_positions'
+  ) then
+    alter publication supabase_realtime add table public.live_positions;
+  end if;
+end $$;
+
+
+
+-- The dashboard is built from closed trades, and the worker writes them from
+-- outside the browser -- so without this a journalled trade sat in Postgres
+-- unseen until someone reloaded the page. RLS applies to the stream.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'trades'
+  ) then
+    alter publication supabase_realtime add table public.trades;
+  end if;
+end $$;

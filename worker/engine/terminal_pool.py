@@ -24,7 +24,11 @@ from typing import Any
 
 import structlog
 
-from engine.isolated_mt5_worker import _init_pool_worker, run_isolated_copy_job
+from engine.isolated_mt5_worker import (
+    _init_pool_worker,
+    read_account_state,
+    run_isolated_copy_job,
+)
 from engine.terminal_session_manager import normalize_terminal_path
 
 logger = structlog.get_logger()
@@ -163,6 +167,20 @@ class TerminalPool:
         if pool_key not in self._executors:
             return None
         return self._executors[pool_key].submit(run_isolated_copy_job, job)
+
+    def submit_read(self, account_id: str | None, job: dict[str, Any]) -> Future | None:
+        """Queue a positions/figures read on this account's terminal worker.
+
+        Same routing as submit(): accounts on different terminals run at the
+        same time, accounts sharing one queue behind each other, because MT5
+        still only allows a single login per terminal instance.
+        """
+        if not account_id or account_id not in self._account_routes:
+            return None
+        pool_key = self._account_routes[account_id]
+        if pool_key not in self._executors:
+            return None
+        return self._executors[pool_key].submit(read_account_state, job)
 
     def shutdown(self) -> None:
         for pool_key, ex in self._executors.items():

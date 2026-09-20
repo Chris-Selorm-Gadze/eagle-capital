@@ -193,3 +193,16 @@ describe('describeLoadFailure', () => {
     expect(failure).toEqual({ message: 'Failed to fetch', fatal: false })
   })
 })
+
+describe('broker price precision', () => {
+  it('carries the digits the worker read from the terminal', () => {
+    const [p] = positionsFromRow({ positions: [{ ...RAW, digits: 5 }] })
+    expect(p.digits).toBe(5)
+  })
+
+  it('is null when the worker could not read them', () => {
+    // The page falls back to a default rather than showing a wrong precision.
+    expect(positionsFromRow({ positions: [RAW] })[0].digits).toBeNull()
+    expect(positionsFromRow({ positions: [{ ...RAW, digits: '5' }] })[0].digits).toBeNull()
+  })
+})

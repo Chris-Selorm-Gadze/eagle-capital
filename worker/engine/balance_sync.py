@@ -59,7 +59,12 @@ def sync_all_balances(
                 # the page shows each account's age rather than one clock.
                 positions = _read_positions(acc, session)
                 if positions is not None:
-                    snapshots.append(account_payload(acc.id, positions, row))
+                    snapshots.append(account_payload(
+                        acc.id, positions, row,
+                        digits_lookup=lambda sym, s=session: (
+                            (s.connector.get_symbol_info(sym) or {}).get("digits")
+                        ),
+                    ))
         except Exception as exc:
             logger.debug("balance_sync_skip", account=acc.id, error=str(exc))
 
