@@ -273,3 +273,130 @@ class TestThrottle:
         monkeypatch.setenv("WORKER_TRADE_SYNC_SECONDS", "0")
         assert trade_journal.should_sync_trades() is True
         assert trade_journal.should_sync_trades() is True
+
+
+class JournalFuture:
+    def __init__(self, value=None, raises=None, blocks=False):
+        self._value, self._raises, self._blocks = value, raises, blocks
+
+    def result(self, timeout=None):
+        if self._blocks:
+            raise TimeoutError("still reading")
+        if self._raises:
+            raise self._raises
+        return self._value
+
+
+class JournalPool:
+    def __init__(self, routed, results=None):
+        self.routed = set(routed)
+        self.results = results or {}
+        self.submitted = []
+
+    def has(self, account_id):
+        return account_id in self.routed
+
+    def submit_journal(self, account_id, job):
+        self.submitted.append((account_id, job))
+        return self.results.get(account_id)
+
+
+def journal_ok(account_id, trades=(), synced_to="2026-09-19T12:00:00+00:00"):
+    return JournalFuture({
+        "ok": True,
+        "trading_account_id": account_id,
+        "synced_to": synced_to,
+        "trades": list(trades),
+    })
+
+
+class TestSplitByPool:
+    def test_routed_accounts_are_read_in_parallel(self):
+        accounts = [account("a"), account("b")]
+        pooled, unrouted = trade_journal.split_by_pool(accounts, JournalPool(["a"]))
+        assert [a.id for a in pooled] == ["a"]
+        assert [a.id for a in unrouted] == ["b"]
+
+    def test_no_pool_keeps_everything_on_the_round_robin(self):
+        # The original behaviour, which is still correct for an account with no
+        # terminal path of its own.
+        accounts = [account("a"), account("b")]
+        pooled, unrouted = trade_journal.split_by_pool(accounts, None)
+        assert pooled == []
+        assert [a.id for a in unrouted] == ["a", "b"]
+
+
+class TestSyncPooled:
+    def setup_method(self):
+        trade_journal.reset_state()
+        self.posted = []
+
+    def _capture(self, monkeypatch, response=None):
+        class FakeClient:
+            enabled = True
+            user_id = "u1"
+
+            def post_closed_trades(inner, account_id, trades, synced_to):
+                self.posted.append((account_id, trades, synced_to))
+                return response if response is not None else {"written": len(trades)}
+
+        monkeypatch.setattr("engine.api_client.get_api_client", lambda: FakeClient())
+
+    def test_every_routed_account_is_submitted_before_any_is_awaited(self, monkeypatch):
+        self._capture(monkeypatch)
+        pool = JournalPool(["a", "b", "c"], {
+            "a": journal_ok("a"), "b": journal_ok("b"), "c": journal_ok("c"),
+        })
+        accounts = [account(i) for i in "abc"]
+        trade_journal._sync_pooled(accounts, pool)
+        assert [aid for aid, _ in pool.submitted] == ["a", "b", "c"]
+        assert {a for a, _, _ in self.posted} == {"a", "b", "c"}
+
+    def test_an_unreadable_window_does_not_advance_the_mark(self, monkeypatch):
+        # The mark staying put is what makes the next pass re-read that window
+        # instead of stepping over trades nobody managed to look at.
+        self._capture(monkeypatch)
+        pool = JournalPool(["a"], {"a": journal_ok("a", synced_to=None)})
+        trade_journal._sync_pooled([account("a")], pool)
+        assert self.posted == []
+        assert "a" not in trade_journal._marks
+
+    def test_a_quiet_account_still_advances_its_mark(self, monkeypatch):
+        # Otherwise a quiet account's window grows by every quiet stretch, and
+        # Monday morning re-reads the whole weekend.
+        self._capture(monkeypatch)
+        pool = JournalPool(["a"], {"a": journal_ok("a", trades=[])})
+        trade_journal._sync_pooled([account("a")], pool)
+        assert self.posted[0][1] == []
+        assert trade_journal._marks["a"] == "2026-09-19T12:00:00+00:00"
+
+    def test_an_unlinked_account_keeps_its_mark_for_relinking(self, monkeypatch):
+        self._capture(monkeypatch, response={"linked": False})
+        pool = JournalPool(["a"], {"a": journal_ok("a")})
+        trade_journal._sync_pooled([account("a")], pool)
+        assert "a" not in trade_journal._marks
+
+    def test_one_slow_account_does_not_hold_up_the_others(self, monkeypatch):
+        self._capture(monkeypatch)
+        pool = JournalPool(["slow", "fast"], {
+            "slow": JournalFuture(blocks=True), "fast": journal_ok("fast"),
+        })
+        trade_journal._sync_pooled(
+            [account("slow"), account("fast")], pool
+        )
+        assert [a for a, _, _ in self.posted] == ["fast"]
+
+    def test_a_crashed_worker_does_not_stop_the_rest(self, monkeypatch):
+        self._capture(monkeypatch)
+        pool = JournalPool(["bad", "good"], {
+            "bad": JournalFuture(raises=RuntimeError("worker died")),
+            "good": journal_ok("good"),
+        })
+        trade_journal._sync_pooled([account("bad"), account("good")], pool)
+        assert [a for a, _, _ in self.posted] == ["good"]
+
+    def test_a_failed_read_is_not_treated_as_an_empty_account(self, monkeypatch):
+        self._capture(monkeypatch)
+        pool = JournalPool(["a"], {"a": JournalFuture({"ok": False, "error": "no terminal"})})
+        trade_journal._sync_pooled([account("a")], pool)
+        assert self.posted == []

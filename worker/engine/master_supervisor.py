@@ -220,7 +220,9 @@ def _journal_while_idle(accounts: list[AccountConfig]) -> None:
         return
 
     try:
-        sync_all_trades(candidates, _idle_sessions(candidates))
+        sync_all_trades(
+            candidates, _idle_sessions(candidates), _idle_terminal_pool(candidates)
+        )
     except Exception as exc:
         logger.warning("idle_trade_journal_failed", error=str(exc))
 

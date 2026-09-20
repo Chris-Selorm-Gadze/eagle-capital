@@ -602,7 +602,7 @@ class CopierEngine:
             # Journalling is a background reconciliation, like balances -- both
             # run after dispatch so neither can add latency to a copy.
             if should_sync_trades():
-                sync_all_trades(self.accounts, self._sessions)
+                sync_all_trades(self.accounts, self._sessions, self._terminal_pool)
             # The live feed. The master's snapshot is the one the diff engine
             # just polled, so it is free; every other account is read in its own
             # terminal subprocess, in parallel, off this thread -- a sweep can

@@ -27,6 +27,7 @@ import structlog
 from engine.isolated_mt5_worker import (
     _init_pool_worker,
     read_account_state,
+    read_closed_trades,
     run_isolated_copy_job,
 )
 from engine.terminal_session_manager import normalize_terminal_path
@@ -181,6 +182,15 @@ class TerminalPool:
         if pool_key not in self._executors:
             return None
         return self._executors[pool_key].submit(read_account_state, job)
+
+    def submit_journal(self, account_id: str | None, job: dict[str, Any]) -> Future | None:
+        """Queue a deal-history read on this account's terminal worker."""
+        if not account_id or account_id not in self._account_routes:
+            return None
+        pool_key = self._account_routes[account_id]
+        if pool_key not in self._executors:
+            return None
+        return self._executors[pool_key].submit(read_closed_trades, job)
 
     def shutdown(self) -> None:
         for pool_key, ex in self._executors.items():

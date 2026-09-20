@@ -168,6 +168,59 @@ def read_account_state(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def read_closed_trades(job: dict[str, Any]) -> dict[str, Any]:
+    """Journal one account's finished positions, inside this terminal's process.
+
+    The whole two-phase read runs here rather than being driven across the
+    process boundary: the window says which positions closed, then each is read
+    whole so its opening deal is present. Split over IPC that would be one round
+    trip per position; done here it is one for the account.
+
+    This is why journalling stopped being one-account-per-pass. That rotation
+    existed because a history read meant re-attaching the main process to
+    another terminal, which is the same switch a copy pays -- so seven accounts
+    on a two-minute beat meant a closed trade could take fourteen minutes to
+    reach the dashboard. A pool worker is already on its account and keeps a
+    warm session, so the read costs no switch and every account can be read at
+    once.
+    """
+    from engine.trade_sync import parse_mark, sync_account
+
+    account = job["account"]
+    account_id = account.get("id", "")
+    path = job.get("terminal_path") or account.get("terminal_path") or _POOL_TERMINAL_PATH
+
+    try:
+        session, _switch_ms = _session_for_follower(account, path)
+    except Exception as exc:
+        invalidate_warm_session()
+        return {"trading_account_id": account_id, "ok": False, "error": str(exc)}
+
+    if session is None:
+        return {"trading_account_id": account_id, "ok": False, "error": "connect failed"}
+
+    try:
+        result = sync_account(
+            session.connector, account_id, parse_mark(job.get("synced_to"))
+        )
+    except Exception as exc:
+        invalidate_warm_session()
+        return {"trading_account_id": account_id, "ok": False, "error": str(exc)}
+
+    return {
+        "trading_account_id": account_id,
+        "ok": True,
+        # None means the window could not be read. Kept as None so the caller
+        # leaves the mark where it is and the next pass re-reads that window,
+        # rather than stepping over trades nobody managed to look at.
+        "synced_to": result.synced_to.isoformat() if result.synced_to else None,
+        # Already the wire shape, so the caller posts what it is handed rather
+        # than reconstructing dataclasses on the other side of the boundary.
+        "trades": [t.to_payload() for t in result.trades],
+        "positions_seen": result.positions_seen,
+    }
+
+
 def run_isolated_copy_job(job: dict[str, Any]) -> dict[str, Any]:
     """Execute one copy action on a dedicated terminal path process."""
     from engine.account_session import AccountSession
