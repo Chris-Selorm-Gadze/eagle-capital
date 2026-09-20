@@ -125,9 +125,10 @@ export function Modal({
   }, [requestClose])
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: Escape is handled above; the
-    // backdrop is a pointer affordance, and every action it offers is also
-    // reachable from the footer and the close button.
+    // Escape is handled above, and every action the backdrop offers is also on
+    // the close button and in the footer, so it is a pointer shortcut rather
+    // than the only way out.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) void requestClose() }}>
       <div
         aria-labelledby={titleId}

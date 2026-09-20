@@ -15,15 +15,14 @@ export function AccountBalanceChart({ data, currentBalance }: { data: LedgerPoin
       <div className={styles.headerRow}>
         <div className={styles.title}>
           Account balance
-          <span
+          <button
             aria-label="Starting allocation + everything you've logged, minus what you've withdrawn. Deposits / Withdrawals tracks cumulative payouts received."
             className="info-icon"
             data-tooltip="Starting allocation + everything you've logged − what you've withdrawn. Deposits / Withdrawals tracks cumulative payouts received."
-            role="note"
-            tabIndex={0}
+            type="button"
           >
             i
-          </span>
+          </button>
         </div>
         {/* The same ledger the line is drawn from, summed across whatever the
             top-bar account filter currently selects — so this figure and the

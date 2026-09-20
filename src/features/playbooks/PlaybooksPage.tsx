@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { activate } from '../../shared/ui/activate'
 import type { Playbook, PlaybookExample, PlaybookGrade, Trade } from '../../types'
 import { listPlaybooks, deletePlaybook } from '../../db/playbooks'
 import { listPlaybookExamples } from '../../db/playbookExamples'
@@ -99,7 +100,8 @@ export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: str
               <div
                 key={p.id}
                 className={`${styles.card} ${p.grade ? CARD_ACCENT_CLASS[p.grade] : ''}`}
-                onClick={() => setViewing(p)}
+                {...activate(() => setViewing(p))}
+                aria-label={`Open playbook ${p.name}`}
               >
                 <div className={styles.cardHeader}>
                   <span className={styles.cardTitle}>{p.name}</span>
@@ -153,9 +155,15 @@ export function PlaybooksPage({ trades, userId }: { trades: Trade[]; userId: str
 
                 <div className={styles.cardFooter}>
                   <span>{playbookExamples.length} example{playbookExamples.length === 1 ? '' : 's'}</span>
-                  <div className={styles.cardActions} onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => setEditing(p)}>Edit</button>
-                    <button onClick={() => handleDelete(p.id!)} className="btn-ghost">Delete</button>
+                  {/* stopPropagation lives on the buttons, not on a wrapper
+                      div: a div whose only job is to swallow a click is an
+                      interactive element with no name and no keyboard path. */}
+                  <div className={styles.cardActions}>
+                    <button onClick={(e) => { e.stopPropagation(); setEditing(p) }}>Edit</button>
+                    <button
+                      className="btn-ghost"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(p.id!) }}
+                    >Delete</button>
                   </div>
                 </div>
               </div>

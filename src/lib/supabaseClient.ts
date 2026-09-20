@@ -6,7 +6,6 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 export const supabaseConfigured = Boolean(url && anonKey)
 
 if (!supabaseConfigured && import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
   console.warn('Supabase env vars missing — set VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY in .env.local. Auth/broker-sync features are disabled until then.')
 }
 

@@ -17,13 +17,15 @@ export function TileShell({
       <div className={styles.header}>
         <div className={styles.label}>
           {label}
-          {/* tabIndex + role make the hover tooltip reachable by keyboard;
-              aria-label carries the same text for screen readers, which would
-              otherwise just announce the letter "i". */}
+          {/* A button, so the tooltip is reachable by keyboard and announced as
+              something you can interact with — aria-label carries the text,
+              which would otherwise be read as the single letter "i". It was a
+              span with role="note" and a tabindex, which put a non-interactive
+              role in the tab order and told screen readers it did nothing. */}
           {info && (
-            <span aria-label={info} className="info-icon" data-tooltip={info} role="note" tabIndex={0}>
+            <button aria-label={info} className="info-icon" data-tooltip={info} type="button">
               i
-            </span>
+            </button>
           )}
         </div>
         {badge !== undefined && <span className={styles.badge}>{badge}</span>}

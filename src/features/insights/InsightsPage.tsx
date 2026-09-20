@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { activate } from '../../shared/ui/activate'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faCircleExclamation, faStar, faLightbulb, faTrash,
@@ -218,11 +219,16 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
         tradeCount: payload.meta.tradeCount, reportCardCount: payload.meta.reportCardCount,
         model, response: insights, requestPayload: payload,
       }
-      const id = await saveAiInsight(userId, insight)
-      insight.id = id
-      insight.createdAt = new Date().toISOString()
-      setCurrent(insight)
-      setHistory((h) => [insight, ...h])
+      // Built once, after the write, rather than mutating the object that was
+      // sent — the saved row is the source of the id and the timestamp, so the
+      // version that reaches state should be assembled from both at once.
+      const saved: AiInsight = {
+        ...insight,
+        id: await saveAiInsight(userId, insight),
+        createdAt: new Date().toISOString(),
+      }
+      setCurrent(saved)
+      setHistory((h) => [saved, ...h])
       setUsedToday((n) => (n === null ? n : n + 1))
     } catch (err) {
       setError(errorMessage(err))
@@ -304,7 +310,12 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
           <div className={styles.historyTitle}>Past digests</div>
           <div className={styles.list}>
             {history.map((i) => (
-              <div key={i.id} className={`${styles.row} ${current?.id === i.id ? styles.rowActive : ''}`} onClick={() => setCurrent(i)}>
+              <div
+                key={i.id}
+                className={`${styles.row} ${current?.id === i.id ? styles.rowActive : ''}`}
+                {...activate(() => setCurrent(i))}
+                aria-label={`Open digest from ${i.createdAt ? new Date(i.createdAt).toLocaleDateString() : 'earlier'}`}
+              >
                 <div className={styles.rowBody}>
                   <div className={styles.rowMain}>
                     <span className={styles.rowDate}>{i.createdAt ? new Date(i.createdAt).toLocaleDateString() : ''}</span>

@@ -1,4 +1,5 @@
 import type { ReportCard, ReportCardGrade } from '../../../types'
+import { activate } from '../../../shared/ui/activate'
 import styles from '../ReportCardPage.module.css'
 
 const GRADES: { key: ReportCardGrade; label: string; desc: string }[] = [
@@ -34,7 +35,9 @@ export function GradeSection({
           <div
             key={g.key}
             className={`${styles.stamp} ${GRADE_CLASS[g.key]} ${card.grade === g.key ? styles.stampOn : ''}`}
-            onClick={() => onChange({ grade: card.grade === g.key ? undefined : g.key })}
+            {...activate(() => onChange({ grade: card.grade === g.key ? undefined : g.key }))}
+            aria-pressed={card.grade === g.key}
+            aria-label={`${g.label} — ${g.desc}`}
           >
             <span className={styles.g}>{g.label}</span>
             <span className={styles.d}>{g.desc}</span>

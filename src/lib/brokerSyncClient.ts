@@ -11,7 +11,6 @@ const apiUrl = import.meta.env.VITE_BROKER_SYNC_API_URL
 export const brokerSyncConfigured = isUsableApiUrl(apiUrl, import.meta.env.PROD)
 
 if (!brokerSyncConfigured && import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
   console.warn(unreachableBackendWarning('Live broker sync', 'VITE_BROKER_SYNC_API_URL', apiUrl))
 }
 

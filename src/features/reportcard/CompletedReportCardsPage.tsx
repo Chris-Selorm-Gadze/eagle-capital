@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { activate } from '../../shared/ui/activate'
 import type { ReportCard, ReportCardGrade, Trade } from '../../types'
 import { listReportCards } from '../../db/reportCards'
 import styles from './CompletedReportCardsPage.module.css'
@@ -54,7 +55,8 @@ export function CompletedReportCardsPage({ trades, onOpen }: { trades: Trade[]; 
             <div
               key={c.id}
               className={`${styles.row} ${c.grade ? ROW_ACCENT_CLASS[c.grade] : ''}`}
-              onClick={() => onOpen(c)}
+              {...activate(() => onOpen(c))}
+              aria-label={`Open report card for ${c.date}`}
             >
               <div className={styles.rowBody}>
                 <div className={styles.rowMain}>

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { activate } from '../../../shared/ui/activate'
 import type { Playbook, PlaybookGrade } from '../../../types'
 import { addPlaybook, updatePlaybook } from '../../../db/playbooks'
 import { addPlaybookExample } from '../../../db/playbookExamples'
@@ -117,13 +118,19 @@ export function PlaybookFormDialog({
         />
       </label>
 
-      <label className="field">Grade</label>
-      <div className={styles.stamps}>
+      {/* A group heading, not a label: it names the set of stamps below rather
+          than a single control, and as a <label> it pointed at nothing — so
+          clicking it focused nothing and screen readers announced an empty
+          field. */}
+      <span className="field">Grade</span>
+      <div aria-label="Grade" className={styles.stamps} role="group">
         {GRADES.map((g) => (
           <div
             key={g}
             className={`${styles.stamp} ${GRADE_CLASS[g]} ${grade === g ? styles.stampOn : ''}`}
-            onClick={() => setGrade(g)}
+            {...activate(() => setGrade(g))}
+            aria-pressed={grade === g}
+            aria-label={`Grade ${g}`}
           >
             {g}
           </div>

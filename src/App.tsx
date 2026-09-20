@@ -183,10 +183,27 @@ export default function App() {
     [accounts, trades, sessions, payouts],
   )
 
-  const filteredTrades = accountFilter === 'all' ? trades : trades.filter((t) => t.accountId === accountFilter)
-  const filteredSessions = accountFilter === 'all' ? sessions : sessions.filter((s) => s.accountId === accountFilter)
-  const dashboardAccounts = accountFilter === 'all' ? accounts : accounts.filter((a) => a.id === accountFilter)
-  const filteredPayouts = accountFilter === 'all' ? payouts : payouts.filter((p) => p.accountId === accountFilter)
+  /* Memoised, and deliberately returning the SAME array when the filter is
+   * 'all'. These feed the dashboard, the trade log, the journal, insights and
+   * charting, and a new array identity on every render invalidates every
+   * aggregate computed from them — so opening a dialog here recomputed the
+   * whole equity curve over the entire trade history. */
+  const filteredTrades = useMemo(
+    () => (accountFilter === 'all' ? trades : trades.filter((t) => t.accountId === accountFilter)),
+    [trades, accountFilter],
+  )
+  const filteredSessions = useMemo(
+    () => (accountFilter === 'all' ? sessions : sessions.filter((s) => s.accountId === accountFilter)),
+    [sessions, accountFilter],
+  )
+  const dashboardAccounts = useMemo(
+    () => (accountFilter === 'all' ? accounts : accounts.filter((a) => a.id === accountFilter)),
+    [accounts, accountFilter],
+  )
+  const filteredPayouts = useMemo(
+    () => (accountFilter === 'all' ? payouts : payouts.filter((p) => p.accountId === accountFilter)),
+    [payouts, accountFilter],
+  )
 
   const headerActions = ACCOUNT_SCOPED_PAGES.includes(nav) ? (
     <DashboardActions

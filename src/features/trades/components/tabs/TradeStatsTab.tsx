@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { activate } from '../../../../shared/ui/activate'
 import type { Trade } from '../../../../types'
 import { tradeRiskDollars, initialTargetDollars, plannedRMultiple, realizedRMultiple } from '../../../../utils/tradeRisk'
 import styles from '../TradeDetailPanel.module.css'
@@ -94,7 +95,13 @@ export function TradeStatsTab({ draft, onChange }: { draft: Trade; onChange: (pa
         <div className={styles.groupTitle}>Rating</div>
         <div className={styles.stars}>
           {[1, 2, 3, 4, 5].map((n) => (
-            <span key={n} className={styles.star} onClick={() => onChange({ rating: draft.rating === n ? undefined : n })}>
+            <span
+              key={n}
+              className={styles.star}
+              {...activate(() => onChange({ rating: draft.rating === n ? undefined : n }))}
+              aria-pressed={(draft.rating ?? 0) >= n}
+              aria-label={`Rate ${n} out of 5`}
+            >
               {(draft.rating ?? 0) >= n ? '★' : '☆'}
             </span>
           ))}

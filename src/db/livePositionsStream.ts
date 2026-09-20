@@ -43,35 +43,60 @@ export function subscribeLivePositions(handlers: LiveFeedHandlers): LiveFeed {
   let stopped = false
   let accounts: TradingAccount[] | null = null
   const snapshots = new Map<string, SnapshotRow>()
-  let inFlight = false
 
   function emit() {
     if (stopped || accounts === null) return
     handlers.onData(mergeAccounts(accounts, [...snapshots.values()]))
   }
 
-  async function loadAll() {
-    if (inFlight) return
-    inFlight = true
-    try {
-      // The account list is fetched once; after that only snapshots move.
-      const [accountRows, snapshotRows] = await Promise.all([
-        accounts === null ? listTradingAccounts() : Promise.resolve(accounts),
-        selectAll<SnapshotRow>('live_positions', { orderBy: 'trading_account_id' }),
-      ])
-      if (stopped) return
-      accounts = accountRows.filter((a) => a.isEnabled)
-      snapshots.clear()
-      for (const row of snapshotRows) {
-        const id = row.trading_account_id
-        if (typeof id === 'string') snapshots.set(id, row)
-      }
-      emit()
-    } catch (err) {
-      if (!stopped) handlers.onError(err)
-    } finally {
-      inFlight = false
+  async function read() {
+    // The account list is fetched once; after that only snapshots move.
+    const known = accounts
+    const [accountRows, snapshotRows] = await Promise.all([
+      known === null ? listTradingAccounts() : Promise.resolve(known),
+      selectAll<SnapshotRow>('live_positions', { orderBy: 'trading_account_id' }),
+    ])
+    if (stopped) return
+    accounts = accountRows.filter((a) => a.isEnabled)
+    snapshots.clear()
+    for (const row of snapshotRows) {
+      const id = row.trading_account_id
+      if (typeof id === 'string') snapshots.set(id, row)
     }
+    emit()
+  }
+
+  /* Single-flight, but a request that arrives mid-read is honoured afterwards
+   * rather than dropped. Dropping it was wrong in the one case that matters:
+   * a resubscribe asks for a read precisely because the socket was down and
+   * the page may be behind, and if the fallback poll happened to be running at
+   * that moment the catch-up vanished and the page stayed stale until the next
+   * poll fifteen seconds later. */
+  let running: Promise<void> | null = null
+  let queued = false
+
+  function loadAll(): Promise<void> {
+    if (running) {
+      queued = true
+      return running
+    }
+    running = (async () => {
+      try {
+        do {
+          queued = false
+          await read()
+          // `stopped` is set by stop() from outside this closure, which the
+          // linter cannot see from here.
+          // eslint-disable-next-line no-unmodified-loop-condition
+        } while (queued && !stopped)
+      } catch (err) {
+        if (!stopped) handlers.onError(err)
+      } finally {
+        running = null
+        queued = false
+      }
+    })()
+    return running
   }
 
   /* A pushed row is applied on its own rather than triggering a refetch: the

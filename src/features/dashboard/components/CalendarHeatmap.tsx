@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { activate } from '../../../shared/ui/activate'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCamera } from '@fortawesome/free-solid-svg-icons'
 import { calendarCells, weekTotal, monthTotal, type DailyPnl, type CalendarCell } from '../../../utils/tradeAggregates'
@@ -96,7 +97,7 @@ export function CalendarHeatmap({
                   key={j}
                   className={`${styles.dayCell} ${clickable ? styles.dayCellClickable : ''}`}
                   style={{ background: cell ? style.background : 'transparent', color: style.color }}
-                  onClick={() => handleDayClick(cell)}
+                  {...activate(() => handleDayClick(cell), clickable)}
                   title={clickable ? 'Open this day\'s trades in the Trade Journal' : undefined}
                 >
                   {cell && (

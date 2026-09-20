@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type { Account, Payout, SessionLog, Trade } from '../../db/schema'
 import { dailyPnlSeries } from '../../utils/tradeAggregates'
 import { balanceSeries, totalBalance, type AccountLedger } from '../../utils/ledger'
@@ -37,6 +38,27 @@ export function DashboardPage({
   userId: string
   onAccountsChanged?: () => void
 }) {
+  // Every hook runs before the empty-desk branch below. This page flips from
+  // empty to full the moment the worker journals a first trade, and a hook
+  // after a conditional return makes that transition throw.
+  // Memoised: these walk the whole trade history, and this component
+  // re-renders whenever anything in App does — every dialog open recomputed
+  // the equity curve, the calendar and both scatters from scratch.
+  const daily = useMemo(() => dailyPnlSeries(trades), [trades])
+  // Both of these now come from the same ledger (utils/ledger.ts). They used to
+  // be computed two different ways — the curve from "size + trade P&L" over
+  // only the accounts that had traded, the figure from the stored
+  // `accounts.balance` column over every account in the filter — so the line
+  // and the number above it routinely disagreed.
+  const balance = useMemo(
+    () => balanceSeries(accounts, trades, sessions, payouts),
+    [accounts, trades, sessions, payouts],
+  )
+  const currentBalance = useMemo(
+    () => totalBalance(accounts, ledgers),
+    [accounts, ledgers],
+  )
+
   // With nothing logged there is no dashboard to draw — every tile would render
   // a zero or an empty frame. Show the way in instead.
   if (trades.length === 0) {
@@ -50,15 +72,6 @@ export function DashboardPage({
       />
     )
   }
-
-  const daily = dailyPnlSeries(trades)
-  // Both of these now come from the same ledger (utils/ledger.ts). They used to
-  // be computed two different ways — the curve from "size + trade P&L" over
-  // only the accounts that had traded, the figure from the stored
-  // `accounts.balance` column over every account in the filter — so the line
-  // and the number above it routinely disagreed.
-  const balance = balanceSeries(accounts, trades, sessions, payouts)
-  const currentBalance = totalBalance(accounts, ledgers)
 
   return (
     <div className="flex flex-col gap-6">

@@ -500,6 +500,11 @@ label > textarea {
 .info-icon {
   position: relative;
   cursor: help;
+  /* It is a <button>, so the UA's own chrome has to be cleared: this element is
+     a 13px circle drawn entirely by the rules below. */
+  background: none;
+  padding: 0;
+  font-family: inherit;
   color: var(--text-muted);
   font-size: 0.65rem;
   line-height: 1;

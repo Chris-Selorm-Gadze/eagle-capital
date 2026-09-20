@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { selectAll } from './paginate'
 
 /* Whole-account data operations: export and erasure.
  *
@@ -41,13 +42,17 @@ export interface ExportBundle {
 
 /** Reads every user-owned table. RLS already scopes each query to auth.uid(),
  * so there's no user filter here — the same reason the rest of src/db doesn't
- * pass one either. */
+ * pass one either.
+ *
+ * Every table goes through selectAll. A bare `.select('*')` stops at
+ * PostgREST's 1000-row max-rows without saying so, and it did here: an export
+ * is the one read where a silent truncation is unrecoverable, because the
+ * person taking it believes they now hold everything and may well delete the
+ * account next. Ordered by id, which every one of these tables has. */
 export async function exportAllData(userId: string): Promise<ExportBundle> {
   const tables: Record<string, unknown[]> = {}
   for (const table of USER_TABLES) {
-    const { data, error } = await supabase.from(table).select('*')
-    if (error) throw error
-    tables[table] = data ?? []
+    tables[table] = await selectAll(table, { orderBy: 'id' })
   }
   const { data: profile, error: profileError } = await supabase
     .from('eaglecapital_profiles')
