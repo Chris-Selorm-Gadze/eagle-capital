@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { createContext, memo, useContext, useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
 import {
@@ -8,6 +8,7 @@ import {
   type LivePosition,
 } from '../../db/livePositions'
 import { useLivePositions } from './useLivePositions'
+import type { Tick } from './ticker'
 import {
   formatDuration,
   formatLots,
@@ -31,6 +32,38 @@ import styles from './LivePositionsPage.module.css'
  * read "40s" until the next price moved.
  */
 
+/* One clock, read only by the cells that count up.
+ *
+ * Passing `now` down as a prop made every memo on this page dead weight: each
+ * row re-rendered once a second to move one column, whether or not a price had
+ * changed. Through a context, the tick reaches the age cells and nothing else,
+ * so a row repaints when its numbers move and not otherwise. */
+const ClockContext = createContext(0)
+
+function Clock({ children }: { children: React.ReactNode }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1_000)
+    return () => clearInterval(id)
+  }, [])
+  return <ClockContext.Provider value={now}>{children}</ClockContext.Provider>
+}
+
+/** How long a position has been open, counting up on its own. */
+function Elapsed({ openedAt }: { openedAt: string | null }) {
+  return <span className={styles.num}>{formatDuration(openedAt, useContext(ClockContext))}</span>
+}
+
+/** How long ago the worker last read this account. */
+function Freshness({ reportedAt, offline }: { reportedAt: string | null; offline: boolean }) {
+  const age = snapshotAgeSeconds(reportedAt, useContext(ClockContext))
+  // Past a minute the reading is old enough that the number beside it may not
+  // be the position's real P&L any more, and the page should say so in colour
+  // rather than leaving it to be read off a timestamp.
+  const className = offline ? styles.offline : age !== null && age > 60 ? styles.stale : ''
+  return <span className={className}>{offline ? 'disconnected' : freshnessLabel(age)}</span>
+}
+
 function pnlClass(n: number): string {
   if (n > 0) return styles.pnlGood
   if (n < 0) return styles.pnlBad
@@ -39,35 +72,43 @@ function pnlClass(n: number): string {
 
 /** A cell that flashes in the direction its number moved.
  *
- * The flash is driven by a key change rather than a timer: re-keying restarts
- * the CSS animation, which a class toggle would not do when the same direction
- * repeats tick after tick. */
+ * State adjusted during render rather than refs mutated during render: this
+ * tree runs under StrictMode, which renders twice, and a ref written on the
+ * first pass makes the second pass see no change and drop the flash. React
+ * supports this shape explicitly -- compare against the previous value held in
+ * state, and set both when it differs.
+ *
+ * The flash is driven by a changing key rather than a class, because the same
+ * direction arriving tick after tick would not restart a CSS animation that is
+ * already on the element. */
 function TickCell({ value, text, className }: {
   value: number | null
   text: string
   className?: string
 }) {
-  const previous = useRef<number | null>(null)
-  const generation = useRef(0)
-  const direction = tickOf(previous.current, value)
-  if (direction !== 'none') generation.current += 1
-  previous.current = value
+  const [previous, setPrevious] = useState<number | null>(value)
+  const [tick, setTick] = useState<{ direction: Tick; generation: number }>({
+    direction: 'none',
+    generation: 0,
+  })
 
-  const flash = direction === 'up' ? styles.tickUp : direction === 'down' ? styles.tickDown : ''
+  if (value !== previous) {
+    const direction = tickOf(previous, value)
+    setPrevious(value)
+    setTick((t) => (direction === 'none' ? t : { direction, generation: t.generation + 1 }))
+  }
+
+  const flash = tick.direction === 'up'
+    ? styles.tickUp
+    : tick.direction === 'down' ? styles.tickDown : ''
   return (
-    <span className={`${styles.num} ${className ?? ''} ${flash}`} key={generation.current}>
+    <span className={`${styles.num} ${className ?? ''} ${flash}`} key={tick.generation}>
       {text}
     </span>
   )
 }
 
-const PositionRow = memo(function PositionRow({
-  position,
-  now,
-}: {
-  position: LivePosition
-  now: number
-}) {
+const PositionRow = memo(function PositionRow({ position }: { position: LivePosition }) {
   return (
     <div className={styles.positionRow}>
       <span className={styles.positionSymbol}>{position.symbol}</span>
@@ -80,7 +121,7 @@ const PositionRow = memo(function PositionRow({
         value={position.currentPrice}
         text={formatPrice(position.currentPrice, position.digits)}
       />
-      <span className={styles.num}>{formatDuration(position.openedAt, now)}</span>
+      <Elapsed openedAt={position.openedAt} />
       <TickCell
         value={position.unrealizedPnl}
         text={formatPnl(position.unrealizedPnl)}
@@ -90,19 +131,8 @@ const PositionRow = memo(function PositionRow({
   )
 })
 
-const AccountPanel = memo(function AccountPanel({
-  account,
-  now,
-}: {
-  account: LiveAccountPositions
-  now: number
-}) {
-  const age = snapshotAgeSeconds(account.reportedAt, now)
+const AccountPanel = memo(function AccountPanel({ account }: { account: LiveAccountPositions }) {
   const offline = account.connectionStatus !== 'connected'
-  // Past a minute the reading is old enough that the number on screen may not
-  // be the position's real P&L any more, and the page should say so in colour
-  // rather than leaving it to be read off a timestamp.
-  const ageClass = offline ? styles.offline : age !== null && age > 60 ? styles.stale : ''
 
   return (
     <div className={`card ${styles.accountCard}`}>
@@ -112,7 +142,7 @@ const AccountPanel = memo(function AccountPanel({
         <div className={styles.accountBalances}>
           {account.equity !== null && <span>Equity <strong>{formatMoney(account.equity)}</strong></span>}
           {account.balance !== null && <span>Balance <strong>{formatMoney(account.balance)}</strong></span>}
-          <span className={ageClass}>{offline ? 'disconnected' : freshnessLabel(age)}</span>
+          <Freshness offline={offline} reportedAt={account.reportedAt} />
         </div>
       </div>
 
@@ -136,7 +166,7 @@ const AccountPanel = memo(function AccountPanel({
             <span className={styles.num}>P&amp;L</span>
           </div>
           {account.positions.map((p) => (
-            <PositionRow key={`${account.accountId}:${p.ticket}`} now={now} position={p} />
+            <PositionRow key={`${account.accountId}:${p.ticket}`} position={p} />
           ))}
         </div>
       )}
@@ -146,14 +176,6 @@ const AccountPanel = memo(function AccountPanel({
 
 function LivePositionsWorkspace() {
   const { accounts, error, streaming, totals } = useLivePositions()
-  const [now, setNow] = useState(() => Date.now())
-
-  // Ages and durations count on their own between updates — without this a
-  // position opened forty seconds ago would read "40s" until the next tick.
-  useEffect(() => {
-    const clock = setInterval(() => setNow(Date.now()), 1_000)
-    return () => clearInterval(clock)
-  }, [])
 
   if (accounts === null) {
     return error
@@ -196,9 +218,11 @@ function LivePositionsWorkspace() {
           appear here.
         </p>
       ) : (
-        <div className={styles.accountGrid}>
-          {accounts.map((a) => <AccountPanel account={a} key={a.accountId} now={now} />)}
-        </div>
+        <Clock>
+          <div className={styles.accountGrid}>
+            {accounts.map((a) => <AccountPanel account={a} key={a.accountId} />)}
+          </div>
+        </Clock>
       )}
     </div>
   )
