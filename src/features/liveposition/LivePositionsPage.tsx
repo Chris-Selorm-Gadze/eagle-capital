@@ -8,6 +8,7 @@ import {
   type LivePosition,
 } from '../../db/livePositions'
 import { useLivePositions } from './useLivePositions'
+import { accountUnrealized } from './totals'
 import type { Tick } from './ticker'
 import {
   formatDuration,
@@ -133,6 +134,7 @@ const PositionRow = memo(function PositionRow({ position }: { position: LivePosi
 
 const AccountPanel = memo(function AccountPanel({ account }: { account: LiveAccountPositions }) {
   const offline = account.connectionStatus !== 'connected'
+  const open = accountUnrealized(account)
 
   return (
     <div className={`card ${styles.accountCard}`}>
@@ -140,6 +142,11 @@ const AccountPanel = memo(function AccountPanel({ account }: { account: LiveAcco
         <span className={styles.accountLabel}>{account.label}</span>
         <span className={styles.accountBroker}>{account.broker}</span>
         <div className={styles.accountBalances}>
+          {account.positions.length > 0 && (
+            <span>
+              Open <strong className={pnlClass(open)}>{formatPnl(open)}</strong>
+            </span>
+          )}
           {account.equity !== null && <span>Equity <strong>{formatMoney(account.equity)}</strong></span>}
           {account.balance !== null && <span>Balance <strong>{formatMoney(account.balance)}</strong></span>}
           <Freshness offline={offline} reportedAt={account.reportedAt} />
@@ -188,19 +195,30 @@ function LivePositionsWorkspace() {
       {error && <div className={styles.error}>{error}</div>}
 
       <div className={styles.summaryRow}>
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryLabel}>Unrealized</span>
-          <span className={`${styles.summaryValue} ${pnlClass(totals.unrealized)}`}>
-            {formatPnl(totals.unrealized)}
-          </span>
-        </div>
+        {/* One pair per currency held. MT5 reports profit in each account's own
+            currency, so a desk spanning two of them gets two subtotals rather
+            than one figure denominated in neither. */}
+        {totals.byCurrency.map((c) => (
+          <div className={styles.summaryGroup} key={c.currency}>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>
+                Unrealized{totals.singleCurrency ? '' : ` · ${c.currency}`}
+              </span>
+              <span className={`${styles.summaryValue} ${pnlClass(c.unrealized)}`}>
+                {formatPnl(c.unrealized)}
+              </span>
+            </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>
+                Equity{totals.singleCurrency ? '' : ` · ${c.currency}`}
+              </span>
+              <span className={styles.summaryValue}>{formatMoney(c.equity)}</span>
+            </div>
+          </div>
+        ))}
         <div className={styles.summaryItem}>
           <span className={styles.summaryLabel}>Open</span>
           <span className={styles.summaryValue}>{totals.open}</span>
-        </div>
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryLabel}>Equity</span>
-          <span className={styles.summaryValue}>{formatMoney(totals.equity)}</span>
         </div>
         <div className={styles.summaryItem}>
           <span className={styles.summaryLabel}>Accounts</span>

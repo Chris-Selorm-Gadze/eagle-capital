@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { describeLoadFailure, type LiveAccountPositions } from '../../db/livePositions'
 import { subscribeLivePositions } from '../../db/livePositionsStream'
+import { liveTotals, type LiveTotals } from './totals'
 
 /** One live feed, shared by the Live Trading page and the dashboard's strip.
  *
@@ -10,7 +11,7 @@ export interface LiveFeedState {
   accounts: LiveAccountPositions[] | null
   error: string | null
   streaming: boolean
-  totals: { accounts: number; open: number; unrealized: number; equity: number }
+  totals: LiveTotals
 }
 
 export function useLivePositions(enabled = true): LiveFeedState {
@@ -41,16 +42,7 @@ export function useLivePositions(enabled = true): LiveFeedState {
     }
   }, [enabled])
 
-  const totals = useMemo(() => {
-    const rows = accounts ?? []
-    const open = rows.flatMap((a) => a.positions)
-    return {
-      accounts: rows.length,
-      open: open.length,
-      unrealized: open.reduce((sum, p) => sum + p.unrealizedPnl, 0),
-      equity: rows.reduce((sum, a) => sum + (a.equity ?? 0), 0),
-    }
-  }, [accounts])
+  const totals = useMemo(() => liveTotals(accounts ?? []), [accounts])
 
   return { accounts, error, streaming, totals }
 }

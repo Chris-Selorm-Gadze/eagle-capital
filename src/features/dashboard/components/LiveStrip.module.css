@@ -57,3 +57,10 @@
 @media (max-width: 640px) {
   .state { margin-left: 0; width: 100%; }
 }
+
+/* A currency's figures read as one unit, so they sit closer to each other than
+   to the next currency's. */
+.group {
+  display: flex;
+  gap: 1.25rem;
+}

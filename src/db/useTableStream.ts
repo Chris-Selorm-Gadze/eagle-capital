@@ -18,6 +18,11 @@ import { supabase } from '../lib/supabaseClient'
  * execution event per fill, and a page that reloads seven tables on every one
  * would spend the session refetching.
  */
+/* Unique per subscription, not per table: two components watching one table,
+ * or StrictMode mounting the same effect twice in development, would otherwise
+ * race each other's join and removal on a shared topic. */
+let subscriberCount = 0
+
 export interface TableStreamOptions {
   /** Quiet period after the last write before reloading. */
   settleMs?: number
@@ -54,7 +59,7 @@ export function useTableStream(
     }
 
     const channel = supabase
-      .channel(`${table}-stream`)
+      .channel(`${table}-stream:${++subscriberCount}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` },

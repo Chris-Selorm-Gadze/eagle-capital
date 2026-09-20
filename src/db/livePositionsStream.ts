@@ -24,6 +24,12 @@ import { mergeAccounts, type LiveAccountPositions } from './livePositions'
 
 const FALLBACK_POLL_MS = 15_000
 
+/* Channel topics must be unique per subscription, not per table. The dashboard
+ * strip and the Live Trading page both open this feed, and StrictMode mounts
+ * every effect twice in development — two subscriptions sharing one topic race
+ * each other's join and removal. */
+let subscriberCount = 0
+
 export interface LiveFeedHandlers {
   onData: (accounts: LiveAccountPositions[]) => void
   onError: (err: unknown) => void
@@ -103,7 +109,7 @@ export function subscribeLivePositions(handlers: LiveFeedHandlers): LiveFeed {
    * payload already carries every column, so re-reading the table would spend a
    * round trip to arrive at what is already in hand. */
   const channel = supabase
-    .channel('live-positions')
+    .channel(`live-positions:${++subscriberCount}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'live_positions' },

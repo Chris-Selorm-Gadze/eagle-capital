@@ -18,23 +18,33 @@ export function LiveStrip() {
 
   if (accounts === null || accounts.length === 0) return null
 
-  const pnlClass = totals.unrealized > 0
-    ? styles.good
-    : totals.unrealized < 0 ? styles.bad : styles.flat
+  const toneFor = (n: number) => (n > 0 ? styles.good : n < 0 ? styles.bad : styles.flat)
 
   return (
     <section className={styles.strip}>
-      <div className={styles.item}>
-        <span className={styles.label}>Open P&amp;L</span>
-        <span className={`${styles.value} ${pnlClass}`}>{formatPnl(totals.unrealized)}</span>
-      </div>
+      {/* One pair per currency. Adding a EUR account's P&L to a USD account's
+          gives a headline number denominated in neither. */}
+      {totals.byCurrency.map((c) => (
+        <div className={styles.group} key={c.currency}>
+          <div className={styles.item}>
+            <span className={styles.label}>
+              Open P&amp;L{totals.singleCurrency ? '' : ` · ${c.currency}`}
+            </span>
+            <span className={`${styles.value} ${toneFor(c.unrealized)}`}>
+              {formatPnl(c.unrealized)}
+            </span>
+          </div>
+          <div className={styles.item}>
+            <span className={styles.label}>
+              Equity{totals.singleCurrency ? '' : ` · ${c.currency}`}
+            </span>
+            <span className={styles.value}>{formatMoney(c.equity)}</span>
+          </div>
+        </div>
+      ))}
       <div className={styles.item}>
         <span className={styles.label}>Open positions</span>
         <span className={styles.value}>{totals.open}</span>
-      </div>
-      <div className={styles.item}>
-        <span className={styles.label}>Equity</span>
-        <span className={styles.value}>{formatMoney(totals.equity)}</span>
       </div>
       <div className={styles.item}>
         <span className={styles.label}>Connected</span>
