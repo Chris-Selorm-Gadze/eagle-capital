@@ -18,6 +18,10 @@ export interface SupabaseData {
    * empty state — see the note on `refresh` below. */
   error: string | null
   refresh: () => Promise<void>
+  /** Re-reads trades alone. The worker journals them continuously, and pulling
+   * accounts, sessions, payouts and rewards down again every time one lands is
+   * four table reads that cannot have changed. */
+  refreshTrades: () => Promise<void>
 }
 
 /** Loads all of a signed-in user's data from Supabase (RLS-scoped) and re-fetches on
@@ -62,6 +66,23 @@ export function useSupabaseData(userId: string | undefined): SupabaseData {
     }
   }, [userId])
 
+  /* Trades only. Shares the request counter with refresh() so a full reload
+   * landing after this one still wins -- otherwise a stream update arriving
+   * mid-reload could be overwritten by the older trade list. */
+  const refreshTrades = useCallback(async () => {
+    if (!userId) return
+    const id = ++requestId.current
+    try {
+      const t = await listTrades()
+      if (id !== requestId.current) return
+      setTrades(t)
+      setError(null)
+    } catch (err) {
+      if (id !== requestId.current) return
+      setError(errorMessage(err))
+    }
+  }, [userId])
+
   useEffect(() => {
     if (!userId) {
       requestId.current++
@@ -84,5 +105,5 @@ export function useSupabaseData(userId: string | undefined): SupabaseData {
     }
   }, [userId, refresh])
 
-  return { accounts, sessions, payouts, rewards, trades, loading, error, refresh }
+  return { accounts, sessions, payouts, rewards, trades, loading, error, refresh, refreshTrades }
 }

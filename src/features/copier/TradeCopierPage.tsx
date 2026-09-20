@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTableStream } from '../../db/useTableStream'
 import {
   listTradingAccounts, listCopierRelations, listRiskProfiles,
   listWorkerNodes, listRecentExecutionEvents, listPendingCommands,
@@ -334,13 +335,40 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
     [accounts],
   )
 
-  /* Worker heartbeats and balances change without anything happening in this
-   * tab, so the page refreshes itself. Thirty seconds matches the worker's own
-   * heartbeat interval — polling faster would only re-read rows that cannot have
-   * moved yet. */
+  /* Balances, connection status and copy events are pushed, so this page shows
+   * a fill the moment it lands rather than up to thirty seconds later. Both
+   * streams reload the page's own data, throttled: an active copy session
+   * writes an execution event per fill, and reloading seven tables on each one
+   * would spend the session refetching. */
+  useTableStream('trading_accounts', userId, load)
+  useTableStream('execution_events', userId, load, { settleMs: 700, minIntervalMs: 4_000 })
+
+  /* Worker heartbeats are not a table write, so they still need asking after.
+   * Paused while the tab is hidden: seven table reads every thirty seconds,
+   * forever, in a tab nobody is looking at, was the heaviest poll in the app. */
   useEffect(() => {
-    const id = setInterval(() => { load() }, 30_000)
-    return () => clearInterval(id)
+    let id: ReturnType<typeof setInterval> | null = null
+    const start = () => {
+      if (id !== null) return
+      id = setInterval(() => { load() }, 30_000)
+    }
+    const stop = () => {
+      if (id === null) return
+      clearInterval(id)
+      id = null
+    }
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return stop()
+      // Catch up on whatever was missed while hidden, then resume.
+      load()
+      start()
+    }
+    onVisibility()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      stop()
+    }
   }, [load])
 
   /* Recomputed on every 30s refresh, so a worker that dies mid-session flips the

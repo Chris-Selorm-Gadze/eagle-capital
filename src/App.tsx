@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { useAuth } from './features/auth/AuthContext'
 import { useSupabaseData } from './db/useSupabaseData'
-import { useTradeStream } from './db/useTradeStream'
+import { useTableStream } from './db/useTableStream'
 import { downloadElementAsImage } from './utils/snapshot'
 import { todayISO } from './db/sessions'
 import { pathForNav, navForPath, type NavKey } from './shared/routing'
@@ -75,10 +75,12 @@ const SELF_FETCHING_PAGES: NavKey[] = ['tradecopier', 'livepositions', 'calendar
 export default function App() {
   const { user } = useAuth()
   const userId = user!.id
-  const { accounts, sessions, payouts, rewards, trades, loading, error, refresh } = useSupabaseData(userId)
+  const { accounts, sessions, payouts, rewards, trades, loading, error, refresh, refreshTrades } = useSupabaseData(userId)
   // Trades the worker journals arrive from outside the browser; without this
-  // they sat in Postgres unseen until someone reloaded the page.
-  useTradeStream(userId, refresh)
+  // they sat in Postgres unseen until someone reloaded the page. Trades only:
+  // journalling cannot change an account, a session, a payout or a reward, and
+  // re-reading all four every twenty seconds is four pointless table scans.
+  useTableStream('trades', userId, refreshTrades)
 
   const [nav, setNavState] = useState<NavKey>(() => navForPath(window.location.pathname))
   const [accountFilter, setAccountFilter] = useState<string | 'all'>('all')

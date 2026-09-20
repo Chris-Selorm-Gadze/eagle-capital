@@ -653,3 +653,38 @@ select u.id, u.email, coalesce(u.raw_user_meta_data->>'full_name', '')
 from auth.users u
 where u.email is not null
 on conflict (id) do nothing;
+
+-- Balance, equity, ping and connection status all move without anything
+-- happening in the browser. The Trade Copier polled seven tables every
+-- thirty seconds to notice; now it is told.
+do $$
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    return;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'trading_accounts'
+  ) then
+    alter publication supabase_realtime add table public.trading_accounts;
+  end if;
+end $$;
+
+-- Every copy the worker makes. Pushed so the log shows a fill as it happens
+-- rather than on the next poll.
+do $$
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    return;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'execution_events'
+  ) then
+    alter publication supabase_realtime add table public.execution_events;
+  end if;
+end $$;
