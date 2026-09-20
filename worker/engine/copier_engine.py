@@ -59,6 +59,12 @@ class CopierEngine:
             os.environ.get("WORKER_MASTER_STATUS_INTERVAL_SECONDS", "30")
         )
         self._last_command_poll: float = 0.0
+        # How long after a dispatch the position sweep stays out of the way, so
+        # a read cannot queue ahead of a follow-up order on the same terminal.
+        self._last_dispatch_at = 0.0
+        self._sweep_cooldown_s = float(
+            os.environ.get("WORKER_SWEEP_COOLDOWN_SECONDS", "1.5")
+        )
         self._command_poll_interval_s = float(
             os.environ.get("WORKER_COMMAND_POLL_SECONDS", "2")
         )
@@ -576,6 +582,12 @@ class CopierEngine:
             self._resync_after_dispatch(
                 master_cfg, master_source, diff, master_session
             )
+            # Reads and copies queue on the same per-terminal worker, so a
+            # sweep landing just before a follow-up signal would put a
+            # positions read in front of an order. Copy latency is the one
+            # number this system is judged on; a live P&L that skips a beat
+            # around a fill is not a cost worth arguing about.
+            self._last_dispatch_at = time.time()
 
         if self._api_client:
             now = time.time()
@@ -596,7 +608,8 @@ class CopierEngine:
             # terminal subprocess, in parallel, off this thread -- a sweep can
             # take seconds and this loop runs every 50ms, so doing it inline
             # would put broker round-trips straight into copy latency.
-            if should_report_positions():
+            quiet = (time.time() - self._last_dispatch_at) >= self._sweep_cooldown_s
+            if quiet and should_report_positions():
                 sweep_in_background(
                     self.accounts, self._terminal_pool, (master_cfg_id, positions)
                 )
