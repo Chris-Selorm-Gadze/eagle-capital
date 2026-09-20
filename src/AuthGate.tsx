@@ -47,12 +47,11 @@ export function AuthGate() {
 
   if (loading) return null
 
-  // The landing site is near-black and the app/auth screens are light, so the
-  // holding frame has to know which one it's standing in for — a single colour
-  // flashes the wrong ground for half the routes.
-  const darkGround = publicLocation !== null || onAuthRoute
+  // Which ground this route's chunk is about to paint, so the holding frame
+  // stands in for the right one.
+  const publicGround = publicLocation !== null || onAuthRoute
 
-  return <Suspense fallback={<SurfaceFallback dark={darkGround} />}>{renderSurface()}</Suspense>
+  return <Suspense fallback={<SurfaceFallback publicGround={publicGround} />}>{renderSurface()}</Suspense>
 
   function renderSurface() {
     // Marketing pages render for everyone — a signed-in visitor can still read
@@ -79,10 +78,24 @@ export function AuthGate() {
 /** Deliberately just the page ground, no spinner — these chunks resolve in
  * milliseconds and a flashed spinner reads worse than a beat of nothing.
  *
- * This was unconditionally #070707, from when every surface was near-black. The
- * authenticated app is light now, so a black frame flashed before each of its
- * chunks painted. The landing site and auth screens are still dark, hence the
- * flag rather than one colour for everything. */
-function SurfaceFallback({ dark }: { dark: boolean }) {
-  return <div style={{ minHeight: '100vh', backgroundColor: dark ? '#070707' : 'var(--page-bg)' }} />
+ * This painted #070707 for the landing and auth routes, left over from when
+ * every surface was near-black. Both were flipped to light — landing.css sets
+ * `--l-bg: #faf9f7` and the auth form side sits on it — but this was never
+ * updated, so every visit to the marketing site and every sign-in flashed a
+ * near-black frame before a near-white page. The one case the old code got
+ * right was the app.
+ *
+ * The public surfaces are single-theme by design, so their ground is a literal
+ * matching `--l-bg` (it is scoped inside `.landingRoot`, which hasn't mounted
+ * yet at this point, so the variable isn't readable here). The app follows
+ * `--page-bg`, which is now light or dark depending on the theme. */
+function SurfaceFallback({ publicGround }: { publicGround: boolean }) {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: publicGround ? '#faf9f7' : 'var(--page-bg)',
+      }}
+    />
+  )
 }

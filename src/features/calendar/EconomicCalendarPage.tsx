@@ -2,15 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchEconomicCalendar, type EconomicEvent } from '../../lib/economicCalendarClient'
 import { currencyFlag, currencyLabel, CURRENCY_META } from './currencyMeta'
 import { errorMessage } from '../../utils/errors'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { EmptyState, ErrorNotice, LoadingRows, PageHeader } from '@/shared/ui/page'
+import { cn } from 'cn'
+import { CalendarSearchIcon } from 'lucide-react'
 import styles from './EconomicCalendarPage.module.css'
 
 const IMPACT_LEVELS = ['High', 'Medium', 'Low'] as const
 type ImpactLevel = (typeof IMPACT_LEVELS)[number]
 
-const IMPACT_CLASS: Record<string, string> = {
-  High: styles.impactHigh,
-  Medium: styles.impactMedium,
-  Low: styles.impactLow,
+/** The colour each impact level carries, straight from the semantic tokens —
+ * a high-impact release is the same red as a breached limit elsewhere. */
+const IMPACT_TONE: Record<string, string> = {
+  High: 'var(--critical)',
+  Medium: 'var(--warning)',
+  Low: 'var(--text-muted)',
 }
 
 // Currency code doubles as the "country" and, for anyone trading that currency's pairs, the
@@ -29,6 +37,45 @@ function dayLabel(iso: string): string {
 
 function timeLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+/** A filter toggle. `aria-pressed` rather than a styled-only active state — the
+ * old chips carried no state in the accessibility tree at all, so a screen
+ * reader read a row of identical buttons with no way to tell which were on. */
+function FilterChip({
+  active,
+  children,
+  onClick,
+  title,
+  tone,
+}: {
+  active: boolean
+  children: React.ReactNode
+  onClick: () => void
+  title?: string
+  tone?: string
+}) {
+  return (
+    <Button
+      aria-pressed={active}
+      className={cn('gap-1.5 rounded-full', !active && 'text-muted-foreground')}
+      onClick={onClick}
+      size="xs"
+      style={
+        active && tone
+          ? {
+              background: `color-mix(in srgb, ${tone} 16%, transparent)`,
+              borderColor: tone,
+              color: tone,
+            }
+          : undefined
+      }
+      title={title}
+      variant={active ? 'secondary' : 'outline'}
+    >
+      {children}
+    </Button>
+  )
 }
 
 export function EconomicCalendarPage() {
@@ -97,72 +144,102 @@ export function EconomicCalendarPage() {
   }, [filtered])
 
   return (
-    <div>
-      <h1 className="page-title" style={{ marginBottom: '0.4rem' }}>Economic Calendar</h1>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        description="This week’s releases. Filter by how hard they hit, and by the currencies you actually trade."
+        title="Economic Calendar"
+      />
 
-      <div className={styles.toolbar}>
+      <div className="flex flex-wrap items-center gap-1.5">
         {IMPACT_LEVELS.map((level) => (
-          <button
+          <FilterChip
+            active={activeImpacts.has(level)}
             key={level}
-            type="button"
-            className={`${styles.filterChip} ${IMPACT_CLASS[level]} ${activeImpacts.has(level) ? styles.filterChipActive : ''}`}
             onClick={() => toggleImpact(level)}
+            tone={IMPACT_TONE[level]}
           >
             {level}
-          </button>
+          </FilterChip>
         ))}
         {countries.length > 0 && (
           <>
-            <div className={styles.chipDivider} />
+            <Separator className="mx-1 h-5" orientation="vertical" />
             {countries.map((code) => (
-              <button
+              <FilterChip
+                active={!excludedCountries.has(code)}
                 key={code}
-                type="button"
-                className={`${styles.filterChip} ${excludedCountries.has(code) ? '' : styles.filterChipActive}`}
                 onClick={() => toggleCountry(code)}
                 title={currencyLabel(code)}
               >
-                {currencyFlag(code)} {code}
-              </button>
+                <span aria-hidden>{currencyFlag(code)}</span> {code}
+              </FilterChip>
             ))}
           </>
         )}
       </div>
 
-      <div className="card">
-        {loading ? (
-          <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
-        ) : error ? (
-          <p style={{ color: 'var(--critical)' }}>{error}</p>
-        ) : groups.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No events match these filters this week.</p>
-        ) : (
-          groups.map(([key, dayEvents]) => (
-            <div key={key} className={styles.dayGroup}>
-              <div className={styles.dayHeader}>{dayLabel(dayEvents[0].date)}</div>
-              {dayEvents.map((e, i) => (
-                <div key={i} className={`${styles.eventRow} ${IMPACT_CLASS[e.impact] ?? ''}`}>
-                  <div className={styles.eventTime}>{timeLabel(e.date)}</div>
-                  <div className={styles.eventCurrency}>
-                    <span>{currencyFlag(e.country)}</span>
-                    <span>{e.country}</span>
+      {loading ? (
+        <LoadingRows rows={6} />
+      ) : error ? (
+        <ErrorNotice message={error} />
+      ) : groups.length === 0 ? (
+        <EmptyState
+          description={
+            events.length > 0
+              ? 'Every release this week is filtered out. Turn a filter back on above.'
+              : 'The feed returned nothing for this week.'
+          }
+          icon={<CalendarSearchIcon />}
+          title="No events to show"
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {groups.map(([key, dayEvents]) => (
+            <Card className="gap-0 py-0" key={key}>
+              <div className="border-b bg-muted/40 px-4 py-2 font-medium text-sm">
+                {dayLabel(dayEvents[0].date)}
+              </div>
+              <CardContent className="px-0">
+                {dayEvents.map((e, i) => (
+                  <div
+                    className={cn(styles.eventRow, 'border-b px-4 py-2.5 last:border-b-0')}
+                    key={i}
+                    // The impact rail. A 2px edge rather than a tinted row: a
+                    // week of high-impact releases used to wash the whole list
+                    // red, which made the severity impossible to read.
+                    style={{ boxShadow: `inset 2px 0 0 ${IMPACT_TONE[e.impact] ?? 'transparent'}` }}
+                  >
+                    <div className="text-muted-foreground text-xs tabular-nums">
+                      {timeLabel(e.date)}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span aria-hidden>{currencyFlag(e.country)}</span>
+                      <span className="font-medium">{e.country}</span>
+                    </div>
+                    <div
+                      className="font-semibold text-[0.65rem] uppercase tracking-wide"
+                      style={{ color: IMPACT_TONE[e.impact] ?? 'var(--text-muted)' }}
+                    >
+                      {e.impact}
+                    </div>
+                    <div className="min-w-0 text-sm" title={currencyLabel(e.country)}>
+                      {e.title}
+                    </div>
+                    <div className="flex flex-col gap-0.5 text-xs">
+                      <span className="text-muted-foreground">Forecast</span>
+                      <span className="tabular-nums">{e.forecast || '—'}</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5 text-xs">
+                      <span className="text-muted-foreground">Previous</span>
+                      <span className="tabular-nums">{e.previous || '—'}</span>
+                    </div>
                   </div>
-                  <div className={`${styles.impactBadge} ${IMPACT_CLASS[e.impact] ?? ''}`}>{e.impact}</div>
-                  <div className={styles.eventTitle} title={currencyLabel(e.country)}>{e.title}</div>
-                  <div className={styles.eventStat}>
-                    <span className={styles.eventStatLabel}>Forecast</span>
-                    <span>{e.forecast || '—'}</span>
-                  </div>
-                  <div className={styles.eventStat}>
-                    <span className={styles.eventStatLabel}>Previous</span>
-                    <span>{e.previous || '—'}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))
-        )}
-      </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

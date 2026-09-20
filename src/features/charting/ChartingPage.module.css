@@ -1,6 +1,9 @@
+/* The chart box. Height and the fullscreen states are the only things Tailwind
+   utilities can't express here — `:fullscreen` has no variant, and the widget
+   needs a real height to size its iframe against. */
 .chartWrap {
   position: relative;
-  height: 85vh;
+  height: 78vh;
   min-height: 560px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -22,6 +25,4 @@
   top: 8px;
   right: 60px;
   z-index: 10;
-  font-size: 0.75rem;
-  padding: 0.3rem 0.6rem;
 }

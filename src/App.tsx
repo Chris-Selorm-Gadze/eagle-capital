@@ -72,6 +72,19 @@ const ACCOUNT_SCOPED_PAGES: NavKey[] = ['dashboard', 'tradelog', 'tradejournal',
  * child of a `gap-4` column, and would leave a phantom gap on every other page. */
 const SELF_FETCHING_PAGES: NavKey[] = ['tradecopier', 'livepositions', 'calendar', 'brokers']
 
+/** Pages that have been converted off theme.css onto the shadcn primitives.
+ *
+ * They must render OUTSIDE `.appSurface`. Most of theme.css's element rules are
+ * wrapped in `:where()` and so contribute zero specificity — a Tailwind utility
+ * beats them — but several are not: `.appSurface a` (0,2,0) recolours every
+ * link, and `.appSurface input:focus` (0,2,1) overrides the focus ring on every
+ * field. Both outrank any utility class, so a converted page left inside the
+ * wrapper is a converted page with the old link colour and the old focus ring.
+ *
+ * This list is the migration's progress bar: `.appSurface` shrinks by one entry
+ * per page converted, and disappears when the list holds every route. */
+const CONVERTED_PAGES: NavKey[] = ['settings', 'livepositions', 'tradejournal', 'tradelog', 'charting', 'calendar', 'insights', 'playbooks', 'tradermanagement', 'cockpit', 'tradecopier', 'dashboard']
+
 export default function App() {
   const { user } = useAuth()
   const userId = user!.id
@@ -239,7 +252,11 @@ export default function App() {
             actually pending. */}
         <DeletionBanner userId={userId} />
 
-        <div className="appSurface contents">
+        {/* `contents` either way, so this wrapper never becomes a box in the
+            shell's flex column — only the class that styles its children
+            changes. A page converted onto shadcn opts out of theme.css's
+            element rules by leaving `appSurface` behind. */}
+        <div className={CONVERTED_PAGES.includes(nav) ? 'contents' : 'appSurface contents'}>
           {/* A failed load must never fall through to a page's empty state —
               rendering "your desk is empty" at someone whose data merely failed
               to fetch is the worst thing this app could say. */}

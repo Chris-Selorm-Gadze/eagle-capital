@@ -32,7 +32,7 @@
   font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--text-muted); margin-bottom: 0.5rem;
 }
-.title em { font-style: normal; color: var(--accent); }
+.title em { font-style: normal; color: var(--data-accent); }
 .sub { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.4rem; }
 
 .openedBanner {
@@ -42,8 +42,8 @@
   gap: 0.75rem;
   margin-top: 1rem;
   padding: 0.55rem 0.9rem;
-  background: rgba(57, 135, 229, 0.1);
-  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--data-accent) 10%, transparent);
+  border: 1px solid var(--data-accent);
   border-radius: 6px;
   font-size: 0.82rem;
   color: var(--text-secondary);
@@ -89,7 +89,7 @@
 }
 .sectionNavItem:hover {
   color: var(--text-primary);
-  border-color: var(--accent);
+  border-color: var(--data-accent);
 }
 
 /* Sections */
@@ -98,7 +98,7 @@
   display: flex; align-items: baseline; gap: 0.75rem;
   border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem;
 }
-.secNum { font-size: 0.75rem; color: var(--accent); letter-spacing: 0.1em; }
+.secNum { font-size: 0.75rem; color: var(--data-accent); letter-spacing: 0.1em; }
 .secHead h2 { font-weight: 600; font-size: 0.95rem; letter-spacing: 0.02em; text-transform: uppercase; }
 .secNote { margin-left: auto; font-size: 0.7rem; color: var(--text-muted); }
 
@@ -154,7 +154,7 @@
 .ruleRow input { width: auto; flex-shrink: 0; }
 .ruleTxt { flex: 1; }
 .ruleTag { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
-.ruleRowCore { background: rgba(250, 178, 25, 0.08); }
+.ruleRowCore { background: color-mix(in srgb, var(--warning) 8%, transparent); }
 .ruleRowCore .ruleTag { color: var(--warning); }
 
 /* Grade stamp */
@@ -170,17 +170,17 @@
 .stampB .g { color: var(--warning); }
 .stampC .g { color: var(--serious); }
 .stampR .g { color: var(--critical); }
-.stampOn.stampA { background: rgba(12, 163, 12, 0.15); border-color: var(--good); }
-.stampOn.stampB { background: rgba(250, 178, 25, 0.15); border-color: var(--warning); }
-.stampOn.stampC { background: rgba(236, 131, 90, 0.15); border-color: var(--serious); }
-.stampOn.stampR { background: rgba(208, 59, 59, 0.15); border-color: var(--critical); }
+.stampOn.stampA { background: color-mix(in srgb, var(--good) 15%, transparent); border-color: var(--good); }
+.stampOn.stampB { background: color-mix(in srgb, var(--warning) 15%, transparent); border-color: var(--warning); }
+.stampOn.stampC { background: color-mix(in srgb, var(--serious) 15%, transparent); border-color: var(--serious); }
+.stampOn.stampR { background: color-mix(in srgb, var(--critical) 15%, transparent); border-color: var(--critical); }
 
 /* 5 Whys: the drill */
 .whys { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
 .whysHeadSub { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.55; }
 .problem {
   margin: 1.25rem 0 0.25rem; padding: 0.75rem 0.9rem; background: var(--surface-2);
-  border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0;
+  border-left: 3px solid var(--data-accent); border-radius: 0 6px 6px 0;
 }
 .problem textarea { background: transparent; border: none; padding: 0; color: var(--text-primary); font-weight: 500; resize: none; }
 .problem textarea:focus { outline: none; }
@@ -199,13 +199,13 @@
   .why[data-n="5"] { margin-left: 40px; }
 }
 .why::before { content: ""; position: absolute; left: -14px; top: 0; bottom: 0; width: 1px; background: var(--border); }
-.why:last-child::before { background: var(--accent); }
+.why:last-child::before { background: var(--data-accent); }
 .whyTag { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
-.whyTag .n { font-weight: 600; font-size: 0.68rem; letter-spacing: 0.1em; color: var(--accent); }
+.whyTag .n { font-weight: 600; font-size: 0.68rem; letter-spacing: 0.1em; color: var(--data-accent); }
 .whyTag .q { font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-primary); }
 .whyPrompt { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem; }
 
-.rootBox { margin-top: 1.25rem; padding: 0.9rem; background: rgba(250, 178, 25, 0.08); border: 1px solid rgba(250, 178, 25, 0.3); border-radius: 6px; }
+.rootBox { margin-top: 1.25rem; padding: 0.9rem; background: color-mix(in srgb, var(--warning) 8%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent); border-radius: 6px; }
 .rootBox .fieldKey { color: var(--warning); }
 .rootBox .fixHint { color: var(--warning); }
 
@@ -257,7 +257,7 @@
   padding: 0;
   border-radius: 50%;
   border: none;
-  background: rgba(13, 13, 13, 0.75);
+  background: var(--scrim);
   color: var(--text-primary);
   cursor: pointer;
   font-size: 0.7rem;
@@ -284,7 +284,7 @@
 }
 .fileButton:hover {
   background: var(--surface-2);
-  border-color: var(--accent);
+  border-color: var(--data-accent);
 }
 
 /* "Fill from logged trades" sits directly under the section heading, so the

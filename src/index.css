@@ -70,11 +70,24 @@
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    /* Categorical series colours. These were five steps of neutral grey — the
+       stock `neutral` base colour, never revisited — so any chart drawing more
+       than one series drew it in a shade of the same grey. On a P&L product that
+       is the one place monochrome doesn't pay.
+
+       A ramp, not a scale: these identify series, they do not rank them. Hue is
+       the only thing separating them, so they hold up for a reader who can't
+       distinguish red from green. Semantic colour (a winning day, a breached
+       limit) is deliberately NOT here — that stays --good / --critical in
+       theme.css, so a series colour can never be mistaken for a verdict.
+
+       chart-1 is the same blue as theme.css's --accent, because the equity curve
+       is drawn in both systems and had two different colours. */
+    --chart-1: oklch(0.55 0.204 258);
+    --chart-2: oklch(0.58 0.128 165);
+    --chart-3: oklch(0.64 0.146 70);
+    --chart-4: oklch(0.55 0.196 300);
+    --chart-5: oklch(0.60 0.176 20);
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
@@ -105,11 +118,15 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    /* The same five hues lifted in lightness and eased off in chroma. A colour
+       that reads as mid-blue on white reads as near-black on a 0.145 ground, so
+       these are not the light values reused — they are the same identities
+       re-measured for the other ground. */
+    --chart-1: oklch(0.70 0.170 258);
+    --chart-2: oklch(0.72 0.120 165);
+    --chart-3: oklch(0.78 0.135 70);
+    --chart-4: oklch(0.70 0.160 300);
+    --chart-5: oklch(0.70 0.155 20);
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.488 0.243 264.376);

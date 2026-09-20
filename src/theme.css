@@ -6,7 +6,9 @@
    19.8 / 7.7 / 4.8 for the text ramp, ≥5.0 for each semantic colour. */
 :root {
   /* Tells the browser this page is light, so native UI it renders itself —
-     scrollbars, form control chrome — matches instead of assuming dark. */
+     scrollbars, form control chrome — matches instead of assuming dark. The
+     `.dark` block below restates it as `dark`; both selectors match <html>, at
+     equal specificity, so the later one wins when the class is present. */
   color-scheme: light;
 
   --page-bg: #ffffff;
@@ -19,23 +21,45 @@
   --border: rgba(10, 10, 10, 0.12);
   --gridline: #e5e5e5;
 
-  --accent: #2563eb;
-  /* Primary ACTIONS are near-black, matching the shadcn shell's primary button.
-     --accent stays blue because it means something different: it's the data and
-     link colour (the equity curve, hyperlinks, focus rings). Before these were
-     separated, every legacy page's primary button was blue while every shell
-     button was black, on the same screen. */
+  /* Named --data-accent, not --accent. shadcn's index.css already owns --accent
+     (a near-white hover SURFACE, mapped to --color-accent and used by every
+     `focus:bg-accent` in the dropdown, select and sidebar primitives). theme.css
+     loads second, so declaring --accent here silently overwrote it product-wide
+     and every dropdown item lit up blue behind near-black text on hover. Same
+     name, two unrelated meanings — this one is the DATA and link colour: the
+     equity curve, hyperlinks, focus rings.
+
+     Primary ACTIONS stay near-black, matching the shadcn shell's primary button.
+     Before the two were separated, every legacy page's primary button was blue
+     while every shell button was black, on the same screen. */
+  --data-accent: #2563eb;
   --btn-primary: oklch(0.205 0 0);
   --btn-primary-hover: oklch(0.30 0 0);
   --btn-primary-fg: oklch(0.985 0 0);
-  /* Text on an --accent fill. These rules were written for the dark palette,
+  /* Text on a --data-accent fill. These rules were written for the dark palette,
      where --text-primary was near-white; after the light flip they became
      near-black on blue (4.06:1, under AA). White is 4.66:1. */
-  --accent-fg: #ffffff;
+  --data-accent-fg: #ffffff;
   --good: #15803d;
   --warning: #b45309;
   --serious: #c2410c;
   --critical: #b91c1c;
+
+  /* Text drawn ON a tinted fill of the colour above — a green calendar cell, a
+     red P&L pill. It has to move AWAY from the fill to stay legible, which on a
+     light ground means darker. These two lived as literals in chartTheme.ts
+     (COLOR_GOOD_LIGHT / COLOR_CRITICAL_LIGHT) where CSS couldn't reach them, so
+     LivePositionsPage hardcoded its own near-miss pair instead. */
+  --good-deep: #0f5c2e;
+  --critical-deep: #8f1d1d;
+
+  /* The veil behind a modal, and behind the report-card grade stamp. Always a
+     dark veil in both themes — its job is to sink the page, not to match it —
+     but it has to sink further on a ground that is already dark. */
+  --scrim: rgba(10, 10, 10, 0.6);
+  /* Drop shadows were a flat rgba(0,0,0,0.15), which is invisible against a
+     near-black card. Tied to the text colour, it inverts with the theme. */
+  --shadow-color: color-mix(in srgb, var(--text-primary) 15%, transparent);
 
   /* ------------------------------------------------------------------ MOTION
      One vocabulary for the whole product. The curve is the same
@@ -59,6 +83,63 @@
   --dur-fast: 120ms;
   --dur-base: 200ms;
   --dur-slow: 320ms;
+}
+
+/* ---------------------------------------------------------------------- DARK
+   index.css has shipped a complete `.dark` token set since the shadcn install,
+   but nothing ever applied the class and theme.css pinned `color-scheme: light`
+   — so the palette was unreachable and the switcher that would have reached it
+   (app-shell-5's theme-switcher.tsx) was the one file left out of the install.
+
+   Turning it on is only half the job: sixteen of seventeen pages are painted by
+   the tokens ABOVE, not by shadcn's, so without this block the shell would go
+   dark and every page inside it would stay white.
+
+   These are stated in oklch deliberately, at the same lightnesses index.css
+   uses, so the two systems land on one ground rather than two that nearly
+   match. Values are re-measured for the dark ground, never the light ones
+   reused: a blue that reads as mid-tone on white is near-black on 0.145.
+
+   The selector is `.dark` to match `@custom-variant dark (&:is(.dark *))` in
+   index.css — one class, set on <html>, drives both systems. */
+.dark {
+  color-scheme: dark;
+
+  --page-bg: oklch(0.145 0 0);
+  --surface: oklch(0.205 0 0);
+  --surface-2: oklch(0.269 0 0);
+  --surface-3: oklch(0.32 0 0);
+  --text-primary: oklch(0.985 0 0);
+  --text-secondary: oklch(0.80 0 0);
+  --text-muted: oklch(0.708 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --gridline: oklch(1 0 0 / 10%);
+
+  /* The data/link blue, lifted to the same value as the dark --chart-1 so the
+     equity curve is one colour whichever stack draws it. */
+  --data-accent: oklch(0.70 0.170 258);
+  /* On dark, a primary button inverts: light fill, dark label — matching
+     index.css's dark --primary / --primary-foreground exactly. */
+  --btn-primary: oklch(0.922 0 0);
+  --btn-primary-hover: oklch(0.85 0 0);
+  --btn-primary-fg: oklch(0.205 0 0);
+  /* The lifted accent is light enough that near-black text on it beats white. */
+  --data-accent-fg: oklch(0.145 0 0);
+
+  --good: oklch(0.72 0.170 150);
+  --warning: oklch(0.78 0.140 70);
+  --serious: oklch(0.72 0.160 45);
+  --critical: oklch(0.704 0.191 22.216);
+
+  /* Inverted intent from the light set: text on a tinted fill has to move away
+     from it, which on a dark ground means LIGHTER, not darker. */
+  --good-deep: oklch(0.87 0.150 150);
+  --critical-deep: oklch(0.84 0.130 22);
+
+  --scrim: rgba(0, 0, 0, 0.75);
+  /* --shadow-color is derived from --text-primary, which is near-white here, so
+     a shadow built from it would GLOW. On dark, depth comes from black. */
+  --shadow-color: rgba(0, 0, 0, 0.5);
 }
 
 * {
@@ -171,7 +252,7 @@ body {
 
 :where(.appSurface button:hover:not(:disabled)) {
   background: var(--surface-2);
-  border-color: var(--accent);
+  border-color: var(--data-accent);
 }
 
 /* One pixel, matching shadcn's own `active:translate-y-px`. It is the whole
@@ -192,7 +273,7 @@ body {
 :where(.appSurface) a:focus-visible,
 :where(.appSurface) summary:focus-visible,
 :where(.appSurface) [tabindex]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--data-accent);
   outline-offset: 2px;
   /* No border-radius here on purpose. Browsers already follow the element's own
      radius when drawing the outline, and forcing one would square off anything
@@ -241,9 +322,9 @@ body {
 .appSurface select:focus,
 .appSurface textarea:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--data-accent);
   background: var(--surface);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--data-accent) 18%, transparent);
 }
 
 .appSurface input:disabled,
@@ -254,7 +335,7 @@ body {
 }
 
 .appSurface a {
-  color: var(--accent);
+  color: var(--data-accent);
   transition: color var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
+import { useResolvedTheme } from '@/hooks/use-theme'
 
 interface TradingViewWidgetOptions {
   symbol: string
@@ -55,6 +56,12 @@ function loadTradingViewScript(): Promise<void> {
  * fullscreen control. Still an anonymous session — see the note on the page.
  */
 export function TradingViewWidget({ symbol }: { symbol: string }) {
+  // The widget is configured in JavaScript, not CSS, so it can't inherit the
+  // theme — it has to be told. This was pinned to 'dark' with a matching dark
+  // toolbar colour, which was right when the whole app was near-black and wrong
+  // from the moment it went light: a black chart in a white page. It follows the
+  // app now, in both directions.
+  const theme = useResolvedTheme()
   const rawId = useId()
   const containerId = `tv-widget-${rawId.replace(/[^a-zA-Z0-9]/g, '')}`
   const containerRef = useRef<HTMLDivElement>(null)
@@ -69,10 +76,10 @@ export function TradingViewWidget({ symbol }: { symbol: string }) {
         symbol,
         interval: 'D',
         timezone: 'Etc/UTC',
-        theme: 'dark',
+        theme,
         style: '1',
         locale: 'en',
-        toolbar_bg: '#1a1a19',
+        toolbar_bg: theme === 'dark' ? '#1a1a19' : '#ffffff',
         enable_publishing: false,
         allow_symbol_change: true,
         container_id: containerId,
@@ -95,7 +102,7 @@ export function TradingViewWidget({ symbol }: { symbol: string }) {
       }
       widgetRef.current = null
     }
-  }, [symbol, containerId])
+  }, [symbol, containerId, theme])
 
   return <div id={containerId} ref={containerRef} style={{ height: '100%', width: '100%' }} />
 }

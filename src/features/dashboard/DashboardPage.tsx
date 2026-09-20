@@ -81,30 +81,33 @@ export function DashboardPage({
 
       {/* Hairline grid from the dashboard block: cells are separated by the
           container's background showing through a 1px gap, so the KPI row and
-          the charts read as one instrument panel rather than floating cards. */}
+          the charts read as one instrument panel rather than floating cards.
+
+          Every chart now lives in here. Four of them used to sit below it in
+          their own CSS-Module flex rows, drawn with bare Recharts, their own card
+          shell, their own tooltip and a hand-built legend — two chart designs
+          fifteen lines apart in this file. They are all on ChartContainer now, so
+          the panel is one instrument rather than two.
+
+          Row order is deliberate: the figures, then the curve they add up to,
+          then the two distributions, then the two scatters that explain them,
+          then the month. The equity curve takes the full width because it is the
+          one chart that answers "how am I doing" on its own. */}
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-2 lg:grid-cols-4">
         <StatsRow trades={trades} />
         <EquityChart daily={daily} />
         <DailyPnlChart daily={daily} />
-      </div>
-
-      {/* The remaining tiles are the app's original CSS-Module components —
-          they inherit theme.css, which is now light, so they sit coherently
-          inside the shadcn shell. */}
-      <div className={styles.topRow}>
+        <AccountBalanceChart currentBalance={currentBalance} data={balance} />
+        <TradeTimeScatter trades={trades} />
+        <TradeDurationScatter trades={trades} />
         <CalendarHeatmap daily={daily} onOpenDateInJournal={onOpenDateInJournal} />
-        <AccountBalanceChart data={balance} currentBalance={currentBalance} />
       </div>
 
+      {/* Still the app's original CSS-Module components — a table and a stat
+          list, not charts. They convert with the rest of the legacy pages. */}
       <div className={styles.columns}>
-        <div className={styles.stack}>
-          <RecentTradesTable trades={trades} limit={8} />
-          <TradeTimeScatter trades={trades} />
-        </div>
-        <div className={styles.stack}>
-          <TradeStatsList trades={trades} />
-          <TradeDurationScatter trades={trades} />
-        </div>
+        <RecentTradesTable trades={trades} limit={8} />
+        <TradeStatsList trades={trades} />
       </div>
     </div>
   )

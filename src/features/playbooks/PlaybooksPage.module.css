@@ -1,168 +1,13 @@
-/* Layout comes from the shared .page-header utility; this only owns the gap to
-   the grid below. */
-.header {
-  margin-bottom: 1.25rem;
-}
+/* What's left of this page's stylesheet after the card grid moved onto shadcn
+   Card: the grade tints, and the styles for the two DIALOGS this page opens
+   (PlaybookFormDialog, PlaybookDetailDialog). Those are still legacy — they
+   render inside shared/ui/Modal, which carries `.appSurface` so they stay styled
+   while the pages around them convert. They come next. */
 
-/* auto-fit off the real container width rather than a viewport breakpoint — the
-   grid sits inside the viewport minus the sidebar, so `max-width: 700px` fired
-   about 300px late and the cards were already squeezed. */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-  gap: 1.25rem;
-}
-
-.card {
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--border);
-  border-radius: 8px;
-  padding: 1.25rem;
-  background: var(--surface);
-  cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
-  display: flex;
-  flex-direction: column;
-}
-.card:hover {
-  border-color: var(--text-muted);
-  transform: translateY(-1px);
-}
-.cardAPlus, .cardA { border-left-color: var(--good); }
-.cardB { border-left-color: var(--warning); }
-.cardC { border-left-color: var(--critical); }
-
-.cardHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
-.cardTitle {
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.metricsRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.9rem;
-  padding: 0.65rem 0.75rem;
-  background: var(--surface-2);
-  border-radius: 6px;
-}
-.metric {
-  flex: 1;
-  min-width: 72px;
-}
-.metricLabel {
-  font-size: 0.65rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-.metricValue {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-top: 0.2rem;
-}
-.metricGood { color: var(--good); }
-.metricBad { color: var(--critical); }
-.metricEmpty {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  font-style: italic;
-  margin-top: 0.9rem;
-}
-
-.gradeBadge {
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-.gradeAPlus { background: rgba(12, 163, 12, 0.18); color: var(--good); }
-.gradeA { background: rgba(12, 163, 12, 0.12); color: var(--good); }
-.gradeB { background: rgba(250, 178, 25, 0.15); color: var(--warning); }
-.gradeC { background: rgba(208, 59, 59, 0.15); color: var(--critical); }
-
-/* Description + stats on the left, example image on the right (grid card's own first-glance
-   split — see PlaybookDetailDialog's .overview for the equivalent in the detail popup). */
-.cardBody {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-}
-.cardBodyLeft, .cardBodyRight {
-  min-width: 0;
-}
-.cardBodyLeft {
-  flex: 3;
-}
-.cardBodyRight {
-  flex: 2;
-}
-@media (max-width: 480px) {
-  .cardBody {
-    flex-direction: column;
-  }
-}
-
-.cardDesc {
-  margin-top: 0.5rem;
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.cardExample {
-  margin-top: 0.85rem;
-}
-.cardExampleImage {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-  border-radius: 6px;
-  display: block;
-  border: 1px solid var(--border);
-}
-.cardExampleNote {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  font-style: italic;
-  background: var(--surface-2);
-  border-radius: 6px;
-  padding: 0.6rem 0.75rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.cardFooter {
-  margin-top: auto;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.cardActions {
-  display: flex;
-  gap: 0.4rem;
-}
-
+.gradeAPlus { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+.gradeA { background: color-mix(in srgb, var(--good) 12%, transparent); color: var(--good); }
+.gradeB { background: color-mix(in srgb, var(--warning) 15%, transparent); color: var(--warning); }
+.gradeC { background: color-mix(in srgb, var(--critical) 15%, transparent); color: var(--critical); }
 /* Grade picker (used in the form dialog) */
 .stamps {
   display: flex;
@@ -181,9 +26,9 @@
 .stamp:hover {
   border-color: var(--text-muted);
 }
-.stampOn.gradeAPlus, .stampOn.gradeA { background: rgba(12, 163, 12, 0.18); border-color: var(--good); }
-.stampOn.gradeB { background: rgba(250, 178, 25, 0.18); border-color: var(--warning); }
-.stampOn.gradeC { background: rgba(208, 59, 59, 0.18); border-color: var(--critical); }
+.stampOn.gradeAPlus, .stampOn.gradeA { background: color-mix(in srgb, var(--good) 18%, transparent); border-color: var(--good); }
+.stampOn.gradeB { background: color-mix(in srgb, var(--warning) 18%, transparent); border-color: var(--warning); }
+.stampOn.gradeC { background: color-mix(in srgb, var(--critical) 18%, transparent); border-color: var(--critical); }
 
 /* Trade multi-select checklist (used when adding examples in the detail dialog) */
 .tradePicker {
@@ -358,7 +203,7 @@
   padding: 0;
   border-radius: 50%;
   border: none;
-  background: rgba(13, 13, 13, 0.75);
+  background: var(--scrim);
   color: var(--text-primary);
   cursor: pointer;
   font-size: 0.7rem;
@@ -388,5 +233,15 @@
 }
 .fileButton:hover {
   background: var(--surface-2);
-  border-color: var(--accent);
+  border-color: var(--data-accent);
+}
+
+/* The example thumbnail on a playbook card. A fixed box rather than an
+   intrinsic one: the images are user-uploaded chart screenshots of wildly
+   different aspect ratios, and letting them size themselves made every card in
+   the grid a different height. */
+.preview {
+  flex: none;
+  width: 6.5rem;
+  height: 4.5rem;
 }

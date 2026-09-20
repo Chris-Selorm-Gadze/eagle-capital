@@ -1,295 +1,31 @@
-.root {
-  max-width: 960px;
+/* One rule survives: the disclosure marker on each finding's evidence.
+ *
+ * `<details>`/`<summary>` is the right element for evidence that should be
+ * available without being read every time, but Tailwind's preflight leaves the
+ * UA's default triangle in place and there is no utility for it. Everything else
+ * on this page — the cards, the tabs, the range chips, the pattern rows, the
+ * history list — is components and tokens now. */
+.evidence {
+  margin-top: 0.4rem;
 }
 
-.hint {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  margin: 0 0 1rem;
-}
-
-.toolbar {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.rangeChip {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 0.35rem 0.8rem;
-  border-radius: 999px;
-}
-.rangeChip:hover:not(.rangeChipActive) {
-  border-color: var(--text-muted);
-}
-.rangeChipActive {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-fg);
-}
-
-.preview {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
-
-.generateRow {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-}
-
-.error {
-  color: var(--critical);
-  font-size: 0.85rem;
-}
-
-.resultCard {
-  margin-bottom: 1.5rem;
-}
-
-.summaryCard {
-  background: var(--surface-2);
-  border-radius: 8px;
-  padding: 1rem 1.1rem;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  margin-bottom: 1.1rem;
-}
-
-.group {
-  margin-bottom: 1.1rem;
-}
-.group:last-of-type {
-  margin-bottom: 0;
-}
-
-.groupTitle {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  padding-bottom: 0.35rem;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 0.6rem;
-}
-
-.findingList {
-  display: flex;
-  flex-direction: column;
-}
-
-.finding {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border);
-}
-.finding:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.findingIcon {
-  flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  margin-top: 0.1rem;
-}
-.findingIconBad { background: rgba(208, 59, 59, 0.15); color: var(--critical); }
-.findingIconGood { background: rgba(12, 163, 12, 0.15); color: var(--good); }
-.findingIconAction { background: rgba(57, 135, 229, 0.15); color: var(--accent); }
-
-.findingBody {
-  flex: 1;
-  min-width: 0;
-}
-
-.findingTitle {
-  font-weight: 700;
-  font-size: 0.9rem;
-  margin-bottom: 0.25rem;
-}
-.findingDesc {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  line-height: 1.45;
-  margin-bottom: 0.4rem;
-}
-.evidenceDetails {
-  margin-top: 0.15rem;
-}
-.evidenceDetails summary {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  cursor: pointer;
+.evidence summary {
   list-style: none;
 }
-.evidenceDetails summary::-webkit-details-marker {
+
+.evidence summary::-webkit-details-marker {
   display: none;
 }
-.evidenceDetails summary:hover {
-  color: var(--text-secondary);
-}
-.findingEvidence {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  line-height: 1.4;
-  margin: 0.3rem 0 0;
+
+/* A caret we control, so it can be sized and coloured with the text it labels
+   rather than inheriting whatever the browser draws. */
+.evidence summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 0.35rem;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
-/* One category (Pain Points/Strengths/Recommendations) visible at a time instead of all three
-   stacked — same .rangeChip visual language as the date-range picker above. */
-.findingTabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
-}
-.findingTab {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-}
-.findingTab:hover:not(.findingTabActive) {
-  border-color: var(--text-muted);
-}
-.findingTabActive {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-fg);
-}
-.findingTabCount {
-  opacity: 0.75;
-}
-
-/* Detected Patterns — one line per flag, no icon-circle/title/description split, since these
-   are already short and there can be several at once. */
-.compactFindingList {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-.compactFinding {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-.compactFindingIcon {
-  color: var(--warning);
-  font-size: 0.78rem;
-  margin-top: 0.2rem;
-  flex-shrink: 0;
-}
-
-.meta {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  margin-top: 1.1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-
-.historySection {
-  margin-top: 1.5rem;
-}
-
-.historyTitle {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 0.6rem;
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.75rem 0.9rem;
-  background: var(--surface);
-  cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
-}
-.row:hover {
-  border-color: var(--accent);
-  background: var(--surface-2);
-}
-.rowActive {
-  border-color: var(--accent);
-  background: var(--surface-2);
-}
-
-.rowBody {
-  flex: 1;
-  min-width: 0;
-}
-
-.rowMain {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.8rem;
-}
-.rowDate {
-  font-weight: 700;
-}
-.rowRange {
-  color: var(--text-muted);
-}
-
-.rowSummary {
-  margin-top: 0.3rem;
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.deleteBtn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.4rem;
-  flex-shrink: 0;
-}
-.deleteBtn:hover {
-  color: var(--critical);
-  background: transparent;
-  border-color: transparent;
+.evidence[open] summary::before {
+  transform: rotate(90deg);
 }

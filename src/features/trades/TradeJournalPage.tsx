@@ -5,7 +5,36 @@ import { listPlaybookExamples } from '../../db/playbookExamples'
 import { TradeJournalList } from './components/TradeJournalList'
 import { TradeDetailPanel } from './components/TradeDetailPanel'
 import { TradeChartPanel } from './components/TradeChartPanel'
+import { EmptyState, PageHeader } from '@/shared/ui/page'
+import { Button } from '@/components/ui/button'
+import { NotebookPenIcon, XIcon } from 'lucide-react'
 import styles from './TradeJournalPage.module.css'
+
+/** An active filter, and the way off it. The clear control is inside the chip
+ * rather than beside it, so it can never be mistaken for a page action. */
+function FilterChip({
+  children,
+  onClear,
+}: {
+  children: React.ReactNode
+  onClear: () => void
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border bg-muted/60 py-0.5 pr-0.5 pl-2.5 text-xs">
+      <span className="text-muted-foreground">Showing</span>
+      <span className="font-medium">{children}</span>
+      <Button
+        aria-label="Clear this filter"
+        className="size-5 rounded-full"
+        onClick={onClear}
+        size="icon-xs"
+        variant="ghost"
+      >
+        <XIcon />
+      </Button>
+    </span>
+  )
+}
 
 export function TradeJournalPage({
   trades,
@@ -57,28 +86,39 @@ export function TradeJournalPage({
   const selected = ordered.find((t) => t.id === selectedId)
 
   return (
-    <div>
-      <div className={`page-header ${styles.header}`}>
-        <div className={styles.titleGroup}>
-          <h1 className="page-title">Trade Journal</h1>
-          {ordered.length > 0 && <span className={styles.count}>{ordered.length} trade{ordered.length === 1 ? '' : 's'}</span>}
-        </div>
-        {dateFilter && (
-          <div className={styles.filterPill}>
-            <span>Showing trades from {dateFilter}</span>
-            <button type="button" className="btn-ghost" onClick={() => setDateFilter(undefined)}>Show all</button>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        actions={
+          /* Each active filter is a dismissible chip rather than a sentence with
+             a link in it. Two filters can be on at once, and as prose that read
+             as two paragraphs of explanation above the data. */
+          <div className="flex flex-wrap items-center gap-2">
+            {dateFilter && (
+              <FilterChip onClear={() => setDateFilter(undefined)}>
+                {dateFilter}
+              </FilterChip>
+            )}
+            {accountFilter !== 'all' && (
+              <FilterChip onClear={() => setAccountFilter('all')}>
+                {accounts.find((a) => a.id === accountFilter)?.label ?? 'This account'}
+              </FilterChip>
+            )}
           </div>
-        )}
-        {accountFilter !== 'all' && (
-          <div className={styles.filterPill}>
-            <span>Showing trades for {accounts.find((a) => a.id === accountFilter)?.label ?? 'this account'}</span>
-            <button type="button" className="btn-ghost" onClick={() => setAccountFilter('all')}>Show all accounts</button>
-          </div>
-        )}
-      </div>
+        }
+        description={
+          ordered.length > 0
+            ? `${ordered.length} trade${ordered.length === 1 ? '' : 's'} in view. Pick one to read and annotate it.`
+            : 'Pick a trade to read and annotate it.'
+        }
+        title="Trade Journal"
+      />
 
       {!hasAnyTrades ? (
-        <p className={styles.empty}>No trades logged yet — log some in the Trade Log to start journaling.</p>
+        <EmptyState
+          description="Log a few in the Trade Log and they'll appear here ready to annotate."
+          icon={<NotebookPenIcon />}
+          title="Nothing to journal yet"
+        />
       ) : (
         <div className={styles.layout}>
           <div className={styles.listPane}>
@@ -91,7 +131,7 @@ export function TradeJournalPage({
               onSelect={setSelectedId}
             />
             {ordered.length === 0 && (
-              <p className={styles.empty}>
+              <p className="px-1 py-6 text-muted-foreground text-sm">
                 {dateFilter ? `No trades logged on ${dateFilter}.` : 'No trades logged for this account.'}
               </p>
             )}

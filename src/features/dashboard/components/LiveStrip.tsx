@@ -1,6 +1,8 @@
 import { useLivePositions } from '../../liveposition/useLivePositions'
 import { formatMoney, formatPnl } from '../../liveposition/ticker'
-import styles from './LiveStrip.module.css'
+import { Card, CardContent } from '@/components/ui/card'
+import { StatusIndicator } from '@/components/indicator'
+import { cn } from 'cn'
 
 /* Open risk, across every connected account, above the closed-trade history.
  *
@@ -12,48 +14,54 @@ import styles from './LiveStrip.module.css'
  *
  * It renders nothing at all when no account is connected, rather than a row of
  * zeroes on a dashboard belonging to someone who only types trades in.
+ *
+ * Converted onto shadcn Card and the shared StatusIndicator, so the live dot
+ * here and the one on the Live Trading page are the same component.
  */
+
+function Item({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className={cn('font-semibold text-base tabular-nums', tone)}>{value}</span>
+    </div>
+  )
+}
+
 export function LiveStrip() {
   const { accounts, streaming, totals } = useLivePositions()
 
   if (accounts === null || accounts.length === 0) return null
 
-  const toneFor = (n: number) => (n > 0 ? styles.good : n < 0 ? styles.bad : styles.flat)
+  const toneFor = (n: number) =>
+    n > 0 ? 'text-(--good-deep)' : n < 0 ? 'text-(--critical-deep)' : 'text-muted-foreground'
 
   return (
-    <section className={styles.strip}>
-      {/* One pair per currency. Adding a EUR account's P&L to a USD account's
-          gives a headline number denominated in neither. */}
-      {totals.byCurrency.map((c) => (
-        <div className={styles.group} key={c.currency}>
-          <div className={styles.item}>
-            <span className={styles.label}>
-              Open P&amp;L{totals.singleCurrency ? '' : ` · ${c.currency}`}
-            </span>
-            <span className={`${styles.value} ${toneFor(c.unrealized)}`}>
-              {formatPnl(c.unrealized)}
-            </span>
+    <Card className="py-3">
+      <CardContent className="flex flex-wrap items-center gap-x-8 gap-y-3">
+        {/* One pair per currency. Adding a EUR account's P&L to a USD account's
+            gives a headline number denominated in neither. */}
+        {totals.byCurrency.map((c) => (
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3" key={c.currency}>
+            <Item
+              label={`Open P&L${totals.singleCurrency ? '' : ` · ${c.currency}`}`}
+              tone={toneFor(c.unrealized)}
+              value={formatPnl(c.unrealized)}
+            />
+            <Item
+              label={`Equity${totals.singleCurrency ? '' : ` · ${c.currency}`}`}
+              value={formatMoney(c.equity)}
+            />
           </div>
-          <div className={styles.item}>
-            <span className={styles.label}>
-              Equity{totals.singleCurrency ? '' : ` · ${c.currency}`}
-            </span>
-            <span className={styles.value}>{formatMoney(c.equity)}</span>
-          </div>
-        </div>
-      ))}
-      <div className={styles.item}>
-        <span className={styles.label}>Open positions</span>
-        <span className={styles.value}>{totals.open}</span>
-      </div>
-      <div className={styles.item}>
-        <span className={styles.label}>Connected</span>
-        <span className={styles.value}>{totals.accounts}</span>
-      </div>
-      <span className={styles.state}>
-        <span className={`${styles.dot} ${streaming ? styles.dotLive : ''}`} />
-        {streaming ? 'live' : 'polling'}
-      </span>
-    </section>
+        ))}
+        <Item label="Open positions" value={String(totals.open)} />
+        <Item label="Connected" value={String(totals.accounts)} />
+
+        <span className="ml-auto inline-flex items-center gap-1.5 text-muted-foreground text-xs">
+          <StatusIndicator pulse={streaming} tone={streaming ? 'good' : 'muted'} />
+          {streaming ? 'live' : 'polling'}
+        </span>
+      </CardContent>
+    </Card>
   )
 }

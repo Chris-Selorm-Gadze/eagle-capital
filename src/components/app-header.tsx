@@ -7,10 +7,22 @@ import { CustomSidebarTrigger } from "@/components/custom-sidebar-trigger";
 import { navGroupLabelFor, navItemFor } from "@/components/app-shared";
 import { useAppNav } from "@/components/app-nav-context";
 import { HeaderUserMenu } from "@/components/nav-user";
+import { AppSearch } from "@/components/app-search";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 /** `actions` is the per-page slot on the right — the dashboard puts its
- * account filter and buttons there; most pages pass nothing. */
-export function AppHeader({ actions }: { actions?: ReactNode }) {
+ * account filter and buttons there; most pages pass nothing.
+ *
+ * `onAddTrade` is here only because the command palette offers it: the palette
+ * lists every destination plus the one action the sidebar promotes, so the two
+ * can't drift apart. */
+export function AppHeader({
+	actions,
+	onAddTrade,
+}: {
+	actions?: ReactNode;
+	onAddTrade: () => void;
+}) {
 	const { active } = useAppNav();
 	const item = navItemFor(active);
 	const groupLabel = navGroupLabelFor(active);
@@ -29,7 +41,9 @@ export function AppHeader({ actions }: { actions?: ReactNode }) {
 				/>
 			</div>
 			<div className="flex items-center gap-2">
+				<AppSearch onAddTrade={onAddTrade} />
 				{actions}
+				<ThemeSwitcher />
 				<HeaderUserMenu />
 			</div>
 		</header>

@@ -25,7 +25,25 @@ import { FixCredentialsDialog } from './components/FixCredentialsDialog'
 import { JournalLinkDialog } from './components/JournalLinkDialog'
 import { listAccounts } from '../../db/accounts'
 import type { Account } from '../../types'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table'
+import { EmptyState, ErrorNotice, Notice, PageHeader } from '@/shared/ui/page'
+import { CopyIcon } from 'lucide-react'
+import { cn } from 'cn'
 import styles from './TradeCopierPage.module.css'
+
+/* Converted onto shadcn Card, Table, Select, Input and Badge, and onto the
+ * shared page kit for its headers, errors and the six warn-strips this page
+ * carries. The module stylesheet keeps only the table's scroll box. */
 
 /* Trade Copier.
  *
@@ -76,16 +94,20 @@ const STATUS_LABEL: Record<string, string> = {
  * tried — and the only way to tell is whether a test is still in the queue. */
 function ConnectionPill({ account, pending }: { account: TradingAccount; pending?: boolean }) {
   if (pending) {
-    return <span className={styles.badgePending} title="Queued for the worker">Testing…</span>
+    return <Badge title="Queued for the worker" variant="secondary">Testing…</Badge>
   }
   const connected = account.connectionStatus === 'connected'
   return (
-    <span
-      className={connected ? styles.badgeOn : styles.badgeOff}
+    <Badge
+      style={{
+        background: `color-mix(in srgb, ${connected ? 'var(--good)' : 'var(--critical)'} 15%, transparent)`,
+        color: connected ? 'var(--good-deep)' : 'var(--critical-deep)',
+      }}
+      variant="secondary"
       title={account.lastError ?? undefined}
     >
       {STATUS_LABEL[account.connectionStatus] ?? account.connectionStatus}
-    </span>
+    </Badge>
   )
 }
 
@@ -158,104 +180,137 @@ function GroupCard({ group, onChanged }: { group: CopierGroup; onChanged: () => 
   const groupCapital = (group.master.balance ?? 0) + group.followers.reduce((s, f) => s + (f.account.balance ?? 0), 0)
 
   return (
-    <div className={`card ${styles.group}`}>
-      <div className={styles.groupHeader}>
-        <div className={styles.groupTitle}>
-          <span className={styles.masterBadge}>MASTER</span>
-          <span className={styles.masterLabel}>{accountName(group.master)}</span>
+    <Card className="gap-0 py-0">
+      <CardHeader className="flex-wrap gap-x-3 gap-y-2 border-b py-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Badge className="tracking-wide" variant="default">MASTER</Badge>
+          <CardTitle className="truncate">{accountName(group.master)}</CardTitle>
           <ConnectionPill account={group.master} />
-          <span className={styles.followerCount}>
+          <span className="text-muted-foreground text-xs">
             {group.followers.length} follower{group.followers.length === 1 ? '' : 's'} · {liveCount} copying now
           </span>
         </div>
-        <div className={styles.groupActions}>
-          <button onClick={handleDisableAll} disabled={busyId === 'group' || armedCount === 0}>Stop all</button>
-          <button onClick={() => handleFlatten(group.master)} className="btn-ghost" disabled={busyId === group.master.id}>
+        <div className="flex shrink-0 gap-1.5">
+          <Button
+            disabled={busyId === 'group' || armedCount === 0}
+            onClick={handleDisableAll}
+            size="xs"
+            variant="outline"
+          >
+            Stop all
+          </Button>
+          <Button
+            disabled={busyId === group.master.id}
+            onClick={() => handleFlatten(group.master)}
+            size="xs"
+            variant="destructive"
+          >
             Flatten master
-          </button>
+          </Button>
         </div>
-      </div>
+      </CardHeader>
 
       {/* Armed but not actually running is the dangerous middle state: the link
           says on, and nothing is being mirrored. Say so rather than showing a
           green toggle over a dead connection. */}
       {armedCount > liveCount && (
-        <div className={styles.warnStrip}>
+        <Notice className="mx-4 mt-3">
           {armedCount - liveCount} link{armedCount - liveCount === 1 ? ' is' : 's are'} switched on but not copying —
           an account in the pair is not connected.
-        </div>
+        </Notice>
       )}
 
-      {error && <div className={styles.error}>{error}</div>}
+      {error && <ErrorNotice className="mx-4 mt-3" message={error} />}
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Account</th>
-              <th>Balance</th>
-              <th>Equity</th>
-              <th>Copy rate</th>
-              <th>Connection</th>
-              <th>Copying</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            <tr className={styles.masterRow}>
-              <td>
-                {accountName(group.master)}
-                <span className={styles.rowMeta}>{group.master.brokerServer}</span>
-              </td>
-              <td>{money(group.master.balance)}</td>
-              <td>{money(group.master.equity)}</td>
-              <td>—</td>
-              <td><ConnectionPill account={group.master} /></td>
-              <td>—</td>
-              <td />
-            </tr>
+      <CardContent className={cn('px-0', styles.tableWrap)}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Account</TableHead>
+              <TableHead className="text-right">Balance</TableHead>
+              <TableHead className="text-right">Equity</TableHead>
+              <TableHead>Copy rate</TableHead>
+              <TableHead>Connection</TableHead>
+              <TableHead>Copying</TableHead>
+              <TableHead className="w-0" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="bg-muted/40">
+              <TableCell>
+                <span className="font-medium">{accountName(group.master)}</span>
+                <span className="block text-muted-foreground text-xs">{group.master.brokerServer}</span>
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{money(group.master.balance)}</TableCell>
+              <TableCell className="text-right tabular-nums">{money(group.master.equity)}</TableCell>
+              <TableCell className="text-muted-foreground">—</TableCell>
+              <TableCell><ConnectionPill account={group.master} /></TableCell>
+              <TableCell className="text-muted-foreground">—</TableCell>
+              <TableCell />
+            </TableRow>
             {group.followers.map((f) => {
               const live = isRelationLive(f.relation, group.master, f.account)
               return (
-                <tr key={f.relation.id}>
-                  <td>
-                    {accountName(f.account)}
-                    <span className={styles.rowMeta}>{f.account.brokerServer}</span>
-                  </td>
-                  <td>{money(f.account.balance)}</td>
-                  <td>{money(f.account.equity)}</td>
-                  <td>{copyRateLabel(f.relation)}</td>
-                  <td><ConnectionPill account={f.account} /></td>
-                  <td>
-                    <span className={live ? styles.badgeOn : styles.badgeOff}>
+                <TableRow key={f.relation.id}>
+                  <TableCell>
+                    <span className="font-medium">{accountName(f.account)}</span>
+                    <span className="block text-muted-foreground text-xs">{f.account.brokerServer}</span>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{money(f.account.balance)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{money(f.account.equity)}</TableCell>
+                  <TableCell>{copyRateLabel(f.relation)}</TableCell>
+                  <TableCell><ConnectionPill account={f.account} /></TableCell>
+                  <TableCell>
+                    {/* Three states, not two — "armed but not live" is the one
+                        that matters, and a plain on/off badge hid it. */}
+                    <Badge
+                      style={{
+                        background: `color-mix(in srgb, ${live ? 'var(--good)' : f.relation.isEnabled ? 'var(--warning)' : 'var(--text-muted)'} 15%, transparent)`,
+                        color: live ? 'var(--good-deep)' : f.relation.isEnabled ? 'var(--warning)' : 'var(--text-muted)',
+                      }}
+                      variant="secondary"
+                    >
                       {live ? 'Live' : f.relation.isEnabled ? 'Armed, not live' : 'Off'}
-                    </span>
-                  </td>
-                  <td>
-                    <div className={styles.rowActions}>
-                      <button onClick={() => handleToggle(f)} disabled={busyId === f.relation.id}>
-                        {f.relation.isEnabled ? 'Stop' : 'Start'}
-                      </button>
-                      <button onClick={() => handleFlatten(f.account)} className="btn-ghost" disabled={busyId === f.account.id}>
-                        Flatten
-                      </button>
-                      <button onClick={() => handleRemove(f)} className="btn-ghost" disabled={busyId === f.relation.id}>
-                        Remove
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right">
+                    <Button
+                      disabled={busyId === f.relation.id}
+                      onClick={() => handleToggle(f)}
+                      size="xs"
+                      variant="outline"
+                    >
+                      {f.relation.isEnabled ? 'Stop' : 'Start'}
+                    </Button>{' '}
+                    <Button
+                      disabled={busyId === f.account.id}
+                      onClick={() => handleFlatten(f.account)}
+                      size="xs"
+                      variant="ghost"
+                    >
+                      Flatten
+                    </Button>{' '}
+                    <Button
+                      disabled={busyId === f.relation.id}
+                      onClick={() => handleRemove(f)}
+                      size="xs"
+                      variant="destructive"
+                    >
+                      Remove
+                    </Button>
+                  </TableCell>
+                </TableRow>
               )
             })}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </CardContent>
 
-      <div className={styles.groupFooter}>
-        <span>Group capital {money(groupCapital)}</span>
+      <div className="flex flex-wrap justify-between gap-2 border-t px-4 py-2.5 text-muted-foreground text-xs">
+        <span>Group capital <span className="tabular-nums">{money(groupCapital)}</span></span>
         <span>{armedCount} of {group.followers.length} armed</span>
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -545,33 +600,38 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
   const lockedProfiles = riskProfiles.filter((p) => p.isLocked)
 
   return (
-    <div>
+    <div className="flex flex-col gap-5">
       <WorkerStatus workers={workers} loading={false} />
 
-      {actionError && <div className={styles.error}>{actionError}</div>}
-      {notice && <div className={styles.notice}>{notice}</div>}
+      {actionError && <ErrorNotice message={actionError} />}
+      {notice && <Notice tone="info">{notice}</Notice>}
 
       {lockedProfiles.length > 0 && (
-        <div className={styles.warnStrip}>
+        <Notice>
           {lockedProfiles.length} account{lockedProfiles.length === 1 ? ' is' : 's are'} locked by their risk
           rules and will not take new trades until unlocked.
-        </div>
+        </Notice>
       )}
 
-      <section className={styles.section}>
-        <div className="section-title-row">
-          <h2 className="section-title">Copy groups</h2>
-          <button onClick={() => setAddingAccount(true)} className="btn-primary">Connect an account</button>
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-heading font-semibold text-sm uppercase tracking-wide">Copy groups</h2>
+          <Button onClick={() => setAddingAccount(true)} size="sm">Connect an account</Button>
         </div>
 
         {groups.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>
-            {accounts.length === 0
-              ? 'No accounts connected yet. Connect a master and at least one follower to start copying.'
-              : 'No copy links yet — pair a master with a follower below.'}
-          </p>
+          <EmptyState
+            action={accounts.length === 0
+              ? { label: 'Connect an account', onClick: () => setAddingAccount(true) }
+              : undefined}
+            description={accounts.length === 0
+              ? 'Connect a master and at least one follower, and every order on the master is mirrored onto the followers.'
+              : 'Your accounts are connected — pair a master with a follower below to start copying.'}
+            icon={<CopyIcon />}
+            title={accounts.length === 0 ? 'No accounts connected yet' : 'No copy links yet'}
+          />
         ) : (
-          <div className={styles.groupList}>
+          <div className="flex flex-col gap-4">
             {groups.map((g) => (
               <GroupCard key={g.master.id} group={g} onChanged={load} />
             ))}
@@ -579,51 +639,93 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
         )}
 
         {unlinked.length > 0 && (
-          <div className={styles.unlinkedNotice}>
+          <Notice tone="info">
             Connected but not in a copy group: {unlinked.map(accountName).join(', ')}
-          </div>
+          </Notice>
         )}
 
         {accounts.length >= 2 && (
-          <div className={`card ${styles.addRow}`}>
-            <label className="flex-1">Master
-              <select value={masterId} onChange={(e) => setMasterId(e.target.value)}>
-                {accounts.map((a) => <option key={a.id} value={a.id}>{accountName(a)}</option>)}
-              </select>
-            </label>
-            <label className="flex-1">Follower
-              <select value={followerId} onChange={(e) => setFollowerId(e.target.value)}>
-                <option value="">Select…</option>
-                {accounts.filter((a) => a.id !== masterId).map((a) => (
-                  <option key={a.id} value={a.id}>{accountName(a)}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex-1">Label
-              <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="optional" />
-            </label>
-            <label className="flex-1">Risk mode
-              <select value={riskMode} onChange={(e) => setRiskMode(e.target.value as RiskMode)}>
-                <option value="multiplier">Multiplier</option>
-                <option value="fixed_lot">Fixed lot</option>
-                <option value="equity_ratio">Equity ratio</option>
-                <option value="risk_percent">Risk percent</option>
-              </select>
-            </label>
-            <label className="flex-1">{riskMode === 'risk_percent' ? 'Max risk per trade (%)' : 'Multiplier'}
-              <input type="number" step="0.01" value={multiplier} onChange={(e) => setMultiplier(e.target.value)} />
-            </label>
-            <button className="btn-primary" onClick={handleCreateCopier} disabled={!masterId || !followerId}>
-              Create link
-            </button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Pair a master with a follower</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="copier-master">Master</Label>
+                <Select onValueChange={setMasterId} value={masterId}>
+                  <SelectTrigger id="copier-master"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{accountName(a)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="copier-follower">Follower</Label>
+                <Select onValueChange={setFollowerId} value={followerId}>
+                  <SelectTrigger id="copier-follower">
+                    <SelectValue placeholder="Select…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.filter((a) => a.id !== masterId).map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{accountName(a)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="copier-label">Label</Label>
+                <Input
+                  id="copier-label"
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="optional"
+                  value={label}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="copier-riskmode">Risk mode</Label>
+                <Select onValueChange={(v) => setRiskMode(v as RiskMode)} value={riskMode}>
+                  <SelectTrigger id="copier-riskmode"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="multiplier">Multiplier</SelectItem>
+                    <SelectItem value="fixed_lot">Fixed lot</SelectItem>
+                    <SelectItem value="equity_ratio">Equity ratio</SelectItem>
+                    <SelectItem value="risk_percent">Risk percent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="copier-multiplier">
+                  {riskMode === 'risk_percent' ? 'Max risk per trade (%)' : 'Multiplier'}
+                </Label>
+                <Input
+                  id="copier-multiplier"
+                  onChange={(e) => setMultiplier(e.target.value)}
+                  step="0.01"
+                  type="number"
+                  value={multiplier}
+                />
+              </div>
+
+              <div className="flex items-end">
+                <Button disabled={!masterId || !followerId} onClick={handleCreateCopier}>
+                  Create link
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </section>
 
-      <section className={styles.section}>
-        <h2 className="section-title">Connected accounts</h2>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-heading font-semibold text-sm uppercase tracking-wide">Connected accounts</h2>
         {accounts.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No accounts connected yet.</p>
+          <p className="text-muted-foreground text-sm">No accounts connected yet.</p>
         ) : (
           <>
             {/* Accounts sharing an MT5 install get ONE pool worker with
@@ -639,24 +741,23 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
                 pointed at a dashboard account, and there is no other place in
                 the product where a trader would go looking for that. */}
             {accounts.length > 0 && takenJournalIds.size === 0 && (
-              <div className={styles.warnStrip}>
-                <div>
-                  None of these accounts report to the dashboard yet, so it has no trades to
-                  show even while copies are running. Closed positions arrive on their own once
-                  an account is journalled, with the broker’s own profit figure.
-                  <div className={styles.stripActions}>
-                    <button type="button" onClick={handleJournalAll}>
-                      Journal all {accounts.length} account{accounts.length === 1 ? '' : 's'}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <Notice
+                action={
+                  <Button onClick={handleJournalAll} size="xs" variant="outline">
+                    Journal all {accounts.length} account{accounts.length === 1 ? '' : 's'}
+                  </Button>
+                }
+              >
+                None of these accounts report to the dashboard yet, so it has no trades to
+                show even while copies are running. Closed positions arrive on their own once
+                an account is journalled, with the broker’s own profit figure.
+              </Notice>
             )}
 
             {sharedTerminalGroups.length > 0 && (
-              <div className={styles.warnStrip}>
+              <Notice>
                 {sharedTerminalGroups.map((g) => (
-                  <div key={g.path}>
+                  <div className="mb-1.5 last:mb-0" key={g.path}>
                     {g.names.join(', ')} share one MT5 install, so their copies run
                     <strong> one after another</strong> — the worker logs into each in turn.
                     With {g.names.length} accounts the last one waits for {g.names.length - 1}{' '}
@@ -664,53 +765,54 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
                     Give each its own portable copy of that broker’s terminal to run them in parallel.
                   </div>
                 ))}
-              </div>
+              </Notice>
             )}
-            <div className={`card card-flush ${styles.list}`}>
+            <Card className="gap-0 py-0"><CardContent className="px-0">
               {accounts.map((a) => {
                 const testing = hasPendingTest(pending, a.id)
                 return (
-                  <div key={a.id} className={styles.accountEntry}>
-                    <div className={styles.row}>
-                      <span className={styles.cell}>{accountName(a)}</span>
+                  <div className="border-b px-4 py-3 last:border-b-0" key={a.id}>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <span className="min-w-0 flex-1 text-sm">{accountName(a)}</span>
                       <ConnectionPill account={a} pending={testing} />
                       {/* An unassigned terminal is the normal state for a new
                           account, not a fault: the worker claims one on the first
                           successful connection test. */}
                       {a.terminalPath
-                        ? <span className={styles.cellMuted} title={a.terminalPath}>{terminalFolder(a.terminalPath)}</span>
-                        : <span className={styles.cellMuted}>terminal not assigned yet</span>}
+                        ? <span className="text-muted-foreground text-xs" title={a.terminalPath}>{terminalFolder(a.terminalPath)}</span>
+                        : <span className="text-muted-foreground text-xs">terminal not assigned yet</span>}
                       {/* Round trip to this broker's trade server. Copy latency
                           cannot go below it, so a broker that is simply far away
                           looks completely different here from one where the
                           copier itself is slow. */}
                       {a.brokerPingMs !== null && (
                         <span
-                          className={styles.cellMuted}
+                          className="text-muted-foreground text-xs"
                           title="Round trip to this broker's trade server. Copy latency cannot go below it."
                         >
                           {a.brokerPingMs} ms to broker
                         </span>
                       )}
-                      <div className={styles.rowButtons}>
-                        <button onClick={() => handleTestConnection(a)} disabled={testing}>
+                      <div className="flex shrink-0 flex-wrap gap-1.5">
+                        <Button disabled={testing} onClick={() => handleTestConnection(a)} size="xs" variant="outline">
                           {testing ? 'Testing…' : 'Retest'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() => setJournallingAccount(a)}
-                          className="btn-ghost"
+                          size="xs"
                           title={a.journalAccountId
                             ? 'Closed trades from this account are journalled to the dashboard'
                             : 'Send this account\u2019s closed trades to the dashboard'}
+                          variant={a.journalAccountId ? 'secondary' : 'outline'}
                         >
                           {a.journalAccountId ? 'Journalling' : 'Journal trades'}
-                        </button>
-                        <button onClick={() => setFixingAccount(a)} className="btn-ghost">
+                        </Button>
+                        <Button onClick={() => setFixingAccount(a)} size="xs" variant="ghost">
                           Fix credentials
-                        </button>
-                        <button onClick={() => handleRemoveAccount(a)} className="btn-ghost">
+                        </Button>
+                        <Button onClick={() => handleRemoveAccount(a)} size="xs" variant="destructive">
                           Remove
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     {/* The worker writes the broker's own words here when a test
@@ -718,52 +820,65 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
                         invisible on touch and easy to miss — so "Login rejected"
                         arrived with no reason attached. */}
                     {!testing && a.lastError && (
-                      <p className={styles.rowError}>{a.lastError}</p>
+                      <p className="mt-1.5 text-(--critical-deep) text-xs">{a.lastError}</p>
                     )}
                     {testing && !workerOnline && (
-                      <p className={styles.rowError}>
+                      <p className="mt-1.5 text-(--critical-deep) text-xs">
                         Queued, but no worker is online to run it.
                       </p>
                     )}
                   </div>
                 )
               })}
-            </div>
+            </CardContent></Card>
           </>
         )}
       </section>
 
-      <section className={styles.section}>
-        <h2 className="section-title">Risk profiles</h2>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-heading font-semibold text-sm uppercase tracking-wide">Risk profiles</h2>
         {riskProfiles.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>
+          <p className="text-muted-foreground text-sm">
             No risk profiles yet — one is created per account when you set loss limits on it.
           </p>
         ) : (
-          <div className={`card card-flush ${styles.list}`}>
+          <Card className="gap-0 py-0"><CardContent className="px-0">
             {riskProfiles.map((p) => {
               const account = accounts.find((a) => a.id === p.accountId)
               return (
-                <div key={p.id} className={styles.row}>
-                  <span className={styles.cell}>{account ? accountName(account) : 'deleted account'}</span>
-                  <span className={styles.cellMuted}>
+                <div
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-3 last:border-b-0"
+                  key={p.id}
+                >
+                  <span className="min-w-0 flex-1 text-sm">
+                    {account ? accountName(account) : 'deleted account'}
+                  </span>
+                  <span className="text-muted-foreground text-xs">
                     {p.maxDailyLoss !== null ? `daily loss cap ${money(p.maxDailyLoss)}` : 'no daily cap'}
                     {' · '}
                     {p.dailyTradesCount} trade{p.dailyTradesCount === 1 ? '' : 's'} today
                   </span>
-                  <span className={p.isLocked ? styles.badgeOff : styles.badgeOn}>
+                  <Badge
+                    style={{
+                      background: `color-mix(in srgb, ${p.isLocked ? 'var(--critical)' : 'var(--good)'} 15%, transparent)`,
+                      color: p.isLocked ? 'var(--critical-deep)' : 'var(--good-deep)',
+                    }}
+                    variant="secondary"
+                  >
                     {p.isLocked ? (p.lockedReason || 'locked') : 'active'}
-                  </span>
-                  {p.isLocked && <button onClick={() => handleUnlock(p)}>Unlock</button>}
+                  </Badge>
+                  {p.isLocked && (
+                    <Button onClick={() => handleUnlock(p)} size="xs" variant="outline">Unlock</Button>
+                  )}
                 </div>
               )
             })}
-          </div>
+          </CardContent></Card>
         )}
       </section>
 
-      <section className={styles.section}>
-        <h2 className="section-title">Copy log</h2>
+      <section className="flex flex-col gap-3">
+        <h2 className="font-heading font-semibold text-sm uppercase tracking-wide">Copy log</h2>
         <ExecutionLog events={events} accounts={accounts} />
       </section>
 
@@ -811,12 +926,15 @@ export function TradeCopierPage({ onAccountsChanged }: { onAccountsChanged?: () 
   if (loading) return null
 
   return (
-    <div>
-      <h1 className="page-title">Trade Copier</h1>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        description="Mirror one account's orders onto others. Each follower can size its own way — a multiplier, a fixed lot, an equity ratio or a percent of risk."
+        title="Trade Copier"
+      />
 
       {!user ? (
         <>
-          <p style={{ color: 'var(--text-secondary)' }}>Sign in to manage trade copiers.</p>
+          <p className="text-muted-foreground text-sm">Sign in to manage trade copiers.</p>
           <AuthPage />
         </>
       ) : (

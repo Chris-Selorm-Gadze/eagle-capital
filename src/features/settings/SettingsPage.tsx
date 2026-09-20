@@ -28,6 +28,7 @@ import {
   RETENTION_DAYS, type DeletionRequest,
 } from '../../db/accountDeletion'
 import { errorMessage } from '../../utils/errors'
+import { PageHeader } from '@/shared/ui/page'
 import { todayISO } from '../../db/sessions'
 
 /* Account settings. Before this existed the only account control in the whole
@@ -146,10 +147,9 @@ export function SettingsPage({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-      <div>
-        <h1 className="font-heading text-2xl font-medium">Settings</h1>
-        <p className="text-muted-foreground text-sm">{user?.email}</p>
-      </div>
+      {/* Was its own `text-2xl font-medium` heading — the only page title in the
+          app at that size, from before there was a shared one. */}
+      <PageHeader description={user?.email} title="Settings" />
 
       <Card>
         <CardHeader>

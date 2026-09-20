@@ -2,13 +2,18 @@ import { useRef } from 'react'
 import type { Account, Trade } from '../../../types'
 import { rovingIndex } from '../../../shared/ui/activate'
 import { tradeOutcome } from '../../../utils/tradeStats'
-import styles from './TradeJournalList.module.css'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { cn } from 'cn'
 
-const OUTCOME_CLASS: Record<ReturnType<typeof tradeOutcome>, string> = {
-  win: styles.outcomeWin,
-  loss: styles.outcomeLoss,
-  breakeven: styles.outcomeBreakeven,
-}
+/* Converted onto shadcn Select + Badge. The roving-focus listbox below is kept
+ * as it was — it is the right pattern and nothing in shadcn replaces it. */
 
 const OUTCOME_LABEL: Record<ReturnType<typeof tradeOutcome>, string> = {
   win: 'WIN',
@@ -16,8 +21,9 @@ const OUTCOME_LABEL: Record<ReturnType<typeof tradeOutcome>, string> = {
   breakeven: 'BE',
 }
 
-// Purely presentational — matches the outcome badge color, not a computed risk signal.
-const OUTCOME_ACCENT: Record<ReturnType<typeof tradeOutcome>, string> = {
+/** The rail down the left edge of each row, and the outcome chip's colour.
+ * Purely presentational — it matches the outcome, it is not a risk signal. */
+const OUTCOME_TONE: Record<ReturnType<typeof tradeOutcome>, string> = {
   win: 'var(--good)',
   loss: 'var(--critical)',
   breakeven: 'var(--text-muted)',
@@ -68,59 +74,81 @@ export function TradeJournalList({
   }
 
   return (
-    <div>
-      <select
-        className={styles.accountSelect}
+    <div className="flex flex-col gap-2">
+      <Select
+        onValueChange={(v) => onAccountFilterChange(v === 'all' ? 'all' : v)}
         value={accountFilter}
-        onChange={(e) => onAccountFilterChange(e.target.value === 'all' ? 'all' : e.target.value)}
       >
-        <option value="all">All accounts</option>
-        {accounts.map((a) => (
-          <option key={a.id} value={a.id}>{a.label}</option>
-        ))}
-      </select>
+        <SelectTrigger aria-label="Filter by account" className="w-full">
+          <SelectValue placeholder="All accounts" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All accounts</SelectItem>
+          {accounts.map((a) => (
+            <SelectItem key={a.id} value={a.id!}>{a.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       <div
-        className={styles.list}
+        aria-activedescendant={selectedId ? `trade-option-${selectedId}` : undefined}
+        aria-label="Trades"
+        className={cn(
+          'flex flex-col gap-1 rounded-lg outline-none',
+          'focus-visible:ring-3 focus-visible:ring-ring/50',
+        )}
+        onKeyDown={handleKeyDown}
         ref={listRef}
         role="listbox"
-        aria-label="Trades"
         tabIndex={0}
-        aria-activedescendant={selectedId ? `trade-option-${selectedId}` : undefined}
-        onKeyDown={handleKeyDown}
       >
-      {trades.map((t) => {
-        const outcome = tradeOutcome(t.pnl)
-        return (
-          /* Keyboard handling lives on the listbox, which owns the single tab
-             stop and points here with aria-activedescendant — so these rows
-             carry no key handler of their own by design. */
-          // eslint-disable-next-line jsx-a11y/click-events-have-key-events
-          <div
-            key={t.id}
-            id={`trade-option-${t.id}`}
-            className={`${styles.row} ${t.id === selectedId ? styles.rowActive : ''}`}
-            style={{ borderLeftColor: OUTCOME_ACCENT[outcome] }}
-            role="option"
-            aria-selected={t.id === selectedId}
-            tabIndex={-1}
-            onClick={() => onSelect(t.id!)}
-          >
-            <div className={styles.rowTop}>
-              <span className={styles.symbol}>{t.symbol}</span>
-              <span className={`${styles.outcome} ${OUTCOME_CLASS[outcome]}`}>{OUTCOME_LABEL[outcome]}</span>
+        {trades.map((t) => {
+          const outcome = tradeOutcome(t.pnl)
+          const active = t.id === selectedId
+          return (
+            /* Keyboard handling lives on the listbox, which owns the single tab
+               stop and points here with aria-activedescendant — so these rows
+               carry no key handler of their own by design. */
+            // eslint-disable-next-line jsx-a11y/click-events-have-key-events
+            <div
+              aria-selected={active}
+              className={cn(
+                'cursor-pointer rounded-md border border-l-2 px-2.5 py-2 transition-colors',
+                active ? 'border-border bg-muted' : 'border-transparent hover:bg-muted/60',
+              )}
+              id={`trade-option-${t.id}`}
+              key={t.id}
+              onClick={() => onSelect(t.id!)}
+              role="option"
+              style={{ borderLeftColor: OUTCOME_TONE[outcome] }}
+              tabIndex={-1}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-medium text-sm">{t.symbol}</span>
+                <span
+                  className="shrink-0 font-semibold text-[0.65rem] tracking-wide"
+                  style={{ color: OUTCOME_TONE[outcome] }}
+                >
+                  {OUTCOME_LABEL[outcome]}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                  {t.date}
+                  <Badge className="px-1 py-0 text-[0.6rem] uppercase" variant="outline">
+                    {t.side}
+                  </Badge>
+                </span>
+                <span
+                  className="font-semibold text-xs tabular-nums"
+                  style={{ color: t.pnl >= 0 ? 'var(--good-deep)' : 'var(--critical-deep)' }}
+                >
+                  {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toLocaleString()}
+                </span>
+              </div>
             </div>
-            <div className={styles.rowBottom}>
-              <span className={styles.rowMeta}>
-                {t.date}
-                <span className={`${styles.sideBadge} ${t.side === 'long' ? styles.sideLong : styles.sideShort}`}>{t.side}</span>
-              </span>
-              <span className={styles.pnl} style={{ color: t.pnl >= 0 ? 'var(--good)' : 'var(--critical)' }}>
-                {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toLocaleString()}
-              </span>
-            </div>
-          </div>
-        )
-      })}
+          )
+        })}
       </div>
     </div>
   )
