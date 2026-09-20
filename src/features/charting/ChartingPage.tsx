@@ -24,11 +24,14 @@ export function ChartingPage({ trades }: { trades: Trade[] }) {
   }, [])
 
   function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      document.exitFullscreen()
-    } else {
-      chartWrapRef.current?.requestFullscreen()
-    }
+    // Both reject rather than throw when the browser refuses — an iframe
+    // without the permission, or a user gesture the browser did not accept.
+    // Unhandled, that surfaces as a console error and a Sentry event for
+    // something the page can simply carry on without.
+    const request = document.fullscreenElement
+      ? document.exitFullscreen()
+      : chartWrapRef.current?.requestFullscreen()
+    void request?.catch(() => {})
   }
 
   return (

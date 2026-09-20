@@ -9,7 +9,11 @@ Note: the automatic rule-math domain layer (trailing-drawdown calc, circuit brea
 ## Commands
 - `npm run dev` — Vite dev server
 - `npm test` — Vitest
+- `npm run lint` — ESLint (correctness only: hooks, a11y, real faults — no style rules)
 - `npm run build` — typecheck + production build
+
+Run `lint` as well as `build`: a `useMemo` after a conditional return passes
+typecheck, tests and build, and throws the first time the branch flips.
 
 ## Architecture
 - `src/db/` — per-user Supabase (Postgres) tables via `@supabase/supabase-js`. Tables: accounts, sessions, payouts, rewards, trades, report_cards, broker_connections. RLS scoped to `auth.uid()`. No local storage — data fetched on sign-in via `useSupabaseData`, refetched after writes (no live-query reactivity). Every list query goes through `db/paginate.ts`'s `selectAll` — a bare `.select('*')` silently truncates at PostgREST's 1000-row `max-rows`.
