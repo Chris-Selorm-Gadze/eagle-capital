@@ -92,6 +92,40 @@ def build_pool_plan(
     return pool_workers, account_routes
 
 
+def routable_accounts(
+    account_paths: dict[str, str],
+    copy_paths: dict[str, str],
+) -> dict[str, str]:
+    """Which accounts may be pooled, given which ones copy orders.
+
+    A path with exactly one account on it gets a dedicated worker that pins
+    that login and stays warm, so a copy to it costs no switch at all. Put a
+    second account on the same path and the worker becomes shared: it switches
+    login per job, and every copy then pays the switch that the sweep's last
+    read left it on -- between 40 and 285ms on these accounts.
+
+    So reads are not allowed to demote a copy path. An account that shares a
+    terminal with a follower is left out of the pool entirely and read by the
+    inline balance sweep instead. Its live positions are slower for it; the
+    alternative is slower fills, which is the wrong thing to trade away.
+
+    ``copy_paths`` is {follower_id: path} for the followers the engine actually
+    dispatches to. Followers themselves are always routed -- reading an account
+    the worker is already pinned to is free.
+    """
+    reserved = {normalize_terminal_path(p) for p in copy_paths.values() if p}
+
+    routed: dict[str, str] = {}
+    for account_id, raw_path in account_paths.items():
+        path = normalize_terminal_path(raw_path)
+        if not account_id or not path:
+            continue
+        if account_id not in copy_paths and path in reserved:
+            continue
+        routed[account_id] = path
+    return routed
+
+
 def pool_plan_fingerprint(account_paths: dict[str, str]) -> str:
     """Stable hash of routing plan — skip pool rebuild when unchanged."""
     pool_workers, account_routes = build_pool_plan(account_paths, log_shared=False)

@@ -290,6 +290,19 @@ def _idle_terminal_pool(accounts: list[AccountConfig]):
     return _idle_pool
 
 
+def _shutdown_idle_pool() -> None:
+    """Stop the idle terminal workers and forget them."""
+    global _idle_pool, _idle_pool_fingerprint
+    if _idle_pool is None:
+        return
+    try:
+        _idle_pool.shutdown()
+    except Exception as exc:
+        logger.warning("idle_terminal_pool_shutdown_failed", error=str(exc))
+    _idle_pool = None
+    _idle_pool_fingerprint = ""
+
+
 def _feed_positions_while_idle(accounts: list[AccountConfig]) -> None:
     """Live positions for a worker with no copy link armed.
 
@@ -399,6 +412,11 @@ def run_all_masters() -> None:
             continue
 
         if active:
+            # Hand the terminals back before CopierEngine builds its own pool on
+            # the same paths. These subprocesses hold live MT5 attachments, and
+            # leaving them running would put two processes on one terminal
+            # install -- which is the one thing MT5 does not allow.
+            _shutdown_idle_pool()
             break
 
         # Logged once rather than every poll: having no armed copy link is a

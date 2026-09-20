@@ -35,7 +35,11 @@ from engine.signal_bus import SignalBusReader
 from engine.state_diff import StateDiffEngine
 from engine.symbol_mapper import SymbolMapper
 from engine.ticket_mapper import TicketMapper
-from engine.terminal_pool import TerminalPool, pool_plan_fingerprint
+from engine.terminal_pool import (
+    TerminalPool,
+    pool_plan_fingerprint,
+    routable_accounts,
+)
 from engine.terminal_session_manager import get_terminal_manager, normalize_terminal_path
 
 logger = structlog.get_logger()
@@ -159,10 +163,11 @@ class CopierEngine:
     def _rebuild_terminal_pool(self, master_id: str) -> None:
         """Build or refresh the subprocess pool of terminals this worker drives.
 
-        Every enabled MT5 account with a terminal path gets routed, not just the
-        followers of the active master. Copy dispatch only ever submits to
+        Followers of the active master, plus every other enabled MT5 account
+        whose terminal hosts no follower. Copy dispatch only ever submits to
         followers, so that set is unchanged for orders -- the widening is for
-        reads. The live feed sweeps every account, and doing that through the
+        reads, and it stops short of any path a copy runs on. See
+        routable_accounts for why reads are not allowed to demote a copy path. The live feed sweeps every account, and doing that through the
         main process meant one shutdown+initialize per broker per sweep, each
         with a settling window, contending with the copy loop for the single
         attach the main process is allowed. Routed here instead, accounts on
@@ -172,13 +177,24 @@ class CopierEngine:
         The master stays out deliberately: the main process holds its attach for
         the copy loop, and a second process on that same terminal would fight it.
         """
-        pool_accounts: dict[str, str] = {}
+        copier_list = dedupe_copiers_by_follower(
+            get_copiers_for_master(self.copiers, master_id)
+        )
+        follower_ids = {c.follower_id for c in copier_list}
+
+        candidates: dict[str, str] = {}
+        copy_paths: dict[str, str] = {}
         for account in self.accounts:
             if account.id == master_id or not account.enabled:
                 continue
             if not is_mt5(account.platform) or not account.terminal_path:
                 continue
-            pool_accounts[account.id] = normalize_terminal_path(account.terminal_path)
+            path = normalize_terminal_path(account.terminal_path)
+            candidates[account.id] = path
+            if account.id in follower_ids:
+                copy_paths[account.id] = path
+
+        pool_accounts = routable_accounts(candidates, copy_paths)
 
         fingerprint = pool_plan_fingerprint(pool_accounts)
         if fingerprint == self._pool_fingerprint:
