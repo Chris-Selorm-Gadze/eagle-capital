@@ -8,7 +8,7 @@ import { StatTile } from '../../../shared/ui/StatTile'
 export function PlaybookStats({ trades }: { trades: Trade[] }) {
   if (trades.length === 0) {
     return (
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+      <p className="text-muted-foreground text-xs">
         Link examples to logged trades to see performance stats for this playbook.
       </p>
     )
@@ -24,7 +24,7 @@ export function PlaybookStats({ trades }: { trades: Trade[] }) {
   const avgDuration = avgTradeDurationMinutes(trades)
 
   return (
-    <div className="kpi-row">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <StatTile label="Win rate" value={`${Math.round(win * 100)}%`} />
       <StatTile label="Trades" value={String(trades.length)} />
       <StatTile label="Profit factor" value={pf === Infinity ? '∞' : pf.toFixed(2)} />

@@ -1,180 +1,25 @@
-.title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.6rem;
-}
+/* What's left after the conversion to shadcn Card + Table: the scroll boxes.
+ *
+ * Everything else — the filter row, the badges, the pager, the card shell — is
+ * components now. */
 
-/* Filters, shown only on the full Trade Log (the dashboard tile has none). */
-.filters {
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 0.6rem 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.filterField {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.filterLabel {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.filterField input,
-.filterField select {
-  font-size: 0.82rem;
-  padding: 0.32rem 0.5rem;
-  max-width: 12rem;
-}
-
-.clearFilters {
-  font-size: 0.78rem;
-  padding: 0.35rem 0.6rem;
-  color: var(--text-secondary);
-}
-
-/* The table's own scroller. Without it the Edit/Delete column was simply cut
-   off below ~700px — the row was unreachable rather than merely cramped. */
+/* Five columns of dates, symbols and money won't compress below ~34rem without
+   the digits colliding, so the table scrolls inside its own card rather than
+   pushing the page sideways. */
 .scroller {
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
-/* The full Trade Log also bounds its own height, so a page of rows can't push
-   the controls above it off-screen. The dashboard tile is already short. */
-.scrollerTall {
-  overflow: auto;
-  max-height: 30rem;
-  overscroll-behavior: contain;
-  border-top: 1px solid var(--border);
-}
-
-/* A sticky header needs an opaque ground of its own — the card's background
-   scrolls with the rows. `border-collapse: collapse` drops a sticky cell's
-   border, hence the inset shadow. */
-.scrollerTall .headerRow th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--surface);
-  box-shadow: inset 0 -1px 0 var(--border);
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-  /* Stops the date column wrapping to three lines before the table decides to
-     scroll. */
+.scroller table {
   min-width: 34rem;
 }
 
-.headerRow {
-  text-align: left;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--border);
-}
-
-.cell {
-  padding: 0.55rem 0.5rem;
-}
-
-.numCell {
-  text-align: right;
-}
-
-.row {
-  border-bottom: 1px solid var(--border);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-.row:hover {
-  background: var(--surface-2);
-}
-.row:last-child {
-  border-bottom: none;
-}
-
-.symbol {
-  font-weight: 600;
-}
-
-.sideBadge {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: capitalize;
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
-}
-.sideLong {
-  background: rgba(12, 163, 12, 0.15);
-  color: var(--good);
-}
-.sideShort {
-  background: rgba(208, 59, 59, 0.15);
-  color: var(--critical);
-}
-
-.pnl {
-  font-weight: 600;
-}
-
-.actionsCell {
-  white-space: nowrap;
-  text-align: right;
-}
-
-.deleteButton {
-  margin-left: 0.4rem;
-}
-
-.emptyRow {
-  padding: 0.75rem 0.3rem;
-  color: var(--text-muted);
-}
-
-/* Row count and pager, full Trade Log only. */
-.pager {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.pagerCount {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.pagerControls {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.pagerControls button {
-  font-size: 0.78rem;
-  padding: 0.3rem 0.6rem;
-}
-
-.pagerPosition {
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  padding: 0 0.35rem;
-  font-variant-numeric: tabular-nums;
+/* The full Trade Log also scrolls VERTICALLY inside its own box. Without this
+   a few hundred trades ran for tens of thousands of pixels and carried the
+   filters and the "Delete all" button off the top of the screen. The tile
+   version on the dashboard is bounded by `limit` instead and never gets this. */
+.scrollerTall {
+  max-height: calc(100svh - 22rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }

@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { latencySummary, type ExecutionEvent, type ExecutionStatus, type TradingAccount } from '../../../db/copier'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import styles from './ExecutionLog.module.css'
+
+/* The filter row and pager converted onto shadcn controls — the outcome tabs
+ * already carried `aria-pressed`, which is more than most of this app's
+ * hand-rolled chip groups did, so they keep their behaviour and gain the button
+ * styling everything else now uses. */
 
 /* The copy log — what the worker actually did, and how fast.
  *
@@ -229,42 +240,55 @@ export function ExecutionLog({ events, accounts }: { events: ExecutionEvent[]; a
       <div className={styles.filters}>
         <div className={styles.outcomeTabs} role="group" aria-label="Filter by outcome">
           {OUTCOME_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
+            <Button
               aria-pressed={outcome === t.key}
-              className={`${styles.outcomeTab} ${outcome === t.key ? styles.outcomeTabActive : ''}`}
+              key={t.key}
               onClick={() => { setOutcome(t.key); setPage(0) }}
+              size="xs"
+              type="button"
+              variant={outcome === t.key ? 'secondary' : 'ghost'}
             >
               {t.label}
-            </button>
+            </Button>
           ))}
         </div>
 
         {followerOptions.length > 1 && (
-          <label className={styles.filterField}>
-            <span className={styles.filterLabel}>Follower</span>
-            <select value={followerId} onChange={(e) => { setFollowerId(e.target.value); setPage(0) }}>
-              <option value="all">All followers</option>
-              {followerOptions.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
-          </label>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-muted-foreground text-xs" htmlFor="log-follower">Follower</Label>
+            <Select
+              onValueChange={(v) => { setFollowerId(v); setPage(0) }}
+              value={followerId}
+            >
+              <SelectTrigger className="h-8 w-44" id="log-follower" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All followers</SelectItem>
+                {followerOptions.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
 
-        <label className={styles.filterField}>
-          <span className={styles.filterLabel}>Symbol</span>
-          <input
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-muted-foreground text-xs" htmlFor="log-symbol">Symbol</Label>
+          <Input
+            className="h-8 w-32"
+            id="log-symbol"
+            onChange={(e) => { setSymbolQuery(e.target.value); setPage(0) }}
+            placeholder="e.g. XAUUSD"
             type="search"
             value={symbolQuery}
-            placeholder="e.g. XAUUSD"
-            onChange={(e) => { setSymbolQuery(e.target.value); setPage(0) }}
           />
-        </label>
+        </div>
 
         {filtersActive && (
-          <button type="button" className={`btn-ghost ${styles.clearFilters}`} onClick={resetFilters}>
+          <Button onClick={resetFilters} size="sm" type="button" variant="ghost">
             Clear filters
-          </button>
+          </Button>
         )}
       </div>
 
@@ -345,12 +369,12 @@ export function ExecutionLog({ events, accounts }: { events: ExecutionEvent[]; a
               {filtersActive && ` matching (${events.length} loaded)`}
             </span>
             {pageCount > 1 && (
-              <div className={styles.pagerControls}>
-                <button type="button" onClick={() => setPage(0)} disabled={safePage === 0}>First</button>
-                <button type="button" onClick={() => setPage(safePage - 1)} disabled={safePage === 0}>Previous</button>
-                <span className={styles.pagerPosition}>Page {safePage + 1} of {pageCount}</span>
-                <button type="button" onClick={() => setPage(safePage + 1)} disabled={safePage >= pageCount - 1}>Next</button>
-                <button type="button" onClick={() => setPage(pageCount - 1)} disabled={safePage >= pageCount - 1}>Last</button>
+              <div className="flex items-center gap-1">
+                <Button disabled={safePage === 0} onClick={() => setPage(0)} size="xs" type="button" variant="outline">First</Button>
+                <Button disabled={safePage === 0} onClick={() => setPage(safePage - 1)} size="xs" type="button" variant="outline">Previous</Button>
+                <span className="px-2 text-muted-foreground text-xs tabular-nums">Page {safePage + 1} of {pageCount}</span>
+                <Button disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)} size="xs" type="button" variant="outline">Next</Button>
+                <Button disabled={safePage >= pageCount - 1} onClick={() => setPage(pageCount - 1)} size="xs" type="button" variant="outline">Last</Button>
               </div>
             )}
           </div>

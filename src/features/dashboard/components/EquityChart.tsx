@@ -25,7 +25,10 @@ import { cumulativeSeries, type DailyPnl } from '@/utils/tradeAggregates'
  * The chart arrives with the page it belongs to, as one movement. */
 
 const chartConfig = {
-	cumulative: { label: 'Cumulative P&L', color: 'var(--accent)' },
+	// --chart-1 rather than --data-accent: both are the same blue, but the other
+	// charts in this grid key off the chart ramp, and one series should not be the
+	// only thing reading from a different token.
+	cumulative: { label: 'Cumulative P&L', color: 'var(--chart-1)' },
 } satisfies ChartConfig
 
 export function EquityChart({ daily }: { daily: DailyPnl[] }) {
@@ -33,7 +36,7 @@ export function EquityChart({ daily }: { daily: DailyPnl[] }) {
 	const last = data.at(-1)?.cumulative ?? 0
 
 	return (
-		<DashboardCard className="md:col-span-2">
+		<DashboardCard className="md:col-span-2 lg:col-span-4">
 			<CardHeader>
 				<CardTitle>Cumulative P&amp;L</CardTitle>
 				<CardDescription>

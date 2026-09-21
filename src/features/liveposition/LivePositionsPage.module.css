@@ -1,224 +1,42 @@
-/* A screen that is watched, not read. Dense rows, monospaced figures, and a
- * flash where a number moves — everything else stays still so the movement is
- * the only thing the eye has to catch. */
+/* What's left of this page's stylesheet after the conversion to shadcn Card +
+ * Table: the two things Tailwind utilities can't express.
+ *
+ * Everything else — the account cards, the position grid, the summary strip,
+ * the status colours — is now components and tokens. */
 
-.hint {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  margin: 0 0 1rem;
-  max-width: 62ch;
-}
-
-.error {
-  background: color-mix(in srgb, var(--danger, #d64545) 10%, transparent);
-  border-left: 2px solid var(--danger, #d64545);
-  border-radius: 3px;
-  color: var(--danger, #d64545);
-  font-size: 0.8125rem;
-  margin-bottom: 1rem;
-  padding: 0.6rem 0.75rem;
-}
-
-/* ── Summary bar ─────────────────────────────────────────────────────────── */
-
-.summaryRow {
-  align-items: baseline;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 2rem;
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-}
-
-.summaryItem {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.summaryLabel {
-  color: var(--text-muted);
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.summaryValue {
-  font-size: 1.25rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.streamState {
-  align-items: center;
-  color: var(--text-muted);
-  display: flex;
-  font-size: 0.6875rem;
-  gap: 0.4rem;
-  letter-spacing: 0.04em;
-  margin-left: auto;
-  text-transform: uppercase;
-}
-
-.streamDot {
-  background: var(--text-muted);
-  border-radius: 50%;
-  height: 7px;
-  width: 7px;
-}
-
-.streamLive { background: #12a150; }
-
-/* ── Account panels ──────────────────────────────────────────────────────── */
-
-.accountGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.accountCard {
-  overflow: hidden;
-  padding: 0;
-}
-
-.accountHeader {
-  align-items: baseline;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  padding: 0.6rem 0.9rem;
-}
-
-.accountLabel {
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.accountBroker {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
-.accountBalances {
-  align-items: baseline;
-  display: flex;
-  gap: 1rem;
-  margin-left: auto;
-}
-
-.accountBalances span {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
-.accountBalances strong {
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.stale { color: #c77700; }
-.offline { color: var(--danger, #d64545); }
-
-.empty {
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-  margin: 0;
-  padding: 0.75rem 0.9rem;
-}
-
-/* ── Position rows ───────────────────────────────────────────────────────── */
-
-.positionList {
+/* The price table is seven columns of numbers and will not compress below about
+ * 34rem without the digits colliding. It scrolls inside its own card rather
+ * than pushing the page sideways. */
+.tableScroll {
   overflow-x: auto;
 }
 
-.positionRow {
-  align-items: center;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-  display: grid;
-  font-size: 0.8125rem;
-  font-variant-numeric: tabular-nums;
-  gap: 0.75rem;
-  grid-template-columns:
-    minmax(5.5rem, 1.2fr) 3.2rem 3.6rem
-    minmax(5rem, 1fr) minmax(5rem, 1fr) 4rem minmax(5.5rem, 1fr);
+.tableScroll table {
   min-width: 34rem;
-  padding: 0.4rem 0.9rem;
 }
-
-.positionRow:last-child { border-bottom: none; }
-
-.positionHeaderRow {
-  background: color-mix(in srgb, var(--border) 22%, transparent);
-  color: var(--text-muted);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.positionSymbol { font-weight: 600; }
-
-.num { text-align: right; }
-
-.sideLong,
-.sideShort {
-  border-radius: 3px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 0.1rem 0.3rem;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-.sideLong {
-  background: color-mix(in srgb, #12a150 16%, transparent);
-  color: #0d7a3d;
-}
-
-.sideShort {
-  background: color-mix(in srgb, #d64545 16%, transparent);
-  color: #b03434;
-}
-
-.pnlGood { color: #0d7a3d; font-weight: 600; }
-.pnlBad { color: #b03434; font-weight: 600; }
-.pnlNeutral { color: var(--text-secondary); }
 
 /* The flash. Short, and only on the cell that moved — a whole row lighting up
- * reads as "something happened here" rather than "this number changed". */
+   on every tick is noise, and this page can tick several times a second.
+
+   The colour is mixed from the same --good / --critical the P&L figures use, so
+   the flash and the number it is flashing agree, and both follow the theme. */
 .tickUp { animation: flashUp 520ms ease-out; }
 .tickDown { animation: flashDown 520ms ease-out; }
 
 @keyframes flashUp {
-  0% { background: color-mix(in srgb, #12a150 38%, transparent); }
+  0% { background: color-mix(in srgb, var(--good) 38%, transparent); }
   100% { background: transparent; }
 }
 
 @keyframes flashDown {
-  0% { background: color-mix(in srgb, #d64545 38%, transparent); }
+  0% { background: color-mix(in srgb, var(--critical) 38%, transparent); }
   100% { background: transparent; }
 }
 
+/* theme.css already honours prefers-reduced-motion globally, but that rule
+   shortens durations rather than removing them — a 0.001ms colour flash still
+   paints one frame. These are removed outright. */
 @media (prefers-reduced-motion: reduce) {
   .tickUp,
   .tickDown { animation: none; }
-}
-
-@media (max-width: 640px) {
-  .summaryRow { gap: 0.75rem 1.5rem; }
-  .streamState { margin-left: 0; width: 100%; }
-}
-
-/* A currency's figures read as one unit, so they sit closer to each other than
-   to the next currency's. */
-.summaryGroup {
-  display: flex;
-  gap: 1.25rem;
 }

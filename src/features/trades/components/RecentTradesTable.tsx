@@ -1,5 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Trade } from '../../../db/schema'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { cn } from 'cn'
 import styles from './RecentTradesTable.module.css'
 
 /* One table, two jobs.
@@ -10,7 +36,10 @@ import styles from './RecentTradesTable.module.css'
  * pixels, the "Delete all" button and the account filter scrolled out of reach
  * above it, and finding one trade meant scrolling past all the others. So the
  * unbounded version pages, filters, and scrolls inside its own box; the limited
- * one is untouched. */
+ * one is untouched.
+ *
+ * Converted onto shadcn Card + Table + Select + Input. Because both callers
+ * share it, this also brings the dashboard's tile along. */
 
 const PAGE_SIZE = 25
 
@@ -81,108 +110,174 @@ export function RecentTradesTable({
   const filtersActive = query.trim() !== '' || side !== 'all' || outcome !== 'all'
 
   return (
-    <div className="card">
-      <div className={styles.title}>{title}</div>
+    <Card className="gap-0 py-0">
+      <CardHeader className="border-b py-3">
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
 
       {isLog && sorted.length > 0 && (
-        <div className={styles.filters}>
-          <label className={styles.filterField}>
-            <span className={styles.filterLabel}>Symbol</span>
-            <input
+        <div className="flex flex-wrap items-end gap-3 border-b px-4 py-3">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-muted-foreground text-xs" htmlFor="tradelog-symbol">
+              Symbol
+            </Label>
+            <Input
+              className="h-8 w-32"
+              id="tradelog-symbol"
+              onChange={(e) => { setQuery(e.target.value); setPage(0) }}
+              placeholder="e.g. NQ"
               type="search"
               value={query}
-              placeholder="e.g. NQ"
-              onChange={(e) => { setQuery(e.target.value); setPage(0) }}
             />
-          </label>
-          <label className={styles.filterField}>
-            <span className={styles.filterLabel}>Side</span>
-            <select value={side} onChange={(e) => { setSide(e.target.value as SideFilter); setPage(0) }}>
-              <option value="all">Both</option>
-              <option value="long">Long</option>
-              <option value="short">Short</option>
-            </select>
-          </label>
-          <label className={styles.filterField}>
-            <span className={styles.filterLabel}>Outcome</span>
-            <select value={outcome} onChange={(e) => { setOutcome(e.target.value as OutcomeFilter); setPage(0) }}>
-              <option value="all">All</option>
-              <option value="wins">Wins</option>
-              <option value="losses">Losses</option>
-            </select>
-          </label>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-muted-foreground text-xs" htmlFor="tradelog-side">Side</Label>
+            <Select
+              onValueChange={(v) => { setSide(v as SideFilter); setPage(0) }}
+              value={side}
+            >
+              <SelectTrigger className="h-8 w-28" id="tradelog-side" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Both</SelectItem>
+                <SelectItem value="long">Long</SelectItem>
+                <SelectItem value="short">Short</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-muted-foreground text-xs" htmlFor="tradelog-outcome">
+              Outcome
+            </Label>
+            <Select
+              onValueChange={(v) => { setOutcome(v as OutcomeFilter); setPage(0) }}
+              value={outcome}
+            >
+              <SelectTrigger className="h-8 w-28" id="tradelog-outcome" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="wins">Wins</SelectItem>
+                <SelectItem value="losses">Losses</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {filtersActive && (
-            <button
-              type="button"
-              className={`btn-ghost ${styles.clearFilters}`}
+            <Button
               onClick={() => { setQuery(''); setSide('all'); setOutcome('all'); setPage(0) }}
+              size="sm"
+              variant="ghost"
             >
               Clear filters
-            </button>
+            </Button>
           )}
         </div>
       )}
 
-      <div className={`${styles.scroller} ${isLog ? styles.scrollerTall : ''}`}>
-        <table className={styles.table}>
-          <thead>
-            <tr className={styles.headerRow}>
-              <th className={styles.cell}>Date</th>
-              <th className={styles.cell}>Symbol</th>
-              <th className={styles.cell}>Side</th>
-              <th className={`${styles.cell} ${styles.numCell}`}>Qty</th>
-              <th className={`${styles.cell} ${styles.numCell}`}>Net P&amp;L</th>
-              {showActions && <th className={styles.cell} />}
-            </tr>
-          </thead>
-          <tbody>
+      <CardContent className={cn('px-0', styles.scroller, isLog && styles.scrollerTall)}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Symbol</TableHead>
+              <TableHead>Side</TableHead>
+              <TableHead className="text-right">Qty</TableHead>
+              <TableHead className="text-right">Net P&amp;L</TableHead>
+              {showActions && <TableHead className="w-0" />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.length === 0 && (
-              <tr>
-                <td colSpan={showActions ? 6 : 5} className={styles.emptyRow}>
+              <TableRow>
+                <TableCell
+                  className="py-8 text-center text-muted-foreground"
+                  colSpan={showActions ? 6 : 5}
+                >
                   {filtersActive ? 'No trades match these filters.' : 'No trades yet.'}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
             {rows.map((t) => (
-              <tr key={t.id} className={styles.row}>
-                <td className={styles.cell}>{t.date}</td>
-                <td className={`${styles.cell} ${styles.symbol}`}>{t.symbol}</td>
-                <td className={styles.cell}>
-                  <span className={`${styles.sideBadge} ${t.side === 'long' ? styles.sideLong : styles.sideShort}`}>{t.side}</span>
-                </td>
-                <td className={`${styles.cell} ${styles.numCell}`}>{t.qty}</td>
-                <td className={`${styles.cell} ${styles.numCell} ${styles.pnl}`} style={{ color: t.pnl >= 0 ? 'var(--good)' : 'var(--critical)' }}>
+              <TableRow key={t.id}>
+                <TableCell className="text-muted-foreground tabular-nums">{t.date}</TableCell>
+                <TableCell className="font-medium">{t.symbol}</TableCell>
+                <TableCell>
+                  <Badge className="uppercase" variant="outline">{t.side}</Badge>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{t.qty}</TableCell>
+                <TableCell
+                  className="text-right font-semibold tabular-nums"
+                  style={{ color: t.pnl >= 0 ? 'var(--good-deep)' : 'var(--critical-deep)' }}
+                >
                   {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toLocaleString()}
-                </td>
+                </TableCell>
                 {showActions && (
-                  <td className={`${styles.cell} ${styles.actionsCell}`}>
-                    {onEdit && <button onClick={() => onEdit(t)}>Edit</button>}
-                    {onDelete && <button onClick={() => onDelete(t.id!)} className={onEdit ? styles.deleteButton : undefined}>Delete</button>}
-                  </td>
+                  <TableCell className="text-right whitespace-nowrap">
+                    {onEdit && (
+                      <Button onClick={() => onEdit(t)} size="xs" variant="ghost">Edit</Button>
+                    )}
+                    {onDelete && (
+                      <Button
+                        // Destructive variant rather than a plain button with a
+                        // red class: the row's Delete and the header's "Delete
+                        // all" now read as the same kind of action.
+                        onClick={() => onDelete(t.id!)}
+                        size="xs"
+                        variant="destructive"
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </TableCell>
                 )}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </CardContent>
 
       {isLog && filtered.length > 0 && (
-        <div className={styles.pager}>
-          <span className={styles.pagerCount}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3">
+          <span className="text-muted-foreground text-xs tabular-nums">
             {safePage * PAGE_SIZE + 1}–{safePage * PAGE_SIZE + rows.length} of {filtered.length}
             {filtersActive && ` matching (${sorted.length} total)`}
           </span>
           {pageCount > 1 && (
-            <div className={styles.pagerControls}>
-              <button type="button" onClick={() => setPage(0)} disabled={safePage === 0}>First</button>
-              <button type="button" onClick={() => setPage(safePage - 1)} disabled={safePage === 0}>Previous</button>
-              <span className={styles.pagerPosition}>Page {safePage + 1} of {pageCount}</span>
-              <button type="button" onClick={() => setPage(safePage + 1)} disabled={safePage >= pageCount - 1}>Next</button>
-              <button type="button" onClick={() => setPage(pageCount - 1)} disabled={safePage >= pageCount - 1}>Last</button>
+            <div className="flex items-center gap-1">
+              <Button disabled={safePage === 0} onClick={() => setPage(0)} size="xs" variant="outline">
+                First
+              </Button>
+              <Button disabled={safePage === 0} onClick={() => setPage(safePage - 1)} size="xs" variant="outline">
+                Previous
+              </Button>
+              <span className="px-2 text-muted-foreground text-xs tabular-nums">
+                Page {safePage + 1} of {pageCount}
+              </span>
+              <Button
+                disabled={safePage >= pageCount - 1}
+                onClick={() => setPage(safePage + 1)}
+                size="xs"
+                variant="outline"
+              >
+                Next
+              </Button>
+              <Button
+                disabled={safePage >= pageCount - 1}
+                onClick={() => setPage(pageCount - 1)}
+                size="xs"
+                variant="outline"
+              >
+                Last
+              </Button>
             </div>
           )}
         </div>
       )}
-    </div>
+    </Card>
   )
 }

@@ -1,90 +1,142 @@
 import { useEffect, useState } from 'react'
-import { activate } from '../../shared/ui/activate'
 import type { ReportCard, ReportCardGrade, Trade } from '../../types'
 import { listReportCards } from '../../db/reportCards'
-import styles from './CompletedReportCardsPage.module.css'
+import { errorMessage } from '../../utils/errors'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { EmptyState, ErrorNotice, LoadingRows } from '@/shared/ui/page'
+import { ChevronRightIcon, ClockIcon } from 'lucide-react'
 
-const GRADE_CLASS: Record<ReportCardGrade, string> = {
-  A: styles.gradeA,
-  B: styles.gradeB,
-  C: styles.gradeC,
-  R: styles.gradeR,
-}
+/* Converted onto shadcn Card + Badge.
+ *
+ * Also picks up a failure path it never had: `listReportCards()` was called with
+ * no `.catch`, so a failed fetch left `loading` true forever and the tab sat on
+ * "Loading…" with no explanation. */
 
-const ROW_ACCENT_CLASS: Record<ReportCardGrade, string> = {
-  A: styles.rowA,
-  B: styles.rowB,
-  C: styles.rowC,
-  R: styles.rowR,
+const GRADE_TONE: Record<ReportCardGrade, string> = {
+  A: 'var(--good)',
+  B: 'var(--warning)',
+  C: 'var(--serious)',
+  R: 'var(--critical)',
 }
 
 function dayOfWeekFor(date: string): string {
   return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long' })
 }
 
-export function CompletedReportCardsPage({ trades, onOpen }: { trades: Trade[]; onOpen: (card: ReportCard) => void }) {
+export function CompletedReportCardsPage({
+  trades,
+  onOpen,
+}: {
+  trades: Trade[]
+  onOpen: (card: ReportCard) => void
+}) {
   const [cards, setCards] = useState<ReportCard[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  function load() {
+    setLoading(true)
+    setError(null)
+    listReportCards()
+      .then(setCards)
+      .catch((err) => setError(errorMessage(err)))
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
-    listReportCards().then((c) => {
-      setCards(c)
-      setLoading(false)
-    })
+    load()
   }, [])
 
   const tradeById = new Map(trades.map((t) => [t.id, t]))
 
-  if (loading) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  if (loading) return <LoadingRows rows={4} />
+  if (error) return <ErrorNotice message={error} onRetry={load} />
 
   if (cards.length === 0) {
     return (
-      <p style={{ color: 'var(--text-muted)' }}>
-        No completed report cards yet — save one from the Daily Report Card tab to start tracking your progress.
-      </p>
+      <EmptyState
+        description="Fill one in on the Daily Report Card tab and save it — they collect here so you can read back how a month went."
+        icon={<ClockIcon />}
+        title="No report cards filed yet"
+      />
     )
   }
 
   return (
-    <div>
-      <div className={styles.count}>{cards.length} completed report card{cards.length === 1 ? '' : 's'}</div>
-      <div className={styles.list}>
-        {cards.map((c) => {
-          const linked = (c.tradeIds ?? []).map((id) => tradeById.get(id)).filter((t): t is Trade => !!t)
-          return (
-            <div
-              key={c.id}
-              className={`${styles.row} ${c.grade ? ROW_ACCENT_CLASS[c.grade] : ''}`}
-              {...activate(() => onOpen(c))}
-              aria-label={`Open report card for ${c.date}`}
-            >
-              <div className={styles.rowBody}>
-                <div className={styles.rowMain}>
-                  <span className={styles.date}>{c.date}</span>
-                  <span className={styles.dow}>{c.dayOfWeek ?? dayOfWeekFor(c.date)}</span>
-                  {c.grade && <span className={`${styles.gradeBadge} ${GRADE_CLASS[c.grade]}`}>{c.grade}</span>}
-                </div>
-                <div className={styles.rowMeta}>
-                  {c.instrument && <span>{c.instrument}</span>}
-                  {c.session && <span>{c.session}</span>}
-                  {c.tradesTaken != null && <span>{c.tradesTaken} trade{c.tradesTaken === 1 ? '' : 's'}</span>}
-                  {c.netPnl && <span>Net {c.netPnl}</span>}
-                </div>
-                {linked.length > 0 && (
-                  <div className={styles.rowTrades}>
-                    {linked.map((t) => (
-                      <span key={t.id} className={styles.tradeChip}>
-                        {t.symbol} · {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toLocaleString()}
-                      </span>
-                    ))}
+    <div className="flex flex-col gap-3">
+      <p className="text-muted-foreground text-xs">
+        {cards.length} completed report card{cards.length === 1 ? '' : 's'}
+      </p>
+
+      <Card className="gap-0 py-0">
+        <CardContent className="px-0">
+          {cards.map((c) => {
+            const linked = (c.tradeIds ?? []).map((id) => tradeById.get(id)).filter((t): t is Trade => !!t)
+            const tone = c.grade ? GRADE_TONE[c.grade] : undefined
+            return (
+              /* One button per row rather than a div driven by the `activate`
+                 helper: the whole row opens the card, so the row should BE the
+                 control, with the grade rail drawn on it. */
+              <button
+                className="flex w-full items-center gap-3 border-b px-4 py-3 text-left last:border-b-0 hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                key={c.id}
+                onClick={() => onOpen(c)}
+                style={tone ? { boxShadow: `inset 3px 0 0 ${tone}` } : undefined}
+                type="button"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <span className="font-medium text-sm tabular-nums">{c.date}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {c.dayOfWeek ?? dayOfWeekFor(c.date)}
+                    </span>
+                    {c.grade && (
+                      <Badge
+                        style={{
+                          background: `color-mix(in srgb, ${tone} 15%, transparent)`,
+                          color: tone,
+                        }}
+                        variant="secondary"
+                      >
+                        {c.grade}
+                      </Badge>
+                    )}
                   </div>
-                )}
-              </div>
-              <span className={styles.chevron}>›</span>
-            </div>
-          )
-        })}
-      </div>
+
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
+                    {c.instrument && <span>{c.instrument}</span>}
+                    {c.session && <span>{c.session}</span>}
+                    {c.tradesTaken != null && (
+                      <span>{c.tradesTaken} trade{c.tradesTaken === 1 ? '' : 's'}</span>
+                    )}
+                    {c.netPnl && <span>Net {c.netPnl}</span>}
+                  </div>
+
+                  {linked.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {linked.map((t) => (
+                        <Badge className="font-normal" key={t.id} variant="outline">
+                          {t.symbol} ·{' '}
+                          <span
+                            className="tabular-nums"
+                            style={{
+                              color: t.pnl >= 0 ? 'var(--good-deep)' : 'var(--critical-deep)',
+                            }}
+                          >
+                            {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toLocaleString()}
+                          </span>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+              </button>
+            )
+          })}
+        </CardContent>
+      </Card>
     </div>
   )
 }

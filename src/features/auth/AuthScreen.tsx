@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import { useAuth } from './AuthContext'
 import { supabaseConfigured } from '../../lib/supabaseClient'
 import { setupNotice } from '../../shared/setupNotice'
@@ -76,6 +77,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     document.title = copy.meta
@@ -86,6 +88,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
   useEffect(() => {
     setError(null)
     setSuccess(null)
+    setShowPassword(false)
   }, [mode])
 
   async function submit(e: FormEvent) {
@@ -186,17 +189,40 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
                           </Link>
                         )}
                       </div>
-                      <input
-                        id="auth-password"
-                        className={styles.input}
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder={mode === 'signin' ? '••••••••' : 'At least 8 characters'}
-                        autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                        minLength={mode === 'signin' ? undefined : 8}
-                        required
-                      />
+                      {/* The reveal toggle sits inside the field, the way the
+                          auth blocks put an action in a trailing addon. It
+                          matters most on sign-up and reset, where the rule is
+                          "at least 8 characters" and the only feedback on a
+                          typo is a failed submit. */}
+                      <div className={styles.inputWrap}>
+                        <input
+                          id="auth-password"
+                          className={`${styles.input} ${styles.inputWithAction}`}
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder={mode === 'signin' ? '••••••••' : 'At least 8 characters'}
+                          autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                          minLength={mode === 'signin' ? undefined : 8}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className={styles.revealBtn}
+                          onClick={() => setShowPassword((v) => !v)}
+                          // The control's own name changes with its state, so a
+                          // screen reader announces what pressing it will do.
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          aria-pressed={showPassword}
+                          // Skipped in the tab order: it sits between the
+                          // password field and the submit button, and stopping
+                          // there on the way to signing in costs every keyboard
+                          // user a keystroke on every visit.
+                          tabIndex={-1}
+                        >
+                          {showPassword ? <EyeOffIcon size={17} /> : <EyeIcon size={17} />}
+                        </button>
+                      </div>
                     </div>
                   )}
 

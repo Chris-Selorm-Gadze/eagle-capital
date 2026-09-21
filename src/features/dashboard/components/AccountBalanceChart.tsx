@@ -1,75 +1,123 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import type { LedgerPoint } from '../../../utils/ledger'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
 import {
-  AXIS_LINE_STYLE, TOOLTIP_CONTENT_STYLE, TOOLTIP_LABEL_STYLE, TOOLTIP_ITEM_STYLE,
-  COLOR_ACCENT, COLOR_CRITICAL, COLOR_GRIDLINE,
-} from '../../../utils/chartTheme'
-import styles from './AccountBalanceChart.module.css'
-import { formatDate } from '../../../components/formater'
+	CardAction,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from '@/components/ui/card'
+import {
+	type ChartConfig,
+	ChartContainer,
+	ChartLegend,
+	ChartLegendContent,
+	ChartTooltip,
+	ChartTooltipContent,
+} from '@/components/ui/chart'
+import { DashboardCard } from '@/components/dashboard-card'
+import { formatDate } from '@/components/formater'
+import type { LedgerPoint } from '@/utils/ledger'
+import { ChartTooltipRow } from './ChartTooltipRow'
 
-const TICK_STYLE = { fontSize: 10, fill: 'var(--text-muted)' }
+/* Converted off bare Recharts onto the same ChartContainer the equity and daily
+ * P&L charts use.
+ *
+ * It previously rendered inside `.card` (theme.css) with its own
+ * `ResponsiveContainer`, its own `<Tooltip>` styled from chartTheme.ts, and a
+ * hand-built legend of coloured dots — sitting one flex row below two charts
+ * using the shadcn card, the shadcn tooltip and no legend at all. Same screen,
+ * two designs.
+ *
+ * Nothing about the data changed: the line is still drawn from utils/ledger.ts,
+ * and the figure in the corner is still the same ledger summed over whatever the
+ * account filter selects, so the number and the end of the curve agree. */
 
-export function AccountBalanceChart({ data, currentBalance }: { data: LedgerPoint[]; currentBalance: number }) {
-  return (
-    <div className={`card ${styles.root}`}>
-      <div className={styles.headerRow}>
-        <div className={styles.title}>
-          Account balance
-          <button
-            aria-label="Starting allocation + everything you've logged, minus what you've withdrawn. Deposits / Withdrawals tracks cumulative payouts received."
-            className="info-icon"
-            data-tooltip="Starting allocation + everything you've logged − what you've withdrawn. Deposits / Withdrawals tracks cumulative payouts received."
-            type="button"
-          >
-            i
-          </button>
-        </div>
-        {/* The same ledger the line is drawn from, summed across whatever the
-            top-bar account filter currently selects — so this figure and the
-            end of the curve are always the same number. */}
-        <div className={styles.currentValue}>${currentBalance.toLocaleString()}</div>
-      </div>
-      <div className={styles.legend}>
-        <span className={styles.legendItem}>
-          <span className={`${styles.dot} ${styles.dotBalance}`} />
-          Account Balance
-        </span>
-        <span className={styles.legendItem}>
-          <span className={`${styles.dot} ${styles.dotWithdrawals}`} />
-          Deposits / Withdrawals
-        </span>
-      </div>
-      <div className={styles.chartArea}>
-        <ResponsiveContainer width="100%" height="100%">
-          {/* left margin clears the widest Y tick ("$200,000"), which was being
-              cut off at the plot edge. */}
-          <LineChart data={data} margin={{ top: 5, right: 10, left: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={COLOR_GRIDLINE} />
-            {/* Same "Jun 1" formatting the dashboard's other two charts use —
-                this one was printing raw ISO dates (2026-06-15) beside them. */}
-            <XAxis
-              dataKey="date"
-              tick={TICK_STYLE}
-              tickFormatter={(v) => formatDate(String(v), 'day-month')}
-              axisLine={AXIS_LINE_STYLE}
-              tickLine={AXIS_LINE_STYLE}
-            />
-            <YAxis
-              tick={TICK_STYLE} axisLine={AXIS_LINE_STYLE} tickLine={AXIS_LINE_STYLE}
-              tickFormatter={(v) => `$${v.toLocaleString()}`} width={68}
-            />
-            <Tooltip
-              formatter={(v) => `$${Number(v).toLocaleString()}`}
-              labelFormatter={(v) => formatDate(String(v), 'full')}
-              contentStyle={TOOLTIP_CONTENT_STYLE}
-              labelStyle={TOOLTIP_LABEL_STYLE}
-              itemStyle={TOOLTIP_ITEM_STYLE}
-            />
-            <Line type="monotone" dataKey="balance" name="Account Balance" stroke={COLOR_ACCENT} strokeWidth={2} dot={false} isAnimationActive={false} />
-            <Line type="monotone" dataKey="withdrawals" name="Deposits / Withdrawals" stroke={COLOR_CRITICAL} strokeWidth={2} dot={false} isAnimationActive={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  )
+const chartConfig = {
+	balance: { label: 'Account balance', color: 'var(--chart-1)' },
+	withdrawals: { label: 'Deposits / withdrawals', color: 'var(--chart-5)' },
+} satisfies ChartConfig
+
+function money(value: number): string {
+	return `${value < 0 ? '-' : ''}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+}
+
+export function AccountBalanceChart({
+	data,
+	currentBalance,
+}: {
+	data: LedgerPoint[]
+	currentBalance: number
+}) {
+	return (
+		<DashboardCard className="md:col-span-2">
+			<CardHeader>
+				<CardTitle>Account balance</CardTitle>
+				<CardDescription>
+					Starting allocation plus everything logged, less what's been withdrawn.
+				</CardDescription>
+				{/* Was an `.info-icon` with a CSS-only `data-tooltip`, which existed
+				    because the legacy pages had no tooltip primitive. The explanation is
+				    short enough to simply say, so it's the card description now — no
+				    hover required, and it reads on a touch screen. */}
+				<CardAction className="font-semibold text-lg tabular-nums">
+					{money(currentBalance)}
+				</CardAction>
+			</CardHeader>
+			<CardContent>
+				<ChartContainer className="h-56 w-full" config={chartConfig}>
+					<LineChart data={data} margin={{ left: 4, right: 4, top: 4 }}>
+						<CartesianGrid strokeDasharray="3 3" vertical={false} />
+						<XAxis
+							axisLine={false}
+							dataKey="date"
+							minTickGap={28}
+							tickFormatter={(v) => formatDate(String(v), 'day-month')}
+							tickLine={false}
+						/>
+						<YAxis
+							axisLine={false}
+							tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+							tickLine={false}
+							width={62}
+						/>
+						<ChartTooltip
+							content={
+								<ChartTooltipContent
+									formatter={(value, name, item) => (
+										<ChartTooltipRow
+											color={item?.color}
+											label={
+												chartConfig[name as keyof typeof chartConfig]?.label ?? name
+											}
+											value={money(Number(value))}
+										/>
+									)}
+									labelFormatter={(v) => formatDate(String(v), 'full')}
+								/>
+							}
+						/>
+						{/* Replaces the hand-built dot legend. Two series on one axis need
+						    one, and this is the same legend every other chart would get. */}
+						<ChartLegend content={<ChartLegendContent />} />
+						<Line
+							dataKey="balance"
+							dot={false}
+							isAnimationActive={false}
+							stroke="var(--color-balance)"
+							strokeWidth={2}
+							type="monotone"
+						/>
+						<Line
+							dataKey="withdrawals"
+							dot={false}
+							isAnimationActive={false}
+							stroke="var(--color-withdrawals)"
+							strokeWidth={2}
+							type="monotone"
+						/>
+					</LineChart>
+				</ChartContainer>
+			</CardContent>
+		</DashboardCard>
+	)
 }

@@ -59,7 +59,7 @@
 }
 
 .kindOption:hover {
-  border-color: var(--accent);
+  border-color: var(--data-accent);
   background: var(--surface-3);
 }
 

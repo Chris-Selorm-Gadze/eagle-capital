@@ -1,13 +1,20 @@
 import * as React from "react"
 import { cn } from "cn"
 
-function Card({
-  className,
-  size = "default",
-  ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+// forwardRef, unlike the upstream shadcn source — the same React 18 problem
+// button.tsx documents. shadcn targets React 19, where `ref` is an ordinary prop
+// on a function component; on React 18 it is stripped out of props instead, so a
+// `ref` handed to a plain `Card` silently lands nowhere and the caller's
+// `ref.current` stays null forever. The dashboard's calendar takes a ref on its
+// card to snapshot the month to a PNG, and without this the camera button reads
+// `null`, returns early, and does nothing at all — with no error.
+const Card = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<"div"> & { size?: "default" | "sm" }
+>(function Card({ className, size = "default", ...props }, ref) {
   return (
     <div
+      ref={ref}
       data-slot="card"
       data-size={size}
       className={cn(
@@ -17,7 +24,7 @@ function Card({
       {...props}
     />
   )
-}
+})
 
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (

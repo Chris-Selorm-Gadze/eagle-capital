@@ -5,6 +5,14 @@ import { errorMessage } from '../../utils/errors'
 import { RecentTradesTable } from './components/RecentTradesTable'
 import { AddTradeDialog } from './components/AddTradeDialog'
 import { useConfirm } from '../../shared/ui/confirm'
+import { Button } from '@/components/ui/button'
+import { EmptyState, ErrorNotice, PageHeader } from '@/shared/ui/page'
+import { TableIcon } from 'lucide-react'
+
+/* The Trade Log had no page heading at all — it opened straight onto a bare
+ * "Delete all" button above a table, so the most destructive control on the page
+ * was the first thing on it. The header names the page and gives that button
+ * somewhere to belong. */
 
 export function TradeLogPage({
   trades,
@@ -73,24 +81,41 @@ export function TradeLogPage({
   }
 
   return (
-    <div>
-      {visible.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
-          <button type="button" className="btn-ghost" onClick={handleDeleteAll} disabled={deleting}>
-            {deleting ? 'Deleting…' : `Delete all ${visible.length}`}
-          </button>
-        </div>
-      )}
-
-      {error && <div style={{ color: 'var(--critical)', marginBottom: '1rem' }}>{error}</div>}
-
-      <RecentTradesTable
-        trades={trades}
-        title={`All trades (${trades.length})`}
-        onEdit={(t) => setEditingTrade(t)}
-        onDelete={handleDelete}
-        onVisibleChange={setVisible}
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        actions={
+          visible.length > 0 ? (
+            <Button
+              disabled={deleting}
+              onClick={handleDeleteAll}
+              size="sm"
+              variant="destructive"
+            >
+              {deleting ? 'Deleting…' : `Delete all ${visible.length}`}
+            </Button>
+          ) : undefined
+        }
+        description="Every trade on record. Filter it down, correct a row, or remove what shouldn't be here."
+        title="Trade Log"
       />
+
+      {error && <ErrorNotice message={error} />}
+
+      {trades.length === 0 ? (
+        <EmptyState
+          description="Log one by hand or import a CSV from your broker, and it'll show up here."
+          icon={<TableIcon />}
+          title="No trades on record"
+        />
+      ) : (
+        <RecentTradesTable
+          trades={trades}
+          title={`All trades (${trades.length})`}
+          onEdit={(t) => setEditingTrade(t)}
+          onDelete={handleDelete}
+          onVisibleChange={setVisible}
+        />
+      )}
       {editingTrade && (
         <AddTradeDialog
           accounts={accounts}

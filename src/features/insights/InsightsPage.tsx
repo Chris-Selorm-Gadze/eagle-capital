@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { activate } from '../../shared/ui/activate'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
-  faCircleExclamation, faStar, faLightbulb, faTrash,
-  faTriangleExclamation, faCircleCheck, faArrowRight, type IconDefinition,
-} from '@fortawesome/free-solid-svg-icons'
+  ArrowRightIcon, CircleCheckIcon, LightbulbIcon, SparklesIcon,
+  Trash2Icon, TriangleAlertIcon,
+} from 'lucide-react'
 import type { Account, Trade } from '../../types'
 import { listReportCards } from '../../db/reportCards'
 import { listPlaybooks } from '../../db/playbooks'
@@ -16,9 +14,24 @@ import { buildInsightsPayload, rangeForPreset, type InsightsRangePreset } from '
 import { detectTradePatterns } from '../../utils/tradePatterns'
 import { errorMessage } from '../../utils/errors'
 import { todayISO } from '../../db/sessions'
-import styles from './InsightsPage.module.css'
 import { useConfirm } from '../../shared/ui/confirm'
-import { LoadError } from '../../shared/ui/LoadError'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { EmptyState, ErrorNotice, LoadingRows, PageHeader } from '@/shared/ui/page'
+import { cn } from 'cn'
+import styles from './InsightsPage.module.css'
+
+/* Converted onto shadcn Card + Tabs + Button, and off FontAwesome onto lucide —
+ * this page was the heaviest FontAwesome user in the app, and the only reason
+ * the library was in the Insights chunk at all.
+ *
+ * Two hand-rolled tab strips (the finding categories, the range chips) become
+ * Radix Tabs and a real toggle group, so both carry keyboard navigation and
+ * pressed state that assistive tech can read. Their `.rangeChipActive` and
+ * `.findingTabActive` classes were among those theme.css's element floor was
+ * overriding, so every chip in each group rendered identically. */
 
 const RANGE_OPTIONS: { preset: InsightsRangePreset; label: string }[] = [
   { preset: 'last_30', label: '30 days' },
@@ -27,27 +40,40 @@ const RANGE_OPTIONS: { preset: InsightsRangePreset; label: string }[] = [
   { preset: 'all_time', label: 'All-time' },
 ]
 
-const KIND_ICON: Record<'bad' | 'good' | 'action', IconDefinition> = {
-  bad: faTriangleExclamation, good: faCircleCheck, action: faArrowRight,
-}
+const KIND = {
+  bad: { Icon: TriangleAlertIcon, tone: 'var(--critical)' },
+  good: { Icon: CircleCheckIcon, tone: 'var(--good)' },
+  action: { Icon: ArrowRightIcon, tone: 'var(--data-accent)' },
+} as const
 
-function FindingList({ items, kind }: { items: AiInsight['response']['painPoints']; kind: 'bad' | 'good' | 'action' }) {
-  const iconClass = kind === 'bad' ? styles.findingIconBad : kind === 'good' ? styles.findingIconGood : styles.findingIconAction
+function FindingList({
+  items,
+  kind,
+}: {
+  items: AiInsight['response']['painPoints']
+  kind: keyof typeof KIND
+}) {
+  const { Icon, tone } = KIND[kind]
   return (
-    <div className={styles.findingList}>
+    <div className="flex flex-col gap-3">
       {items.map((f, i) => (
-        <div key={i} className={styles.finding}>
-          <span className={`${styles.findingIcon} ${iconClass}`}>
-            <FontAwesomeIcon icon={KIND_ICON[kind]} />
+        <div className="flex gap-3" key={i}>
+          <span
+            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full [&_svg]:size-3.5"
+            style={{ background: `color-mix(in srgb, ${tone} 15%, transparent)`, color: tone }}
+          >
+            <Icon />
           </span>
-          <div className={styles.findingBody}>
-            <div className={styles.findingTitle}>{f.title}</div>
-            <div className={styles.findingDesc}>{f.description}</div>
+          <div className="min-w-0">
+            <div className="font-medium text-sm">{f.title}</div>
+            <div className="mt-0.5 text-muted-foreground text-sm">{f.description}</div>
             {/* Collapsed by default — the title+description is the actual insight; evidence is
                 there to back it up if asked, not something that needs to be read every time. */}
-            <details className={styles.evidenceDetails}>
-              <summary>Evidence</summary>
-              <p className={styles.findingEvidence}>{f.evidence}</p>
+            <details className={styles.evidence}>
+              <summary className="cursor-pointer text-muted-foreground text-xs hover:text-foreground">
+                Evidence
+              </summary>
+              <p className="mt-1.5 border-l-2 pl-2.5 text-muted-foreground text-xs">{f.evidence}</p>
             </details>
           </div>
         </div>
@@ -58,7 +84,7 @@ function FindingList({ items, kind }: { items: AiInsight['response']['painPoints
 
 type FindingKind = 'painPoints' | 'strengths' | 'recommendations'
 
-const FINDING_TABS: { key: FindingKind; label: string; kind: 'bad' | 'good' | 'action' }[] = [
+const FINDING_TABS: { key: FindingKind; label: string; kind: keyof typeof KIND }[] = [
   { key: 'painPoints', label: 'Pain Points', kind: 'bad' },
   { key: 'strengths', label: 'Strengths', kind: 'good' },
   { key: 'recommendations', label: 'Recommendations', kind: 'action' },
@@ -75,31 +101,33 @@ function InsightResultView({ insight }: { insight: AiInsight }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [insight.id])
 
-  const active = FINDING_TABS.find((t) => t.key === activeTab)
-
   return (
-    <div>
-      <div className={styles.summaryCard}>{insight.response.summary}</div>
+    <div className="flex flex-col gap-4">
+      <p className="border-l-2 border-l-(--data-accent) bg-muted/40 py-2.5 pr-3 pl-3.5 text-sm">
+        {insight.response.summary}
+      </p>
 
-      {availableTabs.length > 0 && active && (
-        <>
-          <div className={styles.findingTabs}>
+      {availableTabs.length > 0 && (
+        <Tabs onValueChange={(v) => setActiveTab(v as FindingKind)} value={activeTab}>
+          <TabsList>
             {availableTabs.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                className={`${styles.findingTab} ${activeTab === t.key ? styles.findingTabActive : ''}`}
-                onClick={() => setActiveTab(t.key)}
-              >
-                {t.label} <span className={styles.findingTabCount}>{insight.response[t.key].length}</span>
-              </button>
+              <TabsTrigger key={t.key} value={t.key}>
+                {t.label}
+                <Badge className="ml-1.5 px-1 py-0 text-[0.65rem]" variant="secondary">
+                  {insight.response[t.key].length}
+                </Badge>
+              </TabsTrigger>
             ))}
-          </div>
-          <FindingList items={insight.response[active.key]} kind={active.kind} />
-        </>
+          </TabsList>
+          {availableTabs.map((t) => (
+            <TabsContent className="pt-3" key={t.key} value={t.key}>
+              <FindingList items={insight.response[t.key]} kind={t.kind} />
+            </TabsContent>
+          ))}
+        </Tabs>
       )}
 
-      <p className={styles.meta}>
+      <p className="text-muted-foreground text-xs">
         Generated {insight.createdAt ? new Date(insight.createdAt).toLocaleString() : 'just now'} · {insight.model} · based
         on {insight.tradeCount} trade{insight.tradeCount === 1 ? '' : 's'}, {insight.reportCardCount} report card
         {insight.reportCardCount === 1 ? '' : 's'} over {RANGE_OPTIONS.find((r) => r.preset === insight.rangePreset)?.label ?? insight.rangePreset}
@@ -118,44 +146,52 @@ function DetectedPatternsSection({ trades, accounts }: { trades: Trade[]; accoun
   const accountLabel = (accountId: string) => accounts.find((a) => a.id === accountId)?.label ?? 'this account'
 
   return (
-    <div className={styles.group}>
-      <div className={styles.groupTitle}>Detected Patterns{total > 0 ? ` (${total})` : ''}</div>
-      {total === 0 ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          No revenge-trading, overtrading, or size-escalation patterns detected in your logged trades yet.
-        </p>
-      ) : (
-        <div className={styles.compactFindingList}>
-          {patterns.revengeTrades.map((f, i) => (
-            <div key={`revenge-${i}`} className={styles.compactFinding}>
-              <FontAwesomeIcon icon={faTriangleExclamation} className={styles.compactFindingIcon} />
-              <span>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          Detected patterns
+          {total > 0 && <Badge variant="secondary">{total}</Badge>}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {total === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No revenge-trading, overtrading, or size-escalation patterns detected in your logged trades yet.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {patterns.revengeTrades.map((f, i) => (
+              <PatternRow key={`revenge-${i}`}>
                 <strong>Quick re-entry after a loss</strong> — on {accountLabel(f.accountId)}, {f.tradeSymbol} opened just{' '}
                 {f.gapMinutes} min after a ${Math.abs(f.priorLoss).toLocaleString()} loss on {f.priorTradeSymbol}
                 {f.sizeIncreasePct !== null && f.sizeIncreasePct > 0 ? ` (${f.sizeIncreasePct}% bigger than average)` : ''}.
-              </span>
-            </div>
-          ))}
-          {patterns.overtradingDays.map((f, i) => (
-            <div key={`overtrading-${i}`} className={styles.compactFinding}>
-              <FontAwesomeIcon icon={faTriangleExclamation} className={styles.compactFindingIcon} />
-              <span>
+              </PatternRow>
+            ))}
+            {patterns.overtradingDays.map((f, i) => (
+              <PatternRow key={`overtrading-${i}`}>
                 <strong>Unusually busy day</strong> — on {accountLabel(f.accountId)}, {f.date} had {f.tradeCount} trades
                 {' '}({f.ratio}x your {f.averageDailyTradeCount}/day average).
-              </span>
-            </div>
-          ))}
-          {patterns.sizeEscalations.map((f, i) => (
-            <div key={`escalation-${i}`} className={styles.compactFinding}>
-              <FontAwesomeIcon icon={faTriangleExclamation} className={styles.compactFindingIcon} />
-              <span>
+              </PatternRow>
+            ))}
+            {patterns.sizeEscalations.map((f, i) => (
+              <PatternRow key={`escalation-${i}`}>
                 <strong>Size climbing through a losing streak</strong> — on {accountLabel(f.accountId)}, {f.streakLength} losses
                 {' '}in a row on {f.symbol}, size grew from {f.startQty} to {f.endQty} ({f.increasePct}% more).
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+              </PatternRow>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Every detected pattern is a caution, so they all carry the same mark. */
+function PatternRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex gap-2.5 text-sm">
+      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-(--warning)" />
+      <span className="min-w-0">{children}</span>
     </div>
   )
 }
@@ -244,10 +280,10 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
     if (current?.id === id) setCurrent(null)
   }
 
-  if (loading) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+  if (loading) return <LoadingRows rows={4} />
   if (loadError) {
     return (
-      <LoadError
+      <ErrorNotice
         message={loadError}
         onRetry={() => {
           setLoading(true)
@@ -260,88 +296,125 @@ export function InsightsPage({ trades, accounts, userId }: { trades: Trade[]; ac
     )
   }
 
+  const remaining = usedToday === null ? null : Math.max(0, DAILY_LIMIT - usedToday)
+
   return (
-    <div className={styles.root}>
-      <h1 className="page-title" style={{ marginBottom: '0.4rem' }}>AI Insights</h1>
-      <p className={styles.hint}>
-        On-demand coaching digest generated from your own trades, report cards, and playbooks —
-        never automatic. Nothing is analyzed until you click Generate.
-      </p>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        description="On-demand coaching digest generated from your own trades, report cards, and playbooks — never automatic. Nothing is analyzed until you press Generate."
+        title="AI Insights"
+      />
 
-      <div className={`card ${styles.resultCard}`}>
-        <DetectedPatternsSection trades={trades} accounts={accounts} />
-      </div>
+      <DetectedPatternsSection accounts={accounts} trades={trades} />
 
-      <div className={styles.toolbar}>
-        {RANGE_OPTIONS.map((opt) => (
-          <button
-            key={opt.preset}
-            type="button"
-            className={`${styles.rangeChip} ${rangePreset === opt.preset ? styles.rangeChipActive : ''}`}
-            onClick={() => setRangePreset(opt.preset)}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Generate a digest</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {/* A radiogroup, not a row of independent buttons: exactly one range is
+              active, and that is what a screen reader should be told. */}
+          <div aria-label="Date range" className="flex flex-wrap gap-1.5" role="radiogroup">
+            {RANGE_OPTIONS.map((opt) => (
+              <Button
+                aria-checked={rangePreset === opt.preset}
+                key={opt.preset}
+                onClick={() => setRangePreset(opt.preset)}
+                role="radio"
+                size="xs"
+                variant={rangePreset === opt.preset ? 'secondary' : 'outline'}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
 
-      <div className={styles.generateRow}>
-        <button type="button" className="btn-primary" onClick={handleGenerate} disabled={generating || previewTradeCount === 0}>
-          <FontAwesomeIcon icon={faLightbulb} /> {generating ? 'Analyzing…' : 'Generate Insights'}
-        </button>
-        <span className={styles.preview}>
-          {previewTradeCount} trade{previewTradeCount === 1 ? '' : 's'} · {previewCardCount} report card{previewCardCount === 1 ? '' : 's'}
-          {' '}· {range.start} – {range.end}
-          {usedToday !== null && (
-            <> · {Math.max(0, DAILY_LIMIT - usedToday)} of {DAILY_LIMIT} generations left today</>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              disabled={generating || previewTradeCount === 0}
+              onClick={handleGenerate}
+            >
+              <LightbulbIcon />
+              {generating ? 'Analyzing…' : 'Generate insights'}
+            </Button>
+            <span className="text-muted-foreground text-xs">
+              {previewTradeCount} trade{previewTradeCount === 1 ? '' : 's'} · {previewCardCount} report card{previewCardCount === 1 ? '' : 's'}
+              {' '}· {range.start} – {range.end}
+              {remaining !== null && <> · {remaining} of {DAILY_LIMIT} left today</>}
+            </span>
+          </div>
+
+          {previewTradeCount === 0 && (
+            <p className="text-muted-foreground text-xs">
+              No trades in this range — pick a wider one, or log some trades first.
+            </p>
           )}
-        </span>
-        {error && <span className={styles.error}><FontAwesomeIcon icon={faCircleExclamation} /> {error}</span>}
-      </div>
+          {error && <ErrorNotice message={error} />}
+        </CardContent>
+      </Card>
 
       {current && (
-        <div className={`card ${styles.resultCard}`}>
-          <InsightResultView insight={current} />
-        </div>
+        <Card>
+          <CardContent>
+            <InsightResultView insight={current} />
+          </CardContent>
+        </Card>
       )}
 
       {history.length > 0 && (
-        <div className={styles.historySection}>
-          <div className={styles.historyTitle}>Past digests</div>
-          <div className={styles.list}>
+        <Card className="gap-0 py-0">
+          <CardHeader className="border-b py-3">
+            <CardTitle>Past digests</CardTitle>
+          </CardHeader>
+          <CardContent className="px-0">
             {history.map((i) => (
               <div
+                className={cn(
+                  'flex items-start gap-2 border-b px-4 py-3 last:border-b-0',
+                  current?.id === i.id && 'bg-muted/60',
+                )}
                 key={i.id}
-                className={`${styles.row} ${current?.id === i.id ? styles.rowActive : ''}`}
-                {...activate(() => setCurrent(i))}
-                aria-label={`Open digest from ${i.createdAt ? new Date(i.createdAt).toLocaleDateString() : 'earlier'}`}
               >
-                <div className={styles.rowBody}>
-                  <div className={styles.rowMain}>
-                    <span className={styles.rowDate}>{i.createdAt ? new Date(i.createdAt).toLocaleDateString() : ''}</span>
-                    <span className={styles.rowRange}>
+                {/* A real button wrapping the row rather than a div with a click
+                    handler — it was reachable only by the `activate` helper's
+                    synthesised key handling before. */}
+                <button
+                  className="min-w-0 flex-1 rounded text-left focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                  onClick={() => setCurrent(i)}
+                  type="button"
+                >
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="font-medium text-sm tabular-nums">
+                      {i.createdAt ? new Date(i.createdAt).toLocaleDateString() : ''}
+                    </span>
+                    <span className="text-muted-foreground text-xs">
                       {RANGE_OPTIONS.find((r) => r.preset === i.rangePreset)?.label ?? i.rangePreset} · {i.tradeCount} trades
                     </span>
                   </div>
-                  <div className={styles.rowSummary}>{i.response.summary}</div>
-                </div>
-                <button
-                  type="button"
-                  className={styles.deleteBtn}
-                  onClick={(e) => { e.stopPropagation(); handleDelete(i.id!) }}
-                  title="Delete this digest"
-                >
-                  <FontAwesomeIcon icon={faTrash} />
+                  <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
+                    {i.response.summary}
+                  </p>
                 </button>
+                <Button
+                  aria-label="Delete this digest"
+                  onClick={() => handleDelete(i.id!)}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <Trash2Icon />
+                </Button>
               </div>
             ))}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
+
       {history.length === 0 && !current && (
-        <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>
-          <FontAwesomeIcon icon={faStar} /> No digests yet — pick a range above and click Generate Insights.
-        </p>
+        <EmptyState
+          description="Pick a range above and press Generate — it reads your own trades, report cards and playbooks."
+          icon={<SparklesIcon />}
+          title="No digests yet"
+        />
       )}
     </div>
   )

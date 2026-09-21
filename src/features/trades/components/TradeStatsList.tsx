@@ -5,7 +5,9 @@ import {
 } from '../../../utils/tradeStats'
 import { dailyPnlSeries, mostActiveWeekday, mostProfitableWeekday, leastProfitableWeekday } from '../../../utils/tradeAggregates'
 import { formatDuration } from '../../../utils/format'
-import styles from './TradeStatsList.module.css'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+/* Converted onto shadcn Card — the dashboard's last CSS-Module tile. */
 
 interface StatRow {
   label: string
@@ -20,7 +22,7 @@ function fmtMoney(n: number): string {
 /** Color follows the actual sign of the value, not which stat it is —
  * e.g. "least profitable day" can still be net-positive if every day won. */
 function signColor(n: number): string {
-  return n >= 0 ? 'var(--good)' : 'var(--critical)'
+  return n >= 0 ? 'var(--good-deep)' : 'var(--critical-deep)'
 }
 
 export function TradeStatsList({ trades }: { trades: Trade[] }) {
@@ -45,8 +47,8 @@ export function TradeStatsList({ trades }: { trades: Trade[] }) {
     {
       title: 'P&L',
       rows: [
-        { label: 'Avg winning trade', value: fmtMoney(avgWin(trades)), color: 'var(--good)' },
-        { label: 'Avg losing trade', value: fmtMoney(avgLoss(trades)), color: 'var(--critical)' },
+        { label: 'Avg winning trade', value: fmtMoney(avgWin(trades)), color: 'var(--good-deep)' },
+        { label: 'Avg losing trade', value: fmtMoney(avgLoss(trades)), color: 'var(--critical-deep)' },
         {
           label: 'Best trade',
           value: best ? `${fmtMoney(best.pnl)} · ${best.symbol}` : 'N/A',
@@ -81,21 +83,33 @@ export function TradeStatsList({ trades }: { trades: Trade[] }) {
   ]
 
   return (
-    <div className="card">
-      <div className={styles.title}>Trade stats</div>
-      {groups.map((group) => (
-        <div key={group.title} className={styles.group}>
-          <div className={styles.groupTitle}>{group.title}</div>
-          {group.rows.map((row) => (
-            <div key={row.label} className={styles.row}>
-              <span className={styles.label}>{row.label}</span>
-              <span className={styles.value} style={row.color ? { color: row.color } : undefined}>
-                {row.value}
-              </span>
+    <Card className="gap-0 py-0">
+      <CardHeader className="border-b py-3">
+        <CardTitle>Trade stats</CardTitle>
+      </CardHeader>
+      <CardContent className="px-0">
+        {groups.map((group) => (
+          <div className="border-b px-4 py-3 last:border-b-0" key={group.title}>
+            <div className="mb-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+              {group.title}
             </div>
-          ))}
-        </div>
-      ))}
-    </div>
+            {group.rows.map((row) => (
+              <div
+                className="flex items-baseline justify-between gap-3 py-1 text-sm"
+                key={row.label}
+              >
+                <span className="text-muted-foreground">{row.label}</span>
+                <span
+                  className="text-right font-medium tabular-nums"
+                  style={row.color ? { color: row.color } : undefined}
+                >
+                  {row.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   )
 }

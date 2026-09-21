@@ -63,59 +63,6 @@
   background: var(--surface-2);
 }
 
-/* Zero-specificity element rules in theme.css set the button floor, so a plain
-   class is enough to win here — no !important, no compound selector. */
-.outcomeTab {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 0.3rem 0.7rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.outcomeTab:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--surface);
-}
-
-.outcomeTabActive {
-  background: var(--surface);
-  border-color: var(--border);
-  color: var(--text-primary);
-}
-
-.filterField {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.filterLabel {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-/* The label's own control, sized so a symbol search doesn't stretch the bar. */
-.filterField input,
-.filterField select {
-  font-size: 0.82rem;
-  padding: 0.32rem 0.5rem;
-  max-width: 14rem;
-}
-
-.clearFilters {
-  font-size: 0.78rem;
-  padding: 0.35rem 0.6rem;
-  color: var(--text-secondary);
-}
-
 /* The log scrolls inside its own box, in BOTH directions.
    · sideways, because the eight columns are wider than a narrow window and the
      page body must never scroll horizontally;
@@ -189,26 +136,6 @@
   white-space: nowrap;
 }
 
-.toneGood {
-  background: rgba(12, 163, 12, 0.15);
-  color: var(--good);
-}
-
-.toneWarn {
-  background: rgba(214, 154, 42, 0.18);
-  color: var(--warning);
-}
-
-.toneBad {
-  background: rgba(208, 59, 59, 0.15);
-  color: var(--critical);
-}
-
-.toneMuted {
-  background: var(--gridline);
-  color: var(--text-secondary);
-}
-
 /* The broker's note on a row. Its colour comes from the row's status, because
    the same column carries "Request executed" on a success and the reason a copy
    failed on a failure -- and those must not look alike. */
@@ -217,11 +144,6 @@
   font-size: 0.78rem;
   max-width: 32ch;
 }
-
-.msgGood  { color: var(--good); }
-.msgWarn  { color: var(--warning); }
-.msgBad   { color: var(--critical); }
-.msgMuted { color: var(--text-secondary); }
 
 /* Where the milliseconds went. Muted because it is diagnostic detail under the
    number people actually read. */
@@ -246,24 +168,5 @@
 .pagerCount {
   font-size: 0.78rem;
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.pagerControls {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.pagerControls button {
-  font-size: 0.78rem;
-  padding: 0.3rem 0.6rem;
-}
-
-.pagerPosition {
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  padding: 0 0.35rem;
   font-variant-numeric: tabular-nums;
 }

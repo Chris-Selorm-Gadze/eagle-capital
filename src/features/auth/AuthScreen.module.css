@@ -97,6 +97,42 @@
   box-shadow: 0 0 0 3px rgba(138, 106, 40, 0.12);
 }
 
+/* ------------------------------------------------- password reveal toggle */
+
+.inputWrap { position: relative; display: flex; }
+
+/* Right padding clears the button, so a long password scrolls under the label
+   rather than behind the icon. */
+.inputWithAction { padding-right: 2.85rem; }
+
+.revealBtn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--l-text-4);
+  border-radius: 0 0.5rem 0.5rem 0;
+  transition: color 0.2s var(--l-ease);
+}
+
+.revealBtn:hover { color: var(--l-text-2); }
+
+/* It's out of the tab order, so this only shows for a pointer user who has
+   clicked it — but a control with no visible active state at all reads as
+   broken when the icon swaps under the cursor. */
+.revealBtn:focus-visible {
+  outline: 2px solid var(--l-gold-deep);
+  outline-offset: -2px;
+}
+
 .submit { width: 100%; margin-top: 0.4rem; }
 
 /* An error or a confirmation is the one thing on this page the user is waiting

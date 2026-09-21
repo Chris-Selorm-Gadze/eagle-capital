@@ -129,7 +129,23 @@ export function Modal({
     // the close button and in the footer, so it is a pointer shortcut rather
     // than the only way out.
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div className={styles.overlay} onMouseDown={(e) => { if (e.target === e.currentTarget) void requestClose() }}>
+    <div
+      /* `appSurface` here, not on the page.
+       *
+       * The fourteen dialogs built on this Modal are still legacy: bare
+       * `<input>` and `<button>` elements with `.field` layout classes, painted
+       * entirely by theme.css's `.appSurface` element rules. They have no
+       * styling of their own.
+       *
+       * This component renders in place rather than through a portal, so a
+       * dialog opened from a page that has already converted — and therefore
+       * left `.appSurface` behind — would render its form as browser defaults.
+       * Carrying the class on the overlay means a legacy dialog is styled
+       * wherever it is opened from, so pages can convert one at a time without
+       * the dialogs having to keep up. It comes off when the last one does. */
+      className={`appSurface ${styles.overlay}`}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) void requestClose() }}
+    >
       <div
         aria-labelledby={titleId}
         aria-modal="true"
