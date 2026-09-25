@@ -56,10 +56,25 @@ def _check_direct_path() -> bool | None:
 
     from engine.direct_client import DirectDbClient
 
+    missing = []
+    for module in ("psycopg", "psycopg_pool", "cryptography"):
+        try:
+            __import__(module)
+        except Exception as exc:  # ImportError, or psycopg finding no libpq
+            missing.append(f"{module}: {exc}")
+    if missing:
+        print("  FAILED: the database driver does not load in THIS Python:")
+        print(f"    {sys.executable}")
+        for line in missing:
+            print(f"    {line}")
+        print("  Install into the worker's own venv, from the worker folder:")
+        print("    .\\venv\\Scripts\\python.exe -m pip install -r requirements.txt")
+        print("  (a plain `pip install` often lands in a different Python).")
+        return False
+
     direct = DirectDbClient.from_env(os.environ.get("WORKER_USER_ID", ""))
     if direct is None:
-        print("  FAILED: the database driver is not installed.")
-        print("  Run: pip install -r requirements.txt")
+        print("  FAILED: WORKER_USER_ID is not set.")
         return False
     try:
         started = time.perf_counter()
