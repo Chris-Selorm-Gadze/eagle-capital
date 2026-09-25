@@ -9,7 +9,9 @@ reads *Disconnected* until this worker says otherwise. **Test connection** in th
 dashboard writes a row and returns; nothing happens until this picks it up.
 
 Everything is outbound. No port forwarding, no static IP, no inbound firewall
-rule — the worker dials the gateway, never the reverse.
+rule — the worker dials the database (and the gateway as its fallback), never
+the reverse. Commands still arrive instantly: the database pushes them down the
+connection the worker opened.
 
 ---
 
@@ -18,7 +20,12 @@ rule — the worker dials the gateway, never the reverse.
 The copy engine extracted from `delta_engine`, with its FastAPI backend and its
 separate Supabase project dropped. Both were replaced by
 `supabase/functions/copier-gateway` in this repo, which implements the twelve
-`/internal/*` endpoints the worker calls.
+`/internal/*` endpoints the worker calls. Those same calls now also exist as
+`worker_api` database functions (`supabase/migrations-worker-direct.sql`), which
+the worker uses first over one pooled Postgres connection
+(`engine/direct_client.py`), with the gateway as the automatic fallback
+(`engine/api_client.py`). Pushed commands and config changes arrive through
+`engine/control_signals.py`.
 
 It lives here rather than in its own repo because the worker and the gateway are
 one system with one contract. A change to either that breaks the other should be
@@ -33,7 +40,7 @@ machine, or clone this repo there and work in `worker/` — both work.
 
 ```powershell
 .\setup.ps1          # venv + dependencies + .env
-notepad .env         # WORKER_API_KEY and WORKER_USER_ID
+notepad .env         # WORKER_USER_ID, WORKER_DATABASE_URL, ENCRYPTION_KEY, WORKER_API_KEY
 .\show-config.ps1    # confirms the control plane sees you
 ```
 
@@ -180,8 +187,11 @@ bring-up scripts for a YAML-config flow that no longer applies, and
 
 ## Credentials
 
-`ENCRYPTION_KEY` is **not** on this machine and must never be. The gateway
-decrypts broker passwords and hands the worker plaintext over TLS, so the key
-exists in exactly one place.
+`ENCRYPTION_KEY` is on this machine when the direct path reads config: broker
+passwords are stored encrypted, and the worker decrypts them itself
+(`engine/credentials.py`, byte-compatible with the gateway). That is not a new
+exposure — the worker has always received every broker password, because MT5
+needs it to log in — but it does make `.env` exactly as sensitive as the
+passwords. Without the key, config alone is read through the gateway.
 
 `.env` is gitignored. `.env.example` is the tracked template.

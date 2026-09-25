@@ -53,6 +53,8 @@ def reset_state() -> None:
     _last_report = 0.0
     _sweep_thread = None
     _last_balance_report = 0.0
+    with _last_sent_lock:
+        _last_sent.clear()
 
 
 def request_report() -> None:
@@ -161,9 +163,47 @@ def account_payload(
     return payload
 
 
-def report_accounts(payloads: list[dict[str, Any]]) -> int:
-    """Hand snapshots to the gateway. Never raises -- a failed report is a
-    stale page, and must not take down the copy loop that called it."""
+# account id -> (the snapshot last written, when). See _worth_sending.
+_last_sent: dict[str, tuple[str, float]] = {}
+_last_sent_lock = threading.Lock()
+
+
+def keepalive_seconds() -> float:
+    """The longest an unchanged snapshot goes unwritten. Well inside the Live
+    Trading page's 60-second stale mark, so a quiet account never reads stale."""
+    return float(os.environ.get("WORKER_POSITION_KEEPALIVE_SECONDS", "20"))
+
+
+def _fingerprint(payload: dict[str, Any]) -> str:
+    import json
+
+    return json.dumps(payload, sort_keys=True, default=str)
+
+
+def _worth_sending(payload: dict[str, Any], now: float) -> bool:
+    """Whether this snapshot says anything the stored one does not.
+
+    Every write is a row update AND a realtime message to every open page. A
+    flat account read every two seconds wrote the same row thirty times a
+    minute -- the bulk of the realtime quota, for a page that changed nothing.
+    Anything that moved (a price, a P&L, a position opening or closing, the
+    balance) is still written on the next pass; only true repeats wait for the
+    keepalive.
+    """
+    account_id = str(payload.get("trading_account_id") or "")
+    if not account_id:
+        return True
+    with _last_sent_lock:
+        last = _last_sent.get(account_id)
+    if last is None:
+        return True
+    fingerprint, sent_at = last
+    return fingerprint != _fingerprint(payload) or now - sent_at >= keepalive_seconds()
+
+
+def report_accounts(payloads: list[dict[str, Any]], now: Optional[float] = None) -> int:
+    """Hand snapshots to the control plane. Never raises -- a failed report is
+    a stale page, and must not take down the copy loop that called it."""
     if not payloads:
         return 0
 
@@ -173,14 +213,27 @@ def report_accounts(payloads: list[dict[str, Any]]) -> int:
     if not client.enabled or not client.user_id:
         return 0
 
-    try:
-        client.post_open_positions(payloads)
-    except Exception as exc:
-        logger.debug("position_feed_failed", count=len(payloads), error=str(exc))
+    moment = time.time() if now is None else now
+    fresh = [p for p in payloads if _worth_sending(p, moment)]
+    if not fresh:
         return 0
 
-    logger.debug("position_feed_ok", count=len(payloads))
-    return len(payloads)
+    try:
+        client.post_open_positions(fresh)
+    except Exception as exc:
+        logger.debug("position_feed_failed", count=len(fresh), error=str(exc))
+        return 0
+
+    # Recorded only once written: a failed write must be retried next pass,
+    # not treated as already on the page.
+    with _last_sent_lock:
+        for p in fresh:
+            account_id = str(p.get("trading_account_id") or "")
+            if account_id:
+                _last_sent[account_id] = (_fingerprint(p), moment)
+
+    logger.debug("position_feed_ok", count=len(fresh), unchanged=len(payloads) - len(fresh))
+    return len(fresh)
 
 
 def sweep_deadline_seconds() -> float:

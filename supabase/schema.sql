@@ -23,13 +23,9 @@ alter table public.broker_connections enable row level security;
 drop policy if exists "own connections" on public.broker_connections;
 create policy "own connections" on public.broker_connections for all using (auth.uid() = user_id);
 
--- Broker sync: links a connection to a specific prop account and tracks live sync state.
--- account_id is nullable — a connection can exist before being pointed at a specific Account row.
--- unique(account_id) stops two connections fighting over the same account's balance.
-alter table public.broker_connections add column if not exists account_id uuid references public.accounts(id) on delete set null;
-alter table public.broker_connections add column if not exists last_synced_at timestamptz;
-alter table public.broker_connections add column if not exists last_error text;
-create unique index if not exists broker_connections_account_id_key on public.broker_connections(account_id) where account_id is not null;
+-- The broker-sync columns (account_id, last_synced_at, last_error) are added
+-- after public.accounts is created, further down: account_id references it,
+-- and on a fresh database it does not exist yet at this point.
 
 -- Broker login material (Tradovate username/password/API key, etc.) — never exposed to the
 -- anon-key browser client, not even to the row's own owning user. RLS is enabled but
@@ -115,6 +111,14 @@ create table if not exists public.accounts (
   cumulative_paid numeric,
   created_at timestamptz default now()
 );
+
+-- Broker sync (moved below public.accounts, which account_id references): links a connection to a specific prop account and tracks live sync state.
+-- account_id is nullable — a connection can exist before being pointed at a specific Account row.
+-- unique(account_id) stops two connections fighting over the same account's balance.
+alter table public.broker_connections add column if not exists account_id uuid references public.accounts(id) on delete set null;
+alter table public.broker_connections add column if not exists last_synced_at timestamptz;
+alter table public.broker_connections add column if not exists last_error text;
+create unique index if not exists broker_connections_account_id_key on public.broker_connections(account_id) where account_id is not null;
 alter table public.accounts enable row level security;
 drop policy if exists "own accounts" on public.accounts;
 create policy "own accounts" on public.accounts for all using (auth.uid() = user_id);

@@ -199,9 +199,17 @@ def _serve_commands_while_idle(accounts: list[AccountConfig] | None = None) -> N
                     _idle_sessions(enabled),
                     pool=_idle_terminal_pool(enabled),
                 )
+            elif kind == "reload_config":
+                # Answered by looking again, which the idle loop does as soon
+                # as the config signal is up. It must still be completed: left
+                # pending, reloads queued by every link change while idle
+                # filled the 20-row queue read, and a Close queued behind them
+                # was never seen at all.
+                from engine.control_signals import get_signals
+
+                get_signals().raise_config()
+                result = {"success": True, "reloaded": True}
             else:
-                # reload_config is handled by the discovery loop simply by
-                # looking again; the engine completes it once work appears.
                 continue
             client.complete_command(
                 cmd["id"],
@@ -351,24 +359,41 @@ def _idle_wait(seconds: float, accounts: list[AccountConfig]) -> None:
     gateway for commands thirty times a minute for a worker doing nothing --
     the sweep gets its own tighter beat inside the wait.
     """
+    from engine.control_signals import get_signals, safety_poll_seconds
+
+    signals = get_signals()
     step = float(os.environ.get("WORKER_IDLE_SWEEP_STEP_SECONDS", "0.5"))
     # Commands get a beat of their own too: a Close clicked on the Live Trading
-    # page should not wait out the whole fifteen-second idle interval.
-    command_every = float(os.environ.get("WORKER_IDLE_COMMAND_POLL_SECONDS", "3"))
-    next_commands = time.time() + command_every
+    # page should not wait out the whole fifteen-second idle interval. With the
+    # database listener connected they are pushed, and the beat is only a
+    # safety net.
+    fast_every = float(os.environ.get("WORKER_IDLE_COMMAND_POLL_SECONDS", "3"))
+
+    def command_every() -> float:
+        return max(fast_every, safety_poll_seconds()) if signals.healthy() else fast_every
+
+    next_commands = time.time() + command_every()
     end = time.time() + seconds
     while True:
         _feed_positions_while_idle(accounts)
-        if time.time() >= next_commands:
+        if signals.take_commands() or time.time() >= next_commands:
             _serve_commands_while_idle(accounts)
-            next_commands = time.time() + command_every
+            next_commands = time.time() + command_every()
+        # A copy link armed, an account added: go and look now, so arming a
+        # link starts copying at once rather than at the end of the interval.
+        if signals.take_config():
+            from engine.config_loader import invalidate_runtime_cache
+
+            invalidate_runtime_cache()
+            return
         # Its own throttle decides; checking here is what lets a close served
         # just above reach the dashboard in seconds rather than next cycle.
         _journal_while_idle(accounts)
         remaining = end - time.time()
         if remaining <= 0:
             return
-        time.sleep(min(step, remaining))
+        # Wakes early on a signal, so a pushed Close is served at once.
+        signals.wait(min(step, remaining))
 
 
 def _sync_state_while_idle(accounts: list[AccountConfig]) -> None:

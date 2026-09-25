@@ -27,6 +27,7 @@ from engine.balance_sync import should_sync_balances, sync_all_balances
 from engine.position_feed import should_report_positions, sweep_in_background
 from engine.trade_journal import request_trade_sync, should_sync_trades, sync_all_trades
 from engine.command_processor import process_command
+from engine.control_signals import Signals, get_signals, safety_poll_seconds
 from engine.dispatch_coordinator import dispatch_to_followers
 from engine.master_source import MasterPositionSource, build_master_source
 from engine.ownership import is_primary, owned_account_ids
@@ -84,9 +85,15 @@ class CopierEngine:
         self._open_in_flight: set[int] = set()
         self._pool_fingerprint: str | None = None
         self._last_config_reload: float = 0.0
+        # A safety net only. Config changes arrive as a push (control_signals)
+        # the moment they are saved, and as a reload_config command; this
+        # interval covers a missed one. It used to be 5s, which re-downloaded
+        # every account and link 17,000 times a day in case something changed.
         self._config_reload_interval_s = int(
-            os.environ.get("WORKER_CONFIG_RELOAD_SECONDS", "5")
+            os.environ.get("WORKER_CONFIG_RELOAD_SECONDS", "300")
         )
+        # Inert until run() starts the database listener.
+        self._signals: Signals = Signals()
         self._sessions: Dict[str, AccountSession] = {}
         self._terminal_pool = TerminalPool({})
         self._pool_master_id: str | None = None
@@ -250,8 +257,15 @@ class CopierEngine:
     def _maybe_reload_config(self) -> None:
         if os.environ.get("DELTA_CONFIG_SOURCE", "yaml").lower() != "api":
             return
-        now = time.time()
-        if now - self._last_config_reload < self._config_reload_interval_s:
+        if self._signals.take_config():
+            self._force_reload_config()
+            return
+        # Without a live listener nothing pushes changes, so the safety net
+        # tightens to a minute -- the old reaction time, at a fraction of the cost.
+        interval = self._config_reload_interval_s
+        if not self._signals.healthy():
+            interval = min(interval, 60)
+        if time.time() - self._last_config_reload < interval:
             return
         self._force_reload_config()
 
@@ -455,6 +469,7 @@ class CopierEngine:
             self._api_client = get_api_client()
             self._api_client.register_worker()
             self._api_client.start_heartbeat_loop()
+            self._signals = get_signals()
             payload = _runtime_payload()
             self.risk_engine = RiskEngine.from_runtime(payload)
             self._rebuild_ticket_links_from_history()
@@ -651,9 +666,7 @@ class CopierEngine:
         if self._api_client:
             now = time.time()
             poll_session = master_session if is_mt5(master_cfg.platform) else None
-            if poll_session and (
-                now - self._last_command_poll >= self._command_poll_interval_s
-            ):
+            if poll_session and self._commands_due(now):
                 self._last_command_poll = now
                 self._poll_commands(poll_session)
             owned = self._owned_accounts()
@@ -680,6 +693,22 @@ class CopierEngine:
                 )
 
         self._last_poll_at = time.time()
+
+    def _commands_due(self, now: float) -> bool:
+        """Whether to read the command queue on this pass.
+
+        At once when the database says a command landed; otherwise on a safety
+        interval -- slow while the listener is connected, the old fast one while
+        it is not, so a dead listener degrades to polling, never to silence.
+        """
+        if self._signals.take_commands():
+            return True
+        interval = (
+            max(self._command_poll_interval_s, safety_poll_seconds())
+            if self._signals.healthy()
+            else self._command_poll_interval_s
+        )
+        return now - self._last_command_poll >= interval
 
     @staticmethod
     def _master_time_offset(master_session: AccountSession | None) -> int:

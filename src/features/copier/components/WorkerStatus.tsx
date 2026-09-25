@@ -51,6 +51,22 @@ function WorkerRow({ worker, now }: { worker: WorkerNode; now: Date }) {
       <span className="text-muted-foreground text-xs tabular-nums">
         {worker.activeSessions}/{worker.capacity} session{worker.capacity === 1 ? '' : 's'}
       </span>
+      {worker.controlPath && (
+        <span
+          className="text-muted-foreground text-xs"
+          title={
+            worker.controlPath === 'direct'
+              ? 'Connected straight to the database. No Edge Function calls.'
+              : 'The database connection is down or not set up, so the worker is using the copier gateway (one Edge Function call per request).'
+          }
+        >
+          {worker.controlPath === 'direct'
+            ? worker.pushConnected
+              ? 'Direct · instant commands'
+              : 'Direct · polling commands'
+            : 'Via gateway'}
+        </span>
+      )}
       <span className="ml-auto text-muted-foreground text-xs">Heartbeat {ageLabel(age)}</span>
     </div>
   )
