@@ -126,6 +126,12 @@ export interface WorkerNode {
   capacity: number
   activeSessions: number
   lastHeartbeatAt: string | null
+  /** How the worker reaches the database, from its heartbeat: 'direct' is the
+   * pooled Postgres connection, 'gateway' the Edge Function fallback. Null
+   * for a worker too old to say. */
+  controlPath: 'direct' | 'gateway' | null
+  /** Whether commands are pushed to it (true) or it is polling for them. */
+  pushConnected: boolean | null
 }
 
 function num(v: unknown): number | null {
@@ -216,6 +222,11 @@ export function workerFromRow(row: Record<string, any>): WorkerNode {
     capacity: num(row.capacity) ?? 0,
     activeSessions: num(row.active_sessions) ?? 0,
     lastHeartbeatAt: row.last_heartbeat_at ?? null,
+    controlPath:
+      row.metadata?.control === 'direct' || row.metadata?.control === 'gateway'
+        ? row.metadata.control
+        : null,
+    pushConnected: typeof row.metadata?.push === 'boolean' ? row.metadata.push : null,
   }
 }
 

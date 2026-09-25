@@ -128,6 +128,24 @@ create trigger update_tc_users_updated_at before update on public.tc_users
 -- is preserved verbatim below; the tc_users insert is the addition. Both are
 -- ON CONFLICT DO NOTHING so a replayed trigger can never fail a signup.
 
+-- The table that original insert writes. It predates this repo -- live
+-- projects already have it, so this is a no-op there -- but nothing here
+-- created it, so on a fresh database every signup failed inside this trigger.
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  created_at timestamptz default now()
+);
+alter table public.profiles enable row level security;
+do $$
+begin
+  -- Only on a table that has no policy yet: a live project's own are kept.
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'profiles') then
+    create policy "own profile" on public.profiles for select using (auth.uid() = id);
+  end if;
+end
+$$;
+
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin

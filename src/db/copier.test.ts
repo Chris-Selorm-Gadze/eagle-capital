@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildCopierGroups, unlinkedAccounts, workerLiveness, heartbeatAgeSeconds,
   latencySummary, isRelationLive, HEARTBEAT_TTL_SECONDS,
-  hasPendingTest, anyWorkerLive,
+  hasPendingTest, anyWorkerLive, workerFromRow,
   type TradingAccount, type CopierRelation, type ExecutionEvent,
   type PendingCommand, type WorkerNode,
 } from './copier'
@@ -213,6 +213,7 @@ function worker(lastHeartbeatAt: string | null): WorkerNode {
   return {
     id: 'w1', name: 'eagle-win-01', region: 'home', host: 'PC',
     status: 'online', capacity: 5, activeSessions: 0, lastHeartbeatAt,
+    controlPath: null, pushConnected: null,
   }
 }
 
@@ -260,5 +261,26 @@ describe('anyWorkerLive', () => {
 
   it('is true when one of several workers is alive', () => {
     expect(anyWorkerLive([worker(null), worker('2026-01-01T11:59:55Z')], now)).toBe(true)
+  })
+})
+
+describe('workerFromRow connection path', () => {
+  const base = { id: 'w', worker_name: 'eagle', capacity: 5, active_sessions: 1 }
+
+  it('reads the path the worker reports in its heartbeat', () => {
+    const w = workerFromRow({ ...base, metadata: { status: 'running', control: 'direct', push: true } })
+    expect(w.controlPath).toBe('direct')
+    expect(w.pushConnected).toBe(true)
+  })
+
+  it('says nothing for a worker too old to report it', () => {
+    const w = workerFromRow({ ...base, metadata: { status: 'running' } })
+    expect(w.controlPath).toBeNull()
+    expect(w.pushConnected).toBeNull()
+    expect(workerFromRow({ ...base, metadata: null }).controlPath).toBeNull()
+  })
+
+  it('ignores a value it does not know', () => {
+    expect(workerFromRow({ ...base, metadata: { control: 'carrier-pigeon' } }).controlPath).toBeNull()
   })
 })

@@ -344,13 +344,20 @@ def _sync_pooled(accounts: list[AccountConfig], pool: Optional[object]) -> int:
             logger.debug("trade_journal_unreadable", account=account_id,
                          error=(result or {}).get("error") if isinstance(result, dict) else None)
             continue
-        written += _post_result(
-            account_id,
-            labels.get(account_id, ""),
-            result.get("synced_to"),
-            result.get("trades") or [],
-            result.get("complete_tickets") or [],
-        )
+        try:
+            written += _post_result(
+                account_id,
+                labels.get(account_id, ""),
+                result.get("synced_to"),
+                result.get("trades") or [],
+                result.get("complete_tickets") or [],
+            )
+        except Exception as exc:
+            # Per account, like the unrouted loop. Uncaught, one account's
+            # failed write -- a deleted account still in config, a dropped
+            # connection -- ended the batch, and every account after it in
+            # the pass went unjournalled, every pass.
+            logger.warning("trade_journal_post_failed", account=account_id, error=str(exc))
     return written
 
 

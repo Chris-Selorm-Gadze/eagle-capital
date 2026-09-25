@@ -154,6 +154,59 @@ class TestReportAccounts:
         assert position_feed.report_accounts([{"trading_account_id": "a"}]) == 0
 
 
+class TestOnlyChangesAreWritten:
+    """A flat account's snapshot is identical every two seconds; writing it
+    anyway was a row update and a realtime message each time."""
+
+    @pytest.fixture(autouse=True)
+    def client(self, monkeypatch):
+        position_feed.reset_state()
+        self.posted = []
+        self.fail = False
+        test = self
+
+        class Client:
+            enabled = True
+            user_id = "u1"
+
+            def post_open_positions(self, accounts):
+                if test.fail:
+                    raise RuntimeError("down")
+                test.posted.append([a["trading_account_id"] for a in accounts])
+
+        monkeypatch.setattr("engine.api_client.get_api_client", lambda: Client())
+        yield
+        position_feed.reset_state()
+
+    def snap(self, acc="a", profit=1.0):
+        return {"trading_account_id": acc, "positions": [{"ticket": 1, "profit": profit}]}
+
+    def test_a_repeat_is_not_written(self):
+        assert position_feed.report_accounts([self.snap()], now=100.0) == 1
+        assert position_feed.report_accounts([self.snap()], now=102.0) == 0
+        assert self.posted == [["a"]]
+
+    def test_any_change_is_written_on_the_next_pass(self):
+        position_feed.report_accounts([self.snap(profit=1.0)], now=100.0)
+        assert position_feed.report_accounts([self.snap(profit=1.5)], now=102.0) == 1
+
+    def test_only_the_accounts_that_moved_are_sent(self):
+        position_feed.report_accounts([self.snap("a"), self.snap("b")], now=100.0)
+        position_feed.report_accounts([self.snap("a"), self.snap("b", profit=9)], now=102.0)
+        assert self.posted[-1] == ["b"]
+
+    def test_an_unchanged_account_is_still_refreshed_before_it_reads_stale(self):
+        position_feed.report_accounts([self.snap()], now=100.0)
+        assert position_feed.report_accounts([self.snap()], now=119.0) == 0
+        assert position_feed.report_accounts([self.snap()], now=120.5) == 1
+
+    def test_a_failed_write_is_retried_rather_than_assumed(self):
+        self.fail = True
+        assert position_feed.report_accounts([self.snap()], now=100.0) == 0
+        self.fail = False
+        assert position_feed.report_accounts([self.snap()], now=102.0) == 1
+
+
 class FakeFuture:
     def __init__(self, value=None, raises=None, blocks=False):
         self._value = value

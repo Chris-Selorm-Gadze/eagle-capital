@@ -6,3 +6,8 @@ python-dotenv==1.0.1
 structlog==24.4.0
 PyYAML==6.0.2
 httpx>=0.27.0,<0.29.0
+# The direct database path (engine/direct_client.py). Optional at runtime: the
+# worker falls back to the copier-gateway when these are missing.
+psycopg[binary]>=3.2,<4
+psycopg-pool>=3.2,<4
+cryptography>=42

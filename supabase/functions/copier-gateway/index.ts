@@ -17,6 +17,12 @@
 //
 //   API_URL=https://<project>.supabase.co/functions/v1/copier-gateway
 //
+// The worker now calls each of these first as a worker_api database function
+// over its own Postgres connection (supabase/migrations-worker-direct.sql,
+// worker/engine/direct_client.py), with commands pushed by NOTIFY instead of
+// polled. These routes are its fallback while that connection is down -- keep
+// them in step with the functions.
+//
 // The 34 user-facing /api/* endpoints are deliberately NOT ported. With the
 // tables in this project, RLS already scopes every row to auth.uid(), so the
 // browser reads and writes them directly (src/db/copier.ts, copierActions.ts).
@@ -592,10 +598,12 @@ async function completeCommand(commandId: string, body: Record<string, any>): Pr
         connection_status: 'connected',
         last_error: null,
         last_connected_at: nowIso(),
-        balance: result.balance ?? null,
-        equity: result.equity ?? null,
-        currency: result.currency ?? null,
       }
+      // A test that did not read a figure keeps the stored one; writing null
+      // emptied the balance the page shows until the next sweep.
+      if (num(result.balance) !== null) patch.balance = num(result.balance)
+      if (num(result.equity) !== null) patch.equity = num(result.equity)
+      if (result.currency) patch.currency = result.currency
       // The worker assigns terminals; this is where an assignment becomes
       // permanent. It must persist or the account would be reassigned on every
       // restart, resetting its warm session and re-downloading history.
@@ -639,11 +647,25 @@ async function ensureDailySnapshot(
   userId: string, accountId: string,
   equity: number | null, balance: number | null, currency: string | null,
 ): Promise<void> {
+  // Only from a report that carried a figure; a figure missing from the first
+  // report is filled by a later one instead of frozen as null all day. Figures
+  // already set never move -- the opening value is the first one seen. Same
+  // rule as worker_api.update_balances.
+  if (equity === null && balance === null) return
   const snapshotDate = new Date().toISOString().slice(0, 10)
   const { data: existing } = await admin
-    .from('account_equity_snapshots').select('id')
+    .from('account_equity_snapshots').select('id, equity_open, balance_open, currency')
     .eq('trading_account_id', accountId).eq('snapshot_date', snapshotDate).maybeSingle()
-  if (existing) return
+  if (existing) {
+    const fill: Record<string, unknown> = {}
+    if (existing.equity_open === null && equity !== null) fill.equity_open = equity
+    if (existing.balance_open === null && balance !== null) fill.balance_open = balance
+    if (existing.currency === null && currency) fill.currency = currency
+    if (Object.keys(fill).length > 0) {
+      await admin.from('account_equity_snapshots').update(fill).eq('id', existing.id)
+    }
+    return
+  }
   await admin.from('account_equity_snapshots').insert({
     user_id: userId,
     trading_account_id: accountId,
@@ -676,9 +698,9 @@ async function updateBalances(body: Record<string, any>): Promise<Response> {
     await admin.from('trading_accounts').update(update)
       .eq('id', row.trading_account_id).eq('user_id', userId)
 
-    if (row.equity !== undefined || row.balance !== undefined) {
-      await ensureDailySnapshot(userId, row.trading_account_id, row.equity ?? null, row.balance ?? null, row.currency ?? null)
-    }
+    await ensureDailySnapshot(
+      userId, row.trading_account_id, num(row.equity), num(row.balance), row.currency ?? null,
+    )
   }
 
   return json({ status: 'ok', updated: accounts.length })

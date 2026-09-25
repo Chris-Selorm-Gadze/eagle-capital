@@ -401,6 +401,29 @@ class TestSyncPooled:
         trade_journal._sync_pooled([account("bad"), account("good")], pool)
         assert [a for a, _, _ in self.posted] == ["good"]
 
+    def test_one_failed_write_does_not_stop_the_rest(self, monkeypatch):
+        # A deleted account still in config, or a dropped connection, made the
+        # write raise -- and every account after it in the pass went unwritten.
+        posted = self.posted
+
+        class FakeClient:
+            enabled = True
+            user_id = "u1"
+
+            def post_closed_trades(self, account_id, trades, synced_to):
+                if account_id == "gone":
+                    raise RuntimeError("Account not found")
+                posted.append((account_id, trades, synced_to))
+                return {"written": len(trades)}
+
+        monkeypatch.setattr("engine.api_client.get_api_client", lambda: FakeClient())
+        pool = JournalPool(["gone", "good"], {
+            "gone": journal_ok("gone"), "good": journal_ok("good"),
+        })
+        trade_journal._sync_pooled([account("gone"), account("good")], pool)
+        assert [a for a, _, _ in self.posted] == ["good"]
+        assert "gone" not in trade_journal._marks
+
     def test_a_failed_read_is_not_treated_as_an_empty_account(self, monkeypatch):
         self._capture(monkeypatch)
         pool = JournalPool(["a"], {"a": JournalFuture({"ok": False, "error": "no terminal"})})

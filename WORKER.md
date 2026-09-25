@@ -3,23 +3,40 @@
 ```
 EagleCapital (browser)                            Worker (Windows)
         │                                                │
-        │  reads + writes, RLS-scoped                    │  outbound poll only
-        ▼                                                ▼
+        │  reads + writes, RLS-scoped                    │  one outbound Postgres connection
+        ▼                                                ▼  (fallback: copier-gateway over HTTPS)
    ┌─────────────────── Supabase (one project) ───────────────────┐
    │  tables: trading_accounts, copier_relations, …               │
-   │  copier-gateway  ◀── X-Worker-Key ──────────────────────────┐│
+   │  worker_api.* functions  ◀── copier_worker role ────────────┐│
+   │  NOTIFY worker_commands / worker_config  ──── pushed ──────▶││
+   │  copier-gateway (Edge Function)  ◀── X-Worker-Key, fallback ─┘│
    └──────────────────────────────────────────────────────────────┘
                                                          │
                                                   MT5 terminals ──▶ broker
 ```
 
-There is no separate backend service any more. The copier's control plane is the
-`copier-gateway` Edge Function, living in the same Supabase project as the data.
+There is no separate backend service. The worker talks to the database
+directly, over one pooled Postgres connection, as a role that can do nothing
+but call the `worker_api` functions (`supabase/migrations-worker-direct.sql`).
 
-**The worker dials out.** It polls `GET /internal/worker-commands` over HTTPS and
-pushes results back. Nothing is ever pushed *to* it — so the Windows machine
-needs **no port forwarding, no static IP, no inbound firewall rule, and no
-exposure to the internet**. It connects the way a browser does.
+**Commands are pushed, not polled.** Inserting a `worker_commands` row (a Close,
+a flatten, a connection test) fires a Postgres `NOTIFY`, and so does changing a
+copy link, symbol mapping, risk profile or account. The worker `LISTEN`s, so a
+Close clicked in the app reaches it in milliseconds and a config change is
+applied the moment it is saved.
+
+**The worker still only dials out.** The connection is outbound, like a
+browser's — no port forwarding, no static IP, no inbound firewall rule.
+
+**The copier-gateway Edge Function is the fallback.** Every call the worker
+makes has a gateway twin, and the worker switches to it automatically whenever
+the database does not answer, then switches back. The worst case is the old
+behaviour, never a lost command. Keep `API_URL` and `WORKER_API_KEY` set.
+
+**Why not the gateway alone:** it charged one Edge Function invocation per
+call, and polling made that ~110,000 a day per armed master — 3.3M a month
+against the free plan's 500k — with ~100–300 ms per round trip. The direct path
+costs no invocations and ~10–40 ms per call.
 
 ---
 
@@ -38,8 +55,9 @@ service existed. The worker only ever calls **twelve** endpoints, all under
 other 34 were the old dashboard's, and the browser does that work directly now
 because RLS already scopes every row.
 
-`copier-gateway` is a faithful port of exactly those twelve. **The worker needs
-no code changes** — only `API_URL` pointed at it.
+`copier-gateway` is a faithful port of exactly those twelve. Each now also has a
+twin database function in `worker_api`, which the worker calls first; the
+gateway remains its fallback (see the top of this file).
 
 ---
 
@@ -87,7 +105,39 @@ supabase functions deploy copier-gateway --no-verify-jwt
 `--no-verify-jwt` is required: the worker authenticates with `X-Worker-Key`, not
 a user JWT. Every `/internal` route checks that key itself.
 
-### 4. Verify
+### 4. The direct database path
+
+Run `supabase/migrations-worker-direct.sql` in the SQL editor, then give its
+role a password (deliberately not in the file):
+
+```sql
+alter role copier_worker with password '<long random string>';
+```
+
+The role has **no table privileges**. Everything it can do is a `worker_api`
+function scoped to one user id, and the browser's roles cannot call any of
+them.
+
+On the worker, in `worker/.env`:
+
+```ini
+# Supabase → Connect → Session pooler; user copier_worker.<project-ref>
+WORKER_DATABASE_URL=postgresql://copier_worker.onbirijlwcxykdgxxsvy:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
+# Same value as the Supabase secret. Lets the worker decrypt broker passwords
+# itself, so config is read directly too. Without it, only config uses the gateway.
+ENCRYPTION_KEY=<64 hex characters>
+```
+
+Use the **Session** pooler (port 5432). Transaction mode (6543) cannot carry
+`LISTEN`, so commands would fall back to polling. The direct `db.<ref>` host
+works too, if the Windows network has IPv6.
+
+`worker\show-config.ps1` checks this path on its own — connection, decryption,
+and the push channel — rather than letting the gateway fallback hide a mistake.
+Once running, the Trade Copier page's worker row reads **Direct · instant
+commands**.
+
+### 5. Verify
 
 ```bash
 export SUPABASE_URL=https://onbirijlwcxykdgxxsvy.supabase.co
@@ -101,7 +151,7 @@ This exercises all twelve endpoints in the shapes the worker sends them. Do this
 before starting the worker — a wiring mistake is much easier to read here than
 halfway through a live copy.
 
-### 5. The Windows machine
+### 6. The Windows machine
 
 **Prerequisites:** Windows 10+, Python 3.9–3.12, one MT5 install **per account**
 (see below), "Allow algorithmic trading" enabled in each terminal.
@@ -183,7 +233,8 @@ placing real orders, so it must never be a prerequisite for testing a login.
    `migrations-manual-close.sql` (lets the Live Trading page's **Close**
    buttons queue a `close_position` command — without it the insert is refused).
    Also run `migrations-ledger-opening.sql` (adds `accounts.opening_balance_at`,
-   so broker-created accounts stop double-counting their backfilled trades).
+   so broker-created accounts stop double-counting their backfilled trades),
+   and `migrations-worker-direct.sql` (the worker's direct path — step 4 above).
 2. Set the two secrets.
 3. Run `scripts/verify-copier-gateway.sh` — all green.
 4. `worker\setup.ps1` on the Windows box, fill in `.env`, then
@@ -213,24 +264,27 @@ different meanings.
 | View accounts, links, risk, copy log | Direct Supabase read (RLS) |
 | Create / arm / disarm / delete a copy link | Direct Supabase write (RLS) |
 | Unlock a risk profile, set limits | Direct Supabase write (RLS) |
-| Flatten a book, test a connection | `worker_commands` row → worker polls it |
+| Close, flatten, test a connection | `worker_commands` row → `NOTIFY` → worker |
 | **Connect an account** | **Gateway** — needs `ENCRYPTION_KEY` |
-| Everything the worker does | **Gateway** `/internal/*` — needs `WORKER_API_KEY` |
+| Everything the worker does | `worker_api.*` over its Postgres connection; **gateway** `/internal/*` as the fallback |
 
 So the page keeps working — reads and link management included — even if the
-gateway is entirely broken. Only credential entry and the worker itself depend
-on it.
+gateway is entirely broken. Only credential entry depends on it, and the worker
+only while its database connection is down.
 
 ---
 
 ## Known gaps
 
-- **Broker passwords reach the worker in plaintext.** `runtime-config` returns
-  `login`, `password` and `server` as plain strings. TLS-protected and gated
-  behind the worker key, but one leaked key exposes every broker credential it
-  can see. Inherent to MT5 — the terminal needs the password to log in — not an
-  artifact of this design. Fine while the only account is yours; not fine for
-  customers.
+- **The worker can read every broker password.** On the direct path it holds
+  `ENCRYPTION_KEY` and decrypts them; through the gateway it receives them as
+  plaintext over TLS. Either way the Windows machine, its `.env` and its
+  `copier_worker` password are as sensitive as the passwords themselves.
+  Inherent to MT5 — the terminal needs the password to log in — not an artifact
+  of this design. Fine while the only account is yours; not fine for customers.
+- **The `copier_worker` role is scoped per call, not per user.** Its functions
+  take the user id as an argument, the same trust `X-Worker-Key` carries. One
+  role per customer is the step before multi-tenancy.
 - **The orchestrator does not assign work.** `worker_sessions` rows exist and the
   gateway writes them, but the worker does not consume them. One worker, one
   user.

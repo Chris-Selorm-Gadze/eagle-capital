@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -19,8 +20,11 @@ from engine.config_loader import load_accounts, load_copiers, get_config_source
 
 
 REQUIRED = ("API_URL", "WORKER_API_KEY", "WORKER_USER_ID")
-OPTIONAL = ("DELTA_CONFIG_SOURCE", "WORKER_NAME", "WORKER_REGION", "WORKER_CAPACITY")
-SECRET = ("WORKER_API_KEY",)
+OPTIONAL = (
+    "WORKER_DATABASE_URL", "ENCRYPTION_KEY",
+    "DELTA_CONFIG_SOURCE", "WORKER_NAME", "WORKER_REGION", "WORKER_CAPACITY",
+)
+SECRET = ("WORKER_API_KEY", "WORKER_DATABASE_URL", "ENCRYPTION_KEY")
 
 
 def _show(name: str) -> str:
@@ -33,6 +37,67 @@ def _show(name: str) -> str:
     if name in SECRET:
         return f"set, {len(raw)} chars, ends ...{raw[-4:]}" if len(raw) > 4 else "set (very short)"
     return raw
+
+
+def _check_direct_path() -> bool | None:
+    """Exercise the direct database path, and its push channel, on their own.
+
+    ControlApiClient quietly falls back to the gateway when the database does
+    not answer -- right for a running copier, wrong for a setup check, where
+    "it works" must mean the path you configured works. None when the direct
+    path is not configured at all.
+    """
+    dsn = os.environ.get("WORKER_DATABASE_URL", "").strip()
+    print("\nDirect database path:")
+    if not dsn:
+        print("  not configured (WORKER_DATABASE_URL) -- every call goes through the")
+        print("  gateway, which costs one Edge Function invocation each.")
+        return None
+
+    from engine.direct_client import DirectDbClient
+
+    direct = DirectDbClient.from_env(os.environ.get("WORKER_USER_ID", ""))
+    if direct is None:
+        print("  FAILED: the database driver is not installed.")
+        print("  Run: pip install -r requirements.txt")
+        return False
+    try:
+        started = time.perf_counter()
+        me = direct.whoami()
+        took = (time.perf_counter() - started) * 1000
+        print(f"  connected as copier_worker, {len(me.get('accounts') or [])} accounts, {took:.0f} ms")
+        if direct.can_decrypt:
+            direct.fetch_runtime_config()
+            print("  ENCRYPTION_KEY decrypts the stored passwords -- config is read directly")
+        else:
+            print("  ENCRYPTION_KEY not set -- config is still read through the gateway")
+    except Exception as exc:
+        first = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+        if "No enabled trading accounts" in first:
+            print("  config: nothing to run yet (no account in a link or journalled)")
+        else:
+            print(f"  FAILED: {first}")
+            print("  Check: migrations-worker-direct.sql was run, the role has a password")
+            print("  (alter role copier_worker with password '...'), and the URL uses the")
+            print("  Session pooler (port 5432) with user copier_worker.<project-ref>.")
+            direct.close()
+            return False
+
+    from engine.control_signals import ListenerSignals
+
+    listener = ListenerSignals(dsn, os.environ.get("WORKER_USER_ID", "")).start()
+    deadline = time.time() + 10
+    while not listener.healthy() and time.time() < deadline:
+        time.sleep(0.1)
+    listening = listener.healthy()
+    listener.stop()
+    direct.close()
+    if listening:
+        print("  push channel: listening -- commands and config changes arrive instantly")
+        return True
+    print("  FAILED: could not LISTEN for commands. The pooler must be in Session")
+    print("  mode (port 5432); Transaction mode (6543) cannot carry notifications.")
+    return False
 
 
 def main() -> int:
@@ -66,6 +131,9 @@ def main() -> int:
 
     if source != "api":
         print("\nSet DELTA_CONFIG_SOURCE=api in .env to use dashboard copiers.")
+        return 1
+
+    if _check_direct_path() is False:
         return 1
 
     # Identity first. runtime-config answers 404 both when nothing is armed AND
