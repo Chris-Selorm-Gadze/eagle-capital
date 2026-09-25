@@ -27,7 +27,7 @@ import type { RiskMode } from './copier'
  * the worker does not read yet, so offering those as buttons would be theatre.
  * `test_connection` is the real equivalent — it makes the worker log in and
  * report back what it found. */
-export type WorkerCommandType = 'flatten' | 'test_connection' | 'reload_config'
+export type WorkerCommandType = 'flatten' | 'test_connection' | 'reload_config' | 'close_position'
 
 async function currentUserId(): Promise<string> {
   const { data } = await supabase.auth.getUser()
@@ -36,16 +36,70 @@ async function currentUserId(): Promise<string> {
   return id
 }
 
-async function queueCommand(accountId: string, commandType: WorkerCommandType): Promise<void> {
+async function queueCommand(
+  accountId: string,
+  commandType: WorkerCommandType,
+  payload: Record<string, unknown> = {},
+): Promise<string> {
   const userId = await currentUserId()
-  const { error } = await supabase.from('worker_commands').insert({
+  const { data, error } = await supabase.from('worker_commands').insert({
     user_id: userId,
     trading_account_id: accountId,
     command_type: commandType,
     status: 'pending',
-    payload: {},
-  })
-  if (error) throw error
+    payload,
+  }).select('id').single()
+  if (error) {
+    // The check constraint naming the command types the worker implements. Only
+    // reachable when the app is newer than the database it talks to.
+    if (error.code === '23514') {
+      throw new Error(
+        'The database does not accept this command yet — run '
+        + 'supabase/migrations-manual-close.sql against this project.',
+      )
+    }
+    throw error
+  }
+  return data.id as string
+}
+
+export type CommandOutcome =
+  | { status: 'completed'; result: Record<string, unknown> }
+  | { status: 'failed'; error: string; result: Record<string, unknown> }
+  /** No worker answered in time. The command is still queued and will run
+   * when one does -- this is not a failure, and must not read as one. */
+  | { status: 'pending' }
+
+/** Wait for the worker to answer a command.
+ *
+ * worker_commands is not on the realtime publication, and a close is answered
+ * in a second or two when a worker is up, so a short poll is the simple honest
+ * option. Gives up quietly after `timeoutMs`, reporting the command as still
+ * pending rather than failed. */
+export async function waitForCommand(
+  commandId: string,
+  { timeoutMs = 30_000, intervalMs = 1_000 }: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<CommandOutcome> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    await new Promise<void>((resolve) => { setTimeout(resolve, intervalMs) })
+    const { data, error } = await supabase
+      .from('worker_commands')
+      .select('status, result, error_message')
+      .eq('id', commandId)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) break
+    const result = (data.result ?? {}) as Record<string, unknown>
+    if (data.status === 'completed') return { status: 'completed', result }
+    if (data.status === 'failed') {
+      const reason = data.error_message
+        || (typeof result.error === 'string' ? result.error : '')
+        || 'The worker could not do this.'
+      return { status: 'failed', error: reason, result }
+    }
+  }
+  return { status: 'pending' }
 }
 
 /** Nudges the worker to re-read its config now instead of on its next cache
@@ -164,8 +218,25 @@ export async function createJournalAccount(
     balance: size,
     highestBalance: size,
     currency: account.currency || 'USD',
+    // The size is the broker's balance NOW, and the worker's first read
+    // journals the last 72 hours -- trades whose profit that balance already
+    // contains. Recording when the size was taken is what stops the ledger
+    // adding them a second time (utils/ledger.ts `sinceOpening`).
+    openingBalanceAt: new Date().toISOString(),
     stage: 'live',
     active: true,
+  }).catch((err: unknown) => {
+    // Without the column the insert fails outright. Retrying without the
+    // anchor would quietly bring back the double-counted balance it exists to
+    // prevent, so say what to run instead.
+    const message = err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err)
+    if (/opening_balance_at/.test(message)) {
+      throw new Error(
+        'The database needs one change before accounts can be journalled — run '
+        + 'supabase/migrations-ledger-opening.sql against this project.',
+      )
+    }
+    throw err
   })
 
   try {
@@ -353,8 +424,18 @@ export async function updateCopierLink(
 /** Closes every open position on an account. Queued rather than called, because
  * only the worker can place the closing orders — but it is picked up on the
  * worker's command poll, which runs every couple of seconds. */
-export async function flattenAccount(accountId: string): Promise<void> {
-  await queueCommand(accountId, 'flatten')
+export async function flattenAccount(accountId: string): Promise<string> {
+  return queueCommand(accountId, 'flatten')
+}
+
+/** Close one open position at market. Same path as flatten, for one ticket.
+ *
+ * The ticket travels as a string: MT5 tickets are 64-bit and can pass
+ * Number.MAX_SAFE_INTEGER, so a number would round to a different position.
+ * Closing a copy master's position closes its followers' copies too -- the
+ * copier sees the master close, exactly as if it were closed on the terminal. */
+export async function closePosition(accountId: string, ticket: string): Promise<string> {
+  return queueCommand(accountId, 'close_position', { ticket })
 }
 
 export async function unlockRiskProfile(profileId: string): Promise<void> {

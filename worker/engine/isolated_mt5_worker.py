@@ -157,12 +157,18 @@ def read_account_state(job: dict[str, Any]) -> dict[str, Any]:
         if isinstance(value, int):
             digits[symbol] = value
 
+    try:
+        time_offset = session.connector.server_time_offset() or 0
+    except Exception:
+        time_offset = 0
+
     return {
         "trading_account_id": account_id,
         "ok": True,
         "positions": positions or [],
         "info": info or None,
         "digits": digits,
+        "time_offset": time_offset,
         "switch_ms": switch_ms,
         "read_ms": int((time.perf_counter() - started) * 1000),
     }
@@ -201,7 +207,10 @@ def read_closed_trades(job: dict[str, Any]) -> dict[str, Any]:
 
     try:
         result = sync_account(
-            session.connector, account_id, parse_mark(job.get("synced_to"))
+            session.connector,
+            account_id,
+            parse_mark(job.get("synced_to")),
+            skip_tickets=job.get("skip_tickets") or (),
         )
     except Exception as exc:
         invalidate_warm_session()
@@ -218,7 +227,36 @@ def read_closed_trades(job: dict[str, Any]) -> dict[str, Any]:
         # than reconstructing dataclasses on the other side of the boundary.
         "trades": [t.to_payload() for t in result.trades],
         "positions_seen": result.positions_seen,
+        "complete_tickets": result.complete_tickets,
     }
+
+
+def close_positions_job(job: dict[str, Any]) -> dict[str, Any]:
+    """Close positions on this terminal's account, on request from the app.
+
+    Run here rather than in the main process for the same reason reads are:
+    this subprocess already holds the account's terminal, so the close costs no
+    switch, and the main process's attach -- the master the copy loop is
+    polling -- is never taken away from it.
+    """
+    from engine.manual_close import close_on_connector
+
+    account = job["account"]
+    path = job.get("terminal_path") or account.get("terminal_path") or _POOL_TERMINAL_PATH
+
+    try:
+        session, _switch_ms = _session_for_follower(account, path)
+    except Exception as exc:
+        invalidate_warm_session()
+        return {"success": False, "error": f"Could not attach to the account: {exc}"}
+    if session is None:
+        return {"success": False, "error": "Could not log in to the account to close it."}
+
+    try:
+        return close_on_connector(session.connector, job.get("tickets"))
+    except Exception as exc:
+        invalidate_warm_session()
+        return {"success": False, "error": str(exc)}
 
 
 def run_isolated_copy_job(job: dict[str, Any]) -> dict[str, Any]:

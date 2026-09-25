@@ -18,6 +18,7 @@ import { DashboardCard } from '@/components/dashboard-card'
 import { formatDate } from '@/components/formater'
 import type { LedgerPoint } from '@/utils/ledger'
 import { ChartTooltipRow } from './ChartTooltipRow'
+import { useMoney } from '@/components/money-context'
 
 /* Converted off bare Recharts onto the same ChartContainer the equity and daily
  * P&L charts use.
@@ -37,10 +38,6 @@ const chartConfig = {
 	withdrawals: { label: 'Deposits / withdrawals', color: 'var(--chart-5)' },
 } satisfies ChartConfig
 
-function money(value: number): string {
-	return `${value < 0 ? '-' : ''}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-}
-
 export function AccountBalanceChart({
 	data,
 	currentBalance,
@@ -48,6 +45,7 @@ export function AccountBalanceChart({
 	data: LedgerPoint[]
 	currentBalance: number
 }) {
+	const { whole: money } = useMoney()
 	return (
 		<DashboardCard className="md:col-span-2">
 			<CardHeader>
@@ -76,7 +74,7 @@ export function AccountBalanceChart({
 						/>
 						<YAxis
 							axisLine={false}
-							tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+							tickFormatter={(v) => money(Number(v))}
 							tickLine={false}
 							width={62}
 						/>

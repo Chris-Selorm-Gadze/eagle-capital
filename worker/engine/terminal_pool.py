@@ -27,6 +27,7 @@ import structlog
 from engine.isolated_mt5_worker import (
     _init_pool_worker,
     read_account_state,
+    close_positions_job,
     read_closed_trades,
     run_isolated_copy_job,
 )
@@ -225,6 +226,15 @@ class TerminalPool:
         if pool_key not in self._executors:
             return None
         return self._executors[pool_key].submit(read_closed_trades, job)
+
+    def submit_close(self, account_id: str | None, job: dict[str, Any]) -> Future | None:
+        """Queue a close requested from the app on this account's terminal worker."""
+        if not account_id or account_id not in self._account_routes:
+            return None
+        pool_key = self._account_routes[account_id]
+        if pool_key not in self._executors:
+            return None
+        return self._executors[pool_key].submit(close_positions_job, job)
 
     def shutdown(self) -> None:
         for pool_key, ex in self._executors.items():

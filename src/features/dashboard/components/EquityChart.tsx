@@ -14,6 +14,7 @@ import {
 import { DashboardCard } from '@/components/dashboard-card'
 import { formatDate } from '@/components/formater'
 import { cumulativeSeries, type DailyPnl } from '@/utils/tradeAggregates'
+import { useMoney } from '@/components/money-context'
 
 /* Recharts animates every series by default, for 1500ms, on mount AND on every
  * data change. Six charts on this dashboard meant six independent 1.5s draws
@@ -32,6 +33,7 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function EquityChart({ daily }: { daily: DailyPnl[] }) {
+	const { whole: money } = useMoney()
 	const data = cumulativeSeries(daily)
 	const last = data.at(-1)?.cumulative ?? 0
 
@@ -41,7 +43,7 @@ export function EquityChart({ daily }: { daily: DailyPnl[] }) {
 				<CardTitle>Cumulative P&amp;L</CardTitle>
 				<CardDescription>
 					{data.length > 0
-						? `${data.length} trading day${data.length === 1 ? '' : 's'} · ${last < 0 ? '-' : ''}$${Math.abs(last).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+						? `${data.length} trading day${data.length === 1 ? '' : 's'} · ${money(last)}`
 						: 'No trades logged yet'}
 				</CardDescription>
 			</CardHeader>
@@ -64,7 +66,7 @@ export function EquityChart({ daily }: { daily: DailyPnl[] }) {
 						/>
 						<YAxis
 							axisLine={false}
-							tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+							tickFormatter={(v) => money(Number(v))}
 							tickLine={false}
 							width={62}
 						/>

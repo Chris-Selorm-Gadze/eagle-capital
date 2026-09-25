@@ -90,6 +90,8 @@ create table if not exists public.accounts (
   label text not null,
   account_number text,
   size numeric not null,
+  -- When `size` was read from a broker; see migrations-ledger-opening.sql.
+  opening_balance_at timestamptz,
   balance numeric not null,
   highest_balance numeric not null,
   currency text default 'USD',

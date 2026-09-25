@@ -208,3 +208,123 @@ class TestParseMark:
         assert parse_mark(None) is None
         assert parse_mark("") is None
         assert parse_mark("not a date") is None
+
+
+class ServerClockReader(StubReader):
+    """A terminal whose broker runs its clock ahead of UTC, as most do.
+
+    Deals are stamped, and the window is filtered, in server time -- the stub
+    applies the same filter MT5 does, on the same clock.
+    """
+
+    def __init__(self, deals, offset_seconds, **kw):
+        super().__init__(deals, **kw)
+        self.offset_seconds = offset_seconds
+
+    def server_time_offset(self):
+        return self.offset_seconds
+
+
+def server_deal(position, entry, *, real_t, offset_hours, **kw):
+    """A deal as a GMT+N server records it: its real instant, shifted by N."""
+    return deal(position, entry, t=real_t + timedelta(hours=offset_hours), **kw)
+
+
+class TestTheBrokersClock:
+    """A trade closed a minute ago must be journalled now, not hours later.
+
+    MT5 stamps deals in the trade server's clock. Asking a GMT+3 server for
+    deals up to real-UTC now returned nothing from the last three hours, so
+    those accounts' trades reached the dashboard three hours late -- while a
+    GMT+0 broker's arrived at once, and one copy group looked half-recorded.
+    """
+
+    def test_a_fresh_close_on_a_gmt_plus_3_server_is_found_immediately(self):
+        deals = [
+            server_deal(900, DEAL_ENTRY_IN, real_t=NOW - timedelta(minutes=5), offset_hours=3),
+            server_deal(900, DEAL_ENTRY_OUT, real_t=NOW - timedelta(minutes=1),
+                        offset_hours=3, profit=12.5, deal_type=DEAL_TYPE_SELL),
+        ]
+        reader = ServerClockReader(deals, offset_seconds=3 * 3600)
+
+        result = sync_account(reader, ACC, NOW - timedelta(minutes=2), now=NOW)
+
+        assert [t.pnl for t in result.trades] == [12.5]
+
+    def test_journalled_times_are_the_real_instant_not_the_servers(self):
+        entry_at = NOW - timedelta(minutes=5)
+        exit_at = NOW - timedelta(minutes=1)
+        deals = [
+            server_deal(901, DEAL_ENTRY_IN, real_t=entry_at, offset_hours=3),
+            server_deal(901, DEAL_ENTRY_OUT, real_t=exit_at, offset_hours=3,
+                        deal_type=DEAL_TYPE_SELL),
+        ]
+        reader = ServerClockReader(deals, offset_seconds=3 * 3600)
+
+        trade = sync_account(reader, ACC, None, now=NOW).trades[0]
+
+        assert datetime.fromisoformat(trade.entry_time) == entry_at
+        assert datetime.fromisoformat(trade.exit_time) == exit_at
+
+    def test_a_server_behind_utc_is_covered_too(self):
+        deals = [
+            server_deal(902, DEAL_ENTRY_IN, real_t=NOW - timedelta(minutes=30), offset_hours=-5),
+            server_deal(902, DEAL_ENTRY_OUT, real_t=NOW - timedelta(minutes=3),
+                        offset_hours=-5, deal_type=DEAL_TYPE_SELL),
+        ]
+        reader = ServerClockReader(deals, offset_seconds=-5 * 3600)
+
+        result = sync_account(reader, ACC, NOW - timedelta(minutes=1), now=NOW)
+
+        assert len(result.trades) == 1
+
+    def test_an_unmeasurable_offset_still_finds_the_trade(self):
+        # The weekend, or a terminal with no quotes yet: the window widens to
+        # cover every timezone rather than guessing one.
+        deals = [
+            server_deal(903, DEAL_ENTRY_IN, real_t=NOW - timedelta(minutes=5), offset_hours=3),
+            server_deal(903, DEAL_ENTRY_OUT, real_t=NOW - timedelta(minutes=1),
+                        offset_hours=3, deal_type=DEAL_TYPE_SELL),
+        ]
+        reader = ServerClockReader(deals, offset_seconds=None)
+
+        result = sync_account(reader, ACC, NOW - timedelta(minutes=2), now=NOW)
+
+        assert len(result.trades) == 1
+        assert result.offset_seconds is None
+
+    def test_positions_already_journalled_are_skipped(self):
+        reader = StubReader([
+            deal(904, DEAL_ENTRY_IN, t=NOW - timedelta(minutes=5)),
+            deal(904, DEAL_ENTRY_OUT, t=NOW - timedelta(minutes=1)),
+        ])
+
+        result = sync_account(reader, ACC, None, now=NOW, skip_tickets={904})
+
+        assert result.trades == []
+        assert reader.position_reads == []
+
+
+class TestMeasuringTheOffset:
+    def test_the_freshest_quote_gives_the_offset(self):
+        from engine.mt5_connector import offset_from_quote_times
+
+        now = 1_760_000_000.0
+        quotes = [now + 3 * 3600 - 2, now + 3 * 3600 - 400, 0]
+        assert offset_from_quote_times(quotes, now) == 3 * 3600
+
+    def test_a_negative_offset(self):
+        from engine.mt5_connector import offset_from_quote_times
+
+        now = 1_760_000_000.0
+        assert offset_from_quote_times([now - 4 * 3600 - 5], now) == -4 * 3600
+
+    def test_stale_quotes_give_no_answer_rather_than_a_wrong_one(self):
+        from engine.mt5_connector import offset_from_quote_times
+
+        now = 1_760_000_000.0
+        # Friday's last quote, on a Saturday: nowhere near a whole hour, or
+        # further away than any timezone.
+        assert offset_from_quote_times([now - 5 * 3600 - 1500], now) is None
+        assert offset_from_quote_times([now - 30 * 3600], now) is None
+        assert offset_from_quote_times([], now) is None

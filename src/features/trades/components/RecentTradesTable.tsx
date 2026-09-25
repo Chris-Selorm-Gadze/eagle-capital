@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Trade } from '../../../db/schema'
+import { byMostRecentClose } from '../../../utils/tradeOrder'
+import { useMoney } from '@/components/money-context'
 import {
   Card,
   CardContent,
@@ -64,12 +66,18 @@ export function RecentTradesTable({
    * the button can never delete rows the filters are hiding. */
   onVisibleChange?: (visible: Trade[]) => void
 }) {
+  const { signedExact: signedMoney } = useMoney()
   const [query, setQuery] = useState('')
   const [side, setSide] = useState<SideFilter>('all')
   const [outcome, setOutcome] = useState<OutcomeFilter>('all')
   const [page, setPage] = useState(0)
 
-  const sorted = useMemo(() => [...trades].sort((a, b) => (a.date < b.date ? 1 : -1)), [trades])
+  // Most recently CLOSED first. This sorted on the day string alone, with a
+  // comparator that never returned 0 -- so a day's trades came out in no
+  // particular order, and the dashboard's "last eight" could leave out the
+  // trade that had just closed. A position held overnight also sorted under the
+  // day it opened. `byMostRecentClose` is total, so the order is stable.
+  const sorted = useMemo(() => [...trades].sort(byMostRecentClose), [trades])
 
   /* The tile version shows exactly what it was asked for. Everything below —
    * filters, paging, the inner scroller — belongs to the full log only. */
@@ -214,7 +222,7 @@ export function RecentTradesTable({
                   className="text-right font-semibold tabular-nums"
                   style={{ color: t.pnl >= 0 ? 'var(--good-deep)' : 'var(--critical-deep)' }}
                 >
-                  {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toLocaleString()}
+                  {signedMoney(t.pnl)}
                 </TableCell>
                 {showActions && (
                   <TableCell className="text-right whitespace-nowrap">

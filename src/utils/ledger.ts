@@ -1,5 +1,5 @@
 import type { Account, Payout, SessionLog, Trade } from '../types'
-import { tradingDayOf } from './tradingDay'
+import { tradeDayOf, tradingDayOf } from './tradingDay'
 
 /* The single definition of what an account is worth.
  *
@@ -28,7 +28,44 @@ import { tradingDayOf } from './tradingDay'
  *
  * `accounts.balance` / `accounts.highest_balance` are now write-once at
  * creation and never read for display — see the note in db/accounts.ts.
+ *
+ * `size` is not always the day-one capital, though. An account created from a
+ * connected broker account takes the broker's balance at that moment as its
+ * size — and then the worker journals the last 72 hours of that account's
+ * trades, every one of whose profit is already inside that balance. Adding them
+ * again counted three days of trading twice. So such an account records WHEN
+ * its size was read (`openingBalanceAt`), and only activity after that instant
+ * moves its balance. The trades themselves still count everywhere else — win
+ * rate, the calendar, the journal — because they did happen; they just are not
+ * NEW money relative to a balance that already includes them.
  */
+
+/** The part of an account's activity its balance has not already absorbed.
+ *
+ * Everything, for an account whose size is its starting capital. For one whose
+ * size was read from a broker at `openingBalanceAt`: trades closed after that
+ * instant, sessions after that day (a summary of that day is inside the
+ * balance), and payouts from that day on (one logged in the app on the day of
+ * linking is the trader recording a withdrawal still to come). */
+export function sinceOpening(
+  account: Pick<Account, 'openingBalanceAt'>,
+  trades: Trade[],
+  sessions: SessionLog[],
+  payouts: Payout[],
+): { trades: Trade[]; sessions: SessionLog[]; payouts: Payout[] } {
+  const at = account.openingBalanceAt ? Date.parse(account.openingBalanceAt) : Number.NaN
+  if (!Number.isFinite(at)) return { trades, sessions, payouts }
+  const openingDay = tradingDayOf(at)
+  return {
+    trades: trades.filter((t) => {
+      const closed = Date.parse(t.exitTime || t.entryTime)
+      // Unreadable times are kept rather than silently dropped from the balance.
+      return !Number.isFinite(closed) || closed > at
+    }),
+    sessions: sessions.filter((s) => s.date > openingDay),
+    payouts: payouts.filter((p) => p.date >= openingDay),
+  }
+}
 
 export interface AccountLedger {
   /** What the account started at. */
@@ -100,7 +137,7 @@ export function dayMovements(
   // Trades first, so the set of trade-days is known before sessions are folded in.
   const tradeDays = new Set<string>()
   for (const t of trades) {
-    const date = tradingDayOf(t.entryTime)
+    const date = tradeDayOf(t)
     if (!date) continue
     tradeDays.add(date)
     ensure(date).pnl += t.pnl
@@ -130,21 +167,23 @@ export function buildLedger(
   payouts: Payout[],
 ): AccountLedger {
   const ledger = emptyLedger(account.size)
-  const days = dayMovements(trades, sessions, payouts)
+  // Money since the opening balance; activity (trading days) over everything.
+  const counted = sinceOpening(account, trades, sessions, payouts)
+  const days = dayMovements(counted.trades, counted.sessions, counted.payouts)
 
-  const tradeDays = new Set<string>()
-  for (const t of trades) {
-    const date = tradingDayOf(t.entryTime)
+  const countedTradeDays = new Set<string>()
+  for (const t of counted.trades) {
+    const date = tradeDayOf(t)
     if (!date) continue
-    tradeDays.add(date)
+    countedTradeDays.add(date)
     ledger.tradePnl += t.pnl
   }
-  for (const s of sessions) {
-    if (!tradeDays.has(s.date)) ledger.sessionPnl += s.pnl
+  for (const s of counted.sessions) {
+    if (!countedTradeDays.has(s.date)) ledger.sessionPnl += s.pnl
   }
 
   ledger.realizedPnl = ledger.tradePnl + ledger.sessionPnl
-  for (const p of payouts) {
+  for (const p of counted.payouts) {
     ledger.withdrawn += p.requested
     ledger.received += p.received
   }
@@ -161,7 +200,11 @@ export function buildLedger(
   }
   ledger.peakBalance = peak
 
-  const activeDays = new Set<string>(tradeDays)
+  const activeDays = new Set<string>()
+  for (const t of trades) {
+    const date = tradeDayOf(t)
+    if (date) activeDays.add(date)
+  }
   for (const s of sessions) activeDays.add(s.date)
   ledger.tradingDays = activeDays.size
 
@@ -217,11 +260,13 @@ export function balanceSeries(
   const combined = new Map<string, DayMovement>()
   for (const a of accounts) {
     if (a.id === undefined) continue
-    const days = dayMovements(
+    const counted = sinceOpening(
+      a,
       trades.filter((t) => t.accountId === a.id),
       sessions.filter((s) => s.accountId === a.id),
       payouts.filter((p) => p.accountId === a.id),
     )
+    const days = dayMovements(counted.trades, counted.sessions, counted.payouts)
     for (const [date, mv] of days) {
       const existing = combined.get(date)
       if (existing) {
@@ -248,7 +293,7 @@ export function balanceSeries(
  * if that day has logged trades they are the answer, otherwise the session
  * summary is. Used for "daily loss limit used today". */
 export function pnlOnDay(trades: Trade[], sessions: SessionLog[], date: string): number {
-  const dayTrades = trades.filter((t) => tradingDayOf(t.entryTime) === date)
+  const dayTrades = trades.filter((t) => tradeDayOf(t) === date)
   if (dayTrades.length > 0) return dayTrades.reduce((sum, t) => sum + t.pnl, 0)
   return sessions.filter((s) => s.date === date).reduce((sum, s) => sum + s.pnl, 0)
 }

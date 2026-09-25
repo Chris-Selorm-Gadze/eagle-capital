@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { DashboardCard } from '@/components/dashboard-card'
 import type { Trade } from '@/db/schema'
 import { ChartTooltipRow } from './ChartTooltipRow'
+import { useMoney } from '@/components/money-context'
 
 /* Converted off bare Recharts + `.card` onto the shared ChartContainer. The
  * timezone toggle was two module-CSS buttons whose active state was being
@@ -39,10 +40,6 @@ function formatHourLabel(v: number): string {
 	return `${h}:${String(m).padStart(2, '0')}`
 }
 
-function money(value: number): string {
-	return `${value < 0 ? '-' : ''}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-}
-
 // 'local' uses Date.getHours(), which already reads in the browser's own timezone — 'ny' pins
 // the hour-of-day to America/New_York regardless of where the trader is, since that's the
 // standard reference clock for US market sessions.
@@ -58,6 +55,7 @@ function hourOfDay(iso: string, zone: TimeZoneMode): number {
 }
 
 export function TradeTimeScatter({ trades }: { trades: Trade[] }) {
+	const { whole: money } = useMoney()
 	const [zone, setZone] = useState<TimeZoneMode>('local')
 	const point = (t: Trade) => ({
 		hour: hourOfDay(t.entryTime, zone),
@@ -106,7 +104,7 @@ export function TradeTimeScatter({ trades }: { trades: Trade[] }) {
 							axisLine={false}
 							dataKey="pnl"
 							name="P&L"
-							tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+							tickFormatter={(v) => money(Number(v))}
 							tickLine={false}
 							type="number"
 							width={56}

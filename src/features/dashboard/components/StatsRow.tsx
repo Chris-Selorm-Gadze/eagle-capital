@@ -8,6 +8,7 @@ import { Delta, DeltaIcon, DeltaValue } from '@/components/delta'
 import { DashboardCard } from '@/components/dashboard-card'
 import type { Trade } from '@/db/schema'
 import { netPnl, winRate, profitFactor } from '@/utils/tradeStats'
+import { useMoney } from '@/components/money-context'
 
 /* KPI row built on the dashboard block's card + delta primitives, fed by the
  * app's own aggregate helpers rather than the block's demo constants.
@@ -22,6 +23,7 @@ function percentChange(current: number, previous: number): number {
 }
 
 export function StatsRow({ trades }: { trades: Trade[] }) {
+	const { whole: money } = useMoney()
 	const ordered = [...trades].sort((a, b) => a.entryTime.localeCompare(b.entryTime))
 	const mid = Math.floor(ordered.length / 2)
 	const earlier = ordered.slice(0, mid)
@@ -31,7 +33,7 @@ export function StatsRow({ trades }: { trades: Trade[] }) {
 	const stats = [
 		{
 			label: 'Net P&L',
-			value: `${netPnl(trades) < 0 ? '-' : ''}$${Math.abs(netPnl(trades)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+			value: money(netPnl(trades)),
 			delta: hasSplit ? percentChange(netPnl(recent), netPnl(earlier)) : null,
 		},
 		{

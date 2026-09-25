@@ -179,7 +179,11 @@ The order matters, and an earlier version of this list had it wrong. Accounts ar
 connected and **verified before** anything is armed — arming is what starts
 placing real orders, so it must never be a prerequisite for testing a login.
 
-1. Run the schema, then `migrations-copier-worker-visibility.sql`.
+1. Run the schema, then `migrations-copier-worker-visibility.sql`, then
+   `migrations-manual-close.sql` (lets the Live Trading page's **Close**
+   buttons queue a `close_position` command — without it the insert is refused).
+   Also run `migrations-ledger-opening.sql` (adds `accounts.opening_balance_at`,
+   so broker-created accounts stop double-counting their backfilled trades).
 2. Set the two secrets.
 3. Run `scripts/verify-copier-gateway.sh` — all green.
 4. `worker\setup.ps1` on the Windows box, fill in `.env`, then

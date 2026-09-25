@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import { selectAll } from './paginate'
-import { tradingDayOf } from '../utils/tradingDay'
+import { tradeDayOf } from '../utils/tradingDay'
 import type { Trade } from '../types'
 
 export type TradeInput = Omit<Trade, 'id' | 'pnl' | 'date'>
@@ -14,13 +14,13 @@ export function fromRow(row: Record<string, any>): Trade {
   return {
     id: row.id,
     accountId: row.account_id,
-    // Derived from entry_time rather than read from the `date` column. The
-    // column used to be written as a slice of the UTC ISO string, which filed
-    // every evening US trade on the next day; deriving it here makes rows
-    // written before that fix group correctly too, with no backfill — and a
-    // backfill couldn't be right anyway, since SQL doesn't know the trader's
-    // zone. See utils/tradingDay.ts.
-    date: tradingDayOf(row.entry_time),
+    // Derived rather than read from the `date` column: the local day the
+    // trade CLOSED (utils/tradingDay.ts `tradeDayOf`). The column used to be a
+    // UTC slice of the entry time, which filed evening US trades on the next
+    // day and realised P&L on the day a position opened; deriving it here makes
+    // every existing row follow the current rule with no backfill — and a
+    // backfill couldn't be right anyway, since SQL doesn't know the trader's zone.
+    date: tradeDayOf({ entryTime: row.entry_time, exitTime: row.exit_time }),
     symbol: row.symbol,
     side: row.side,
     qty: Number(row.qty),
@@ -63,8 +63,8 @@ export function toRow(t: TradeInput, pnlOverride?: number): Record<string, unkno
     profit_target: t.profitTarget,
     rating: t.rating,
     tags: t.tags,
-    // The trader's local day, not the UTC one — see fromRow above.
-    date: tradingDayOf(t.entryTime),
+    // The trader's local closing day, not the UTC one — see fromRow above.
+    date: tradeDayOf(t),
     pnl: pnlOverride ?? computePnl(t),
   }
 }

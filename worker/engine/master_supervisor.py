@@ -60,14 +60,14 @@ def discover_active_masters() -> tuple[list[AccountConfig], list[AccountConfig],
     A master is "active" when it is enabled and has at least one enabled copier
     pointing at a distinct follower.
     """
+    from engine.ownership import active_master_ids
+
     accounts = load_accounts()
     copiers = load_copiers()
-    masters = [a for a in accounts if a.role == "master" and a.enabled]
-    active: list[AccountConfig] = []
-    for master in masters:
-        owned = dedupe_copiers_by_follower(get_copiers_for_master(copiers, master.id))
-        if owned:
-            active.append(master)
+    # One definition of "active", shared with engine/ownership.py, so the set of
+    # processes spawned and the set that divides the accounts cannot differ.
+    active_ids = set(active_master_ids(accounts, copiers))
+    active = [a for a in accounts if a.id in active_ids]
     return active, accounts, copiers
 
 
@@ -159,7 +159,7 @@ def _spawn(ctx, master: AccountConfig, base_name: str) -> mp.process.BaseProcess
     return proc
 
 
-def _serve_commands_while_idle() -> None:
+def _serve_commands_while_idle(accounts: list[AccountConfig] | None = None) -> None:
     """Handle dashboard commands that do not need a running copier.
 
     `test_connection` explicitly works without an active session, and it is the
@@ -168,6 +168,11 @@ def _serve_commands_while_idle() -> None:
     this, that button does nothing until a copy link is armed — which is exactly
     backwards, because you want to verify an account BEFORE arming anything that
     places real orders.
+
+    Closing positions is the same. A trader who is not copying still has open
+    trades, and Close on the Live Trading page used to sit pending forever
+    unless a copy link happened to be armed. Closes run through the idle
+    terminal pool, which already holds each account's terminal.
     """
     from engine.api_client import get_api_client
     from engine.command_processor import process_command
@@ -181,13 +186,23 @@ def _serve_commands_while_idle() -> None:
         logger.warning("idle_command_poll_failed", error=str(exc))
         return
 
+    enabled = [a for a in (accounts or []) if a.enabled]
+
     for cmd in commands:
-        if cmd.get("command_type") != "test_connection":
-            # flatten needs a live session; reload_config is handled by the
-            # discovery loop below simply by looking again. Leave both pending.
-            continue
+        kind = cmd.get("command_type")
         try:
-            result = process_command(cmd, {}, master_session=None)
+            if kind == "test_connection":
+                result = process_command(cmd, {}, master_session=None)
+            elif kind in ("close_position", "flatten") and enabled:
+                result = process_command(
+                    cmd,
+                    _idle_sessions(enabled),
+                    pool=_idle_terminal_pool(enabled),
+                )
+            else:
+                # reload_config is handled by the discovery loop simply by
+                # looking again; the engine completes it once work appears.
+                continue
             client.complete_command(
                 cmd["id"],
                 success=bool(result.get("success")),
@@ -219,9 +234,14 @@ def _journal_while_idle(accounts: list[AccountConfig]) -> None:
     if not candidates:
         return
 
+    # The pool is built from every enabled account, the same set the position
+    # feed and idle commands use. Building it from `candidates` gave it a
+    # different fingerprint, so each alternation between the feed and this
+    # pass shut every terminal subprocess down and started them again.
+    enabled = [a for a in accounts if a.enabled]
     try:
         sync_all_trades(
-            candidates, _idle_sessions(candidates), _idle_terminal_pool(candidates)
+            candidates, _idle_sessions(candidates), _idle_terminal_pool(enabled)
         )
     except Exception as exc:
         logger.warning("idle_trade_journal_failed", error=str(exc))
@@ -332,9 +352,19 @@ def _idle_wait(seconds: float, accounts: list[AccountConfig]) -> None:
     the sweep gets its own tighter beat inside the wait.
     """
     step = float(os.environ.get("WORKER_IDLE_SWEEP_STEP_SECONDS", "0.5"))
+    # Commands get a beat of their own too: a Close clicked on the Live Trading
+    # page should not wait out the whole fifteen-second idle interval.
+    command_every = float(os.environ.get("WORKER_IDLE_COMMAND_POLL_SECONDS", "3"))
+    next_commands = time.time() + command_every
     end = time.time() + seconds
     while True:
         _feed_positions_while_idle(accounts)
+        if time.time() >= next_commands:
+            _serve_commands_while_idle(accounts)
+            next_commands = time.time() + command_every
+        # Its own throttle decides; checking here is what lets a close served
+        # just above reach the dashboard in seconds rather than next cycle.
+        _journal_while_idle(accounts)
         remaining = end - time.time()
         if remaining <= 0:
             return
@@ -357,7 +387,11 @@ def _sync_state_while_idle(accounts: list[AccountConfig]) -> None:
         return
 
     try:
-        sync_all_balances(enabled, _idle_sessions(enabled))
+        # Nothing is copying, so there is no latency to protect: visit every
+        # unrouted account each pass. Routed ones report through the idle sweep.
+        sync_all_balances(
+            enabled, _idle_sessions(enabled), _idle_terminal_pool(enabled), rotate=False
+        )
     except Exception as exc:
         logger.warning("idle_balance_sync_failed", error=str(exc))
 
@@ -407,7 +441,7 @@ def run_all_masters() -> None:
                 retry_s=idle_poll_s,
                 api_url=os.environ.get("API_URL", "http://localhost:8000"),
             )
-            _serve_commands_while_idle()
+            _serve_commands_while_idle(accounts)
             time.sleep(idle_poll_s)
             continue
 
@@ -429,7 +463,7 @@ def run_all_masters() -> None:
                 hint="Connect accounts and arm a copy link; this picks it up automatically.",
             )
             idle_logged = True
-        _serve_commands_while_idle()
+        _serve_commands_while_idle(accounts)
         # Accounts are known here even though no master is armed, so anything
         # pointed at a dashboard account still gets journalled.
         _journal_while_idle(accounts)

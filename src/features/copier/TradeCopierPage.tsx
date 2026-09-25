@@ -389,6 +389,7 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
     () => new Set(accounts.map((a) => a.journalAccountId).filter((id): id is string => !!id)),
     [accounts],
   )
+  const unjournalledCount = accounts.filter((a) => !a.journalAccountId).length
 
   /* Balances, connection status and copy events are pushed, so this page shows
    * a fill the moment it lands rather than up to thirty seconds later. Both
@@ -740,17 +741,35 @@ function TradeCopierWorkspace({ userId, onAccountsChanged }: {
                 accounts and trades. Nothing joined them until an account is
                 pointed at a dashboard account, and there is no other place in
                 the product where a trader would go looking for that. */}
-            {accounts.length > 0 && takenJournalIds.size === 0 && (
+            {/* Shown for a PARTLY journalled desk too. It used to appear only
+                when none were, so a master journalled with two of its four
+                followers left out looked fine here while the dashboard quietly
+                recorded three of every five copies. */}
+            {unjournalledCount > 0 && (
               <Notice
                 action={
                   <Button onClick={handleJournalAll} size="xs" variant="outline">
-                    Journal all {accounts.length} account{accounts.length === 1 ? '' : 's'}
+                    {takenJournalIds.size === 0
+                      ? `Journal all ${unjournalledCount} account${unjournalledCount === 1 ? '' : 's'}`
+                      : `Journal the other ${unjournalledCount}`}
                   </Button>
                 }
               >
-                None of these accounts report to the dashboard yet, so it has no trades to
-                show even while copies are running. Closed positions arrive on their own once
-                an account is journalled, with the broker’s own profit figure.
+                {takenJournalIds.size === 0 ? (
+                  <>
+                    None of these accounts report to the dashboard yet, so it has no trades to
+                    show even while copies are running. Closed positions arrive on their own once
+                    an account is journalled, with the broker’s own profit figure.
+                  </>
+                ) : (
+                  <>
+                    {unjournalledCount} of these accounts {unjournalledCount === 1 ? 'does' : 'do'}{' '}
+                    not report to the dashboard, so {unjournalledCount === 1 ? 'its' : 'their'} trades
+                    are missing from it — a copied trade shows up only on the accounts that are
+                    journalled. Journalling {unjournalledCount === 1 ? 'it' : 'them'} now also brings in
+                    the last 72 hours.
+                  </>
+                )}
               </Notice>
             )}
 

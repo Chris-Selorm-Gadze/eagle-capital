@@ -14,6 +14,7 @@ import {
 import { DashboardCard } from '@/components/dashboard-card'
 import { formatDate } from '@/components/formater'
 import type { DailyPnl } from '@/utils/tradeAggregates'
+import { useMoney } from '@/components/money-context'
 
 const chartConfig = {
 	pnl: { label: 'Daily P&L', color: 'var(--chart-1)' },
@@ -21,6 +22,7 @@ const chartConfig = {
 
 /** Green up / red down per bar — colour carries the sign, so no legend needed. */
 export function DailyPnlChart({ daily }: { daily: DailyPnl[] }) {
+	const { whole: money } = useMoney()
 	const greenDays = daily.filter((d) => d.pnl > 0).length
 	const redDays = daily.filter((d) => d.pnl < 0).length
 
@@ -47,7 +49,7 @@ export function DailyPnlChart({ daily }: { daily: DailyPnl[] }) {
 						/>
 						<YAxis
 							axisLine={false}
-							tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+							tickFormatter={(v) => money(Number(v))}
 							tickLine={false}
 							width={62}
 						/>

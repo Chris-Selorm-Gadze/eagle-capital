@@ -18,6 +18,7 @@ import {
 } from '@/utils/tradeAggregates'
 import { downloadElementAsImage } from '@/utils/snapshot'
 import styles from './CalendarHeatmap.module.css'
+import { useMoney } from '@/components/money-context'
 
 /* Converted off `.card` onto DashboardCard. The grid itself stays in module CSS
  * — a 7-plus-1 column calendar with a week-total rail is real layout work, and
@@ -61,10 +62,6 @@ function cellStyle(pnl: number | null): { background: string; color: string } {
 	return { background: 'var(--surface-2)', color: 'var(--text-secondary)' }
 }
 
-function signedMoney(value: number): string {
-	return `${value >= 0 ? '+' : '-'}$${Math.abs(value).toLocaleString()}`
-}
-
 export function CalendarHeatmap({
 	daily,
 	onOpenDateInJournal,
@@ -72,6 +69,7 @@ export function CalendarHeatmap({
 	daily: DailyPnl[]
 	onOpenDateInJournal: (date: string) => void
 }) {
+	const { signed: signedMoney } = useMoney()
 	const now = new Date()
 	const [year, setYear] = useState(now.getFullYear())
 	const [month, setMonth] = useState(now.getMonth())

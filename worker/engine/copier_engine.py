@@ -25,10 +25,11 @@ from engine.config_loader import (
 )
 from engine.balance_sync import should_sync_balances, sync_all_balances
 from engine.position_feed import should_report_positions, sweep_in_background
-from engine.trade_journal import should_sync_trades, sync_all_trades
+from engine.trade_journal import request_trade_sync, should_sync_trades, sync_all_trades
 from engine.command_processor import process_command
 from engine.dispatch_coordinator import dispatch_to_followers
 from engine.master_source import MasterPositionSource, build_master_source
+from engine.ownership import is_primary, owned_account_ids
 from engine.platform_capabilities import is_dxtrade, is_mt5
 from engine.risk_engine import RiskEngine
 from engine.signal_bus import SignalBusReader
@@ -160,6 +161,36 @@ class CopierEngine:
             if a.enabled
         }
 
+    def _owned_accounts(self) -> List[AccountConfig]:
+        """Accounts this process journals, sweeps and serves commands for.
+
+        With one master that is every account. With several, each master runs
+        in its own process (master_supervisor) and each account belongs to
+        exactly one of them -- see engine/ownership.py. Before, every process
+        read every account, so each was journalled and swept once per master
+        and its terminal attached from two processes at once.
+        """
+        if not self._pool_master_id:
+            return list(self.accounts)
+        owned = owned_account_ids(self.accounts, self.copiers, self._pool_master_id)
+        return [a for a in self.accounts if a.id in owned]
+
+    def _owns_command(self, command: dict) -> bool:
+        """Whether this process should execute ``command``.
+
+        A command for an owned account is ours. One for an account this config
+        does not know (a connection test on a just-added account) goes to the
+        primary process alone, so it runs once rather than once per master.
+        """
+        if not self._pool_master_id:
+            return True
+        account_id = command.get("trading_account_id")
+        if account_id in {a.id for a in self._owned_accounts()}:
+            return True
+        if account_id in {a.id for a in self.accounts}:
+            return False
+        return is_primary(self.accounts, self.copiers, self._pool_master_id)
+
     def _rebuild_terminal_pool(self, master_id: str) -> None:
         """Build or refresh the subprocess pool of terminals this worker drives.
 
@@ -184,8 +215,14 @@ class CopierEngine:
 
         candidates: dict[str, str] = {}
         copy_paths: dict[str, str] = {}
+        # Followers always, because copies go to them whoever owns them; any
+        # other account only if this process owns it. Another master's process
+        # holds the rest, and two processes on one terminal is what MT5 forbids.
+        owned = owned_account_ids(self.accounts, self.copiers, master_id)
         for account in self.accounts:
             if account.id == master_id or not account.enabled:
+                continue
+            if account.id not in follower_ids and account.id not in owned:
                 continue
             if not is_mt5(account.platform) or not account.terminal_path:
                 continue
@@ -595,6 +632,12 @@ class CopierEngine:
                 signals=len(signals),
                 batch_ms=batch_ms,
             )
+            # A close on the master is a trade finished on every account in the
+            # group. Journal them now rather than at the next scheduled pass, so
+            # the dashboard's P&L moves with the Live Trading page instead of
+            # trailing it.
+            if any(sig.event_type == "position_closed" for sig in signals):
+                request_trade_sync()
             self._resync_after_dispatch(
                 master_cfg, master_source, diff, master_session
             )
@@ -613,12 +656,15 @@ class CopierEngine:
             ):
                 self._last_command_poll = now
                 self._poll_commands(poll_session)
+            owned = self._owned_accounts()
             if should_sync_balances():
-                sync_all_balances(self.accounts, self._sessions)
+                sync_all_balances(owned, self._sessions, self._terminal_pool)
             # Journalling is a background reconciliation, like balances -- both
             # run after dispatch so neither can add latency to a copy.
             if should_sync_trades():
-                sync_all_trades(self.accounts, self._sessions, self._terminal_pool)
+                sync_all_trades(
+                    owned, self._sessions, self._terminal_pool, background=True
+                )
             # The live feed. The master's snapshot is the one the diff engine
             # just polled, so it is free; every other account is read in its own
             # terminal subprocess, in parallel, off this thread -- a sweep can
@@ -627,10 +673,27 @@ class CopierEngine:
             quiet = (time.time() - self._last_dispatch_at) >= self._sweep_cooldown_s
             if quiet and should_report_positions():
                 sweep_in_background(
-                    self.accounts, self._terminal_pool, (master_cfg_id, positions)
+                    owned,
+                    self._terminal_pool,
+                    (master_cfg_id, positions),
+                    master_offset=self._master_time_offset(master_session),
                 )
 
         self._last_poll_at = time.time()
+
+    @staticmethod
+    def _master_time_offset(master_session: AccountSession | None) -> int:
+        """The master broker's clock offset, for its live positions' open times.
+
+        Cached per server inside the connector, so this is a dict lookup on
+        almost every call.
+        """
+        if master_session is None:
+            return 0
+        try:
+            return int(master_session.connector.server_time_offset() or 0)
+        except Exception:
+            return 0
 
     def _should_poll_fallback(self) -> bool:
         """When the MQL5 signal bus is active, poll positions less often as a safety net."""
@@ -702,6 +765,12 @@ class CopierEngine:
             return
         try:
             commands = self._api_client.fetch_pending_commands()
+            # reload_config concerns every process and is harmless to repeat;
+            # anything that touches an account runs in its owner only.
+            commands = [
+                c for c in commands
+                if c.get("command_type") == "reload_config" or self._owns_command(c)
+            ]
             reloads = [c for c in commands if c.get("command_type") == "reload_config"]
             tests = [c for c in commands if c.get("command_type") == "test_connection"]
             others = [
@@ -718,7 +787,10 @@ class CopierEngine:
                 )
             for cmd in others + tests:
                 result = process_command(
-                    cmd, self._sessions, master_session=master_session
+                    cmd,
+                    self._sessions,
+                    master_session=master_session,
+                    pool=self._terminal_pool,
                 )
                 self._api_client.complete_command(
                     cmd["id"],

@@ -69,6 +69,10 @@ class ClosedTrade:
     position_ticket: int
     magic: int = 0
     tags: list[str] = field(default_factory=list)
+    # False while the position still has volume open -- a partial close. Such a
+    # trade is journalled (the realised part is real) but must be re-read and
+    # re-posted when the rest closes, so it is never treated as finished.
+    complete: bool = True
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -106,18 +110,22 @@ def _as_dict(deal: Any) -> dict[str, Any]:
     return dict(deal)
 
 
-def _iso(epoch_seconds: Any, epoch_msc: Any = None) -> str:
+def _iso(epoch_seconds: Any, epoch_msc: Any = None, offset_seconds: int = 0) -> str:
     """MT5 deal time -> ISO 8601 UTC.
 
     ``time_msc`` is preferred where present: two deals inside the same second
     are common on a fast close, and second precision would order them
     arbitrarily.
+
+    MT5 stamps deals in the trade server's clock, not UTC -- see the note on
+    the broker's clock in mt5_connector. ``offset_seconds`` is how far that
+    clock runs ahead, and is taken off so the journal holds the real instant.
     """
     if epoch_msc:
         seconds = float(epoch_msc) / 1000.0
     else:
         seconds = float(epoch_seconds or 0)
-    return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(seconds - offset_seconds, tz=timezone.utc).isoformat()
 
 
 def _weighted_price(entries: list[tuple[float, float]]) -> float:
@@ -130,7 +138,7 @@ def _weighted_price(entries: list[tuple[float, float]]) -> float:
 
 
 def trade_from_deals(
-    deals: Iterable[Any], trading_account_id: str
+    deals: Iterable[Any], trading_account_id: str, offset_seconds: int = 0
 ) -> Optional[ClosedTrade]:
     """Build one trade from every deal belonging to a single position.
 
@@ -161,7 +169,7 @@ def trade_from_deals(
         entry = int(row.get("entry", DEAL_ENTRY_IN))
         volume = float(row.get("volume", 0) or 0)
         price = float(row.get("price", 0) or 0)
-        when = _iso(row.get("time"), row.get("time_msc"))
+        when = _iso(row.get("time"), row.get("time_msc"), offset_seconds)
 
         symbol = row.get("symbol") or symbol
         position_ticket = int(row.get("position_id") or position_ticket or 0)
@@ -197,6 +205,9 @@ def trade_from_deals(
     if entry_side is None or entry_time is None or exit_time is None:
         return None
 
+    opened_volume = sum(v for v, _ in opening)
+    closed_volume = sum(v for v, _ in closing)
+
     return ClosedTrade(
         external_id=external_id_for(trading_account_id, position_ticket),
         symbol=symbol,
@@ -215,6 +226,9 @@ def trade_from_deals(
         fees=round(-costs, 6) + 0.0,
         position_ticket=position_ticket,
         magic=magic,
+        # Volumes are lot steps (0.01), so anything under half a step is float
+        # noise rather than volume still open.
+        complete=closed_volume >= opened_volume - 0.005,
     )
 
 

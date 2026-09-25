@@ -220,6 +220,12 @@ class TestRoundRobin:
     job, so each pass advances one.
     """
 
+    @pytest.fixture(autouse=True)
+    def post_every_mark(self, monkeypatch):
+        # These count posts to see which account was read; with the empty-pass
+        # throttle on, a quiet account's second read posts nothing.
+        monkeypatch.setenv("WORKER_TRADE_MARK_POST_SECONDS", "0")
+
     def test_each_pass_takes_the_next_account(self, client):
         sessions = {
             k: StubSession(StubConnector(_round_trip())) for k in ("a", "b", "c")
@@ -400,3 +406,131 @@ class TestSyncPooled:
         pool = JournalPool(["a"], {"a": JournalFuture({"ok": False, "error": "no terminal"})})
         trade_journal._sync_pooled([account("a")], pool)
         assert self.posted == []
+
+
+class TestMasterIsReadEveryPass:
+    """The copy loop keeps the master attached, so reading it costs no switch --
+    and it is the account every copy group's trades start from."""
+
+    def test_the_master_is_read_on_every_pass_alongside_the_rotation(self, client, monkeypatch):
+        monkeypatch.setenv("WORKER_TRADE_MARK_POST_SECONDS", "0")
+        sessions = {k: StubSession(StubConnector([])) for k in ("m", "a", "b")}
+        accounts = [account("m", role="master"), account("a"), account("b")]
+
+        for _ in range(2):
+            trade_journal.sync_all_trades(accounts, sessions)
+
+        assert [p[0] for p in client.posts] == ["m", "a", "m", "b"]
+
+
+class TestNotRepeatingWork:
+    def test_a_finished_position_is_not_read_or_posted_twice(self, client):
+        connector = StubConnector(_round_trip())
+        sessions = {"a": StubSession(connector)}
+
+        assert trade_journal.sync_all_trades([account("a")], sessions) == 1
+        assert trade_journal.sync_all_trades([account("a")], sessions) == 0
+        # The second pass skipped the position, so it had nothing to post.
+        assert len(client.posts) == 1
+
+    def test_a_partial_close_is_read_again_until_it_finishes(self, client):
+        partial = [
+            {**deal(800, DEAL_ENTRY_IN, t=NOW - timedelta(minutes=20)), "volume": 0.2},
+            deal(800, DEAL_ENTRY_OUT, t=NOW - timedelta(minutes=2), profit=10.0),
+        ]
+        connector = StubConnector(partial)
+        sessions = {"a": StubSession(connector)}
+
+        trade_journal.sync_all_trades([account("a")], sessions)
+        connector.deals = partial + [
+            {**deal(800, DEAL_ENTRY_OUT, t=NOW - timedelta(minutes=1), profit=5.0), "ticket": 8003},
+        ]
+        trade_journal.sync_all_trades([account("a")], sessions)
+
+        assert len(client.posts) == 2
+        assert client.posts[1][1][0]["pnl"] == 15.0
+        assert client.posts[1][1][0]["qty"] == 0.2
+
+    def test_a_quiet_pass_does_not_post_again_straight_away(self, client):
+        sessions = {"a": StubSession(StubConnector([]))}
+
+        trade_journal.sync_all_trades([account("a")], sessions)
+        trade_journal.sync_all_trades([account("a")], sessions)
+
+        assert len(client.posts) == 1
+
+
+class TestRequestTradeSync:
+    def test_a_request_brings_the_next_pass_forward(self):
+        assert trade_journal.should_sync_trades() is True
+        assert trade_journal.should_sync_trades() is False
+        trade_journal.request_trade_sync(0)
+        assert trade_journal.should_sync_trades() is True
+
+    def test_a_request_never_delays_a_pass_that_is_already_due(self):
+        trade_journal.request_trade_sync(60)
+        assert trade_journal.should_sync_trades() is True
+
+
+class TestBackgroundPooledRead:
+    def test_the_pooled_batch_runs_off_the_calling_thread(self, monkeypatch):
+        posted = []
+
+        class FakeClient:
+            enabled = True
+            user_id = "u1"
+
+            def post_closed_trades(self, account_id, trades, synced_to):
+                posted.append(account_id)
+                return {"written": len(trades)}
+
+        monkeypatch.setattr("engine.api_client.get_api_client", lambda: FakeClient())
+        pool = JournalPool(["a"], {"a": journal_ok("a", trades=[{"external_id": "x"}])})
+
+        written = trade_journal.sync_all_trades([account("a")], {}, pool, background=True)
+        trade_journal._pooled_thread.join(timeout=5)
+
+        # Nothing counted inline; the thread did the post.
+        assert written == 0
+        assert posted == ["a"]
+
+
+class TestTimeRepair:
+    """Trades journalled before the broker's clock was accounted for carry
+    times two or three hours late. The first read by this version re-reads far
+    enough back to re-post them, once per account."""
+
+    def test_the_first_read_reaches_back_to_rewrite_old_trades(self, client, monkeypatch):
+        monkeypatch.setenv("WORKER_JOURNAL_REPAIR_DAYS", "30")
+        old = [
+            deal(900, DEAL_ENTRY_IN, t=NOW - timedelta(days=10, hours=1)),
+            deal(900, DEAL_ENTRY_OUT, t=NOW - timedelta(days=10), profit=5.0),
+        ]
+        sessions = {"a": StubSession(StubConnector(old))}
+        stored_mark = (NOW - timedelta(minutes=1)).isoformat()
+
+        written = trade_journal.sync_all_trades([account("a", history_synced_to=stored_mark)], sessions)
+
+        assert written == 1
+
+    def test_it_happens_once(self, client, monkeypatch):
+        monkeypatch.setenv("WORKER_JOURNAL_REPAIR_DAYS", "30")
+        old = [
+            deal(901, DEAL_ENTRY_IN, t=NOW - timedelta(days=10, hours=1)),
+            deal(901, DEAL_ENTRY_OUT, t=NOW - timedelta(days=10), profit=5.0),
+        ]
+        stored_mark = (NOW - timedelta(minutes=1)).isoformat()
+        acc = account("a", history_synced_to=stored_mark)
+
+        trade_journal.sync_all_trades([acc], {"a": StubSession(StubConnector(old))})
+        # A restart forgets everything in memory; the marker file is what remains.
+        trade_journal.reset_state()
+        written = trade_journal.sync_all_trades([acc], {"a": StubSession(StubConnector(old))})
+
+        assert written == 0
+
+    def test_an_unlinked_account_is_not_marked_repaired(self, monkeypatch):
+        stub = StubClient(linked=False)
+        monkeypatch.setattr(api_client_module, "get_api_client", lambda: stub)
+        trade_journal.sync_all_trades([account("a")], {"a": StubSession(StubConnector([]))})
+        assert trade_journal._repair_pending("a")
