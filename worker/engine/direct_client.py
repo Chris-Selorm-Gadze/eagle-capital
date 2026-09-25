@@ -279,10 +279,13 @@ class DirectDbClient:
         self._down_until = time.monotonic() + pause
         if not self._down:
             self._down = True
+            error = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+            reason = self._why_no_connection(exc)
             logger.warning(
                 "direct_db_unavailable",
                 operation=operation,
-                error=str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__,
+                error=error,
+                reason=reason,
                 sqlstate=sqlstate or None,
                 retry_s=pause,
                 hint=(
@@ -291,6 +294,25 @@ class DirectDbClient:
                     else "Falling back to the copier-gateway until the database answers again."
                 ),
             )
+
+    def _why_no_connection(self, exc: BaseException) -> Optional[str]:
+        """The real cause behind a pool timeout, which only says it gave up.
+
+        Once per outage (mark_down logs only on the transition), a single plain
+        connect: its error names the wrong password or the unreachable host."""
+        try:
+            import psycopg
+            from psycopg_pool import PoolTimeout
+        except ImportError:  # pragma: no cover
+            return None
+        if not isinstance(exc, PoolTimeout):
+            return None
+        try:
+            kwargs = {**connection_kwargs(), "connect_timeout": 5}
+            with psycopg.connect(self.dsn, **kwargs):
+                return "a direct connect succeeds -- the pool may be exhausted"
+        except Exception as probe:
+            return " ".join(str(probe).split()) or type(probe).__name__
 
     def mark_up(self) -> None:
         if self._down:
