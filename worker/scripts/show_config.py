@@ -39,6 +39,56 @@ def _show(name: str) -> str:
     return raw
 
 
+def _describe_dsn(dsn: str) -> str:
+    """The URL with its password hidden, so the user can check the rest."""
+    try:
+        from psycopg.conninfo import conninfo_to_dict
+
+        parts = conninfo_to_dict(dsn)
+    except Exception:
+        return "(could not parse WORKER_DATABASE_URL -- check its format)"
+    return (
+        f"user={parts.get('user')} host={parts.get('host')} port={parts.get('port', '5432')} "
+        f"dbname={parts.get('dbname')} password={'set' if parts.get('password') else 'MISSING'}"
+    )
+
+
+def _can_connect(dsn: str) -> bool:
+    import psycopg
+
+    from engine.direct_client import connection_kwargs
+
+    print(f"  {_describe_dsn(dsn)}")
+    try:
+        started = time.perf_counter()
+        with psycopg.connect(dsn, **connection_kwargs()) as conn:
+            conn.execute("select 1")
+        print(f"  connection OK ({(time.perf_counter() - started) * 1000:.0f} ms)")
+        return True
+    except Exception as exc:
+        message = " ".join(str(exc).split()) or type(exc).__name__
+        print(f"  FAILED to connect: {message}")
+        low = message.lower()
+        if "password authentication failed" in low:
+            print("  -> The password in WORKER_DATABASE_URL is not the one set with")
+            print("     alter role copier_worker with password '...'. Set it again and")
+            print("     paste the SAME value into .env.")
+        elif "tenant or user not found" in low:
+            print("  -> Pooler addresses need the user as copier_worker.<project-ref>;")
+            print("     the direct db.<ref>.supabase.co address needs plain copier_worker.")
+        elif "does not exist" in low and "role" in low:
+            print("  -> Run supabase/migrations-worker-direct.sql first.")
+        elif any(k in low for k in ("timeout", "timed out", "unreachable", "no route",
+                                   "could not translate", "getaddrinfo", "name or service")):
+            print("  -> The host is not reachable from this machine. For the direct")
+            print("     db.<ref>.supabase.co address that usually means IPv6 is not")
+            print("     getting through. Check in PowerShell:")
+            print("       Test-NetConnection <host> -Port 5432")
+            print("     If that fails, use the Session pooler address instead (Supabase ->")
+            print("     Connect -> Session pooler, user copier_worker.<project-ref>).")
+        return False
+
+
 def _check_direct_path() -> bool | None:
     """Exercise the direct database path, and its push channel, on their own.
 
@@ -70,6 +120,11 @@ def _check_direct_path() -> bool | None:
         print("  Install into the worker's own venv, from the worker folder:")
         print("    .\\venv\\Scripts\\python.exe -m pip install -r requirements.txt")
         print("  (a plain `pip install` often lands in a different Python).")
+        return False
+
+    # One plain connection first. The pool only says it gave up after five
+    # seconds; a single connect says WHY -- wrong password, unreachable host.
+    if not _can_connect(dsn):
         return False
 
     direct = DirectDbClient.from_env(os.environ.get("WORKER_USER_ID", ""))
