@@ -237,10 +237,17 @@ class DirectDbClient:
         try:
             import psycopg  # noqa: F401
             import psycopg_pool  # noqa: F401
-        except ImportError:
+        except ImportError as exc:
+            import sys
+
             logger.warning(
                 "direct_db_driver_missing",
-                hint="pip install -r requirements.txt -- falling back to the gateway",
+                error=str(exc),
+                python=sys.executable,
+                hint=(
+                    "venv\\Scripts\\python.exe -m pip install -r requirements.txt "
+                    "-- falling back to the gateway until then"
+                ),
             )
             return None
         key = None
