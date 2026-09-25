@@ -49,9 +49,17 @@ def should_report_positions(now: Optional[float] = None) -> bool:
 
 
 def reset_state() -> None:
-    global _last_report, _sweep_thread
+    global _last_report, _sweep_thread, _last_balance_report
     _last_report = 0.0
     _sweep_thread = None
+    _last_balance_report = 0.0
+
+
+def request_report() -> None:
+    """Report on the next loop instead of at the next interval -- after the
+    worker closes something, so the Live Trading page drops it at once."""
+    global _last_report
+    _last_report = 0.0
 
 
 def _number(value: Any) -> Optional[float]:
@@ -65,11 +73,20 @@ def _number(value: Any) -> Optional[float]:
     return out + 0.0
 
 
-def position_row(pos: dict[str, Any], digits: Optional[int] = None) -> Optional[dict[str, Any]]:
+def position_row(
+    pos: dict[str, Any],
+    digits: Optional[int] = None,
+    time_offset: int = 0,
+) -> Optional[dict[str, Any]]:
     """One MT5 position as the wire shape, or None if it is not identifiable.
 
     A position without a ticket or a symbol cannot be rendered or reconciled
     against anything, so it is dropped rather than shown as a blank row.
+
+    ``time_offset`` is how far the broker's clock runs ahead of UTC. MT5 gives
+    a position's open time in that clock, so on a GMT+3 server a position
+    opened a minute ago read as opening three hours in the future, and its age
+    sat at "0s" for three hours.
     """
     ticket = pos.get("ticket")
     symbol = pos.get("symbol")
@@ -88,7 +105,11 @@ def position_row(pos: dict[str, Any], digits: Optional[int] = None) -> Optional[
         "swap": _number(pos.get("swap")),
         "sl": _number(pos.get("sl")) or None,
         "tp": _number(pos.get("tp")) or None,
-        "opened_at": int(opened_at) if isinstance(opened_at, (int, float)) else None,
+        "opened_at": (
+            int(opened_at) - int(time_offset or 0)
+            if isinstance(opened_at, (int, float)) and opened_at
+            else None
+        ),
         # The broker's own price precision. Without it the page has to guess,
         # and a guess shows 1.085 where the instrument quotes 1.08500 -- digits
         # appearing and vanishing as the price moves, which on a screen someone
@@ -100,6 +121,7 @@ def position_row(pos: dict[str, Any], digits: Optional[int] = None) -> Optional[
 def positions_from_mt5(
     positions: Iterable[dict[str, Any]],
     digits_lookup: Optional[Any] = None,
+    time_offset: int = 0,
 ) -> list[dict[str, Any]]:
     def digits_for(symbol: str) -> Optional[int]:
         if digits_lookup is None or not symbol:
@@ -109,7 +131,10 @@ def positions_from_mt5(
         except Exception:
             return None
 
-    rows = [position_row(p, digits_for(str(p.get("symbol") or ""))) for p in positions]
+    rows = [
+        position_row(p, digits_for(str(p.get("symbol") or "")), time_offset)
+        for p in positions
+    ]
     return [r for r in rows if r is not None]
 
 
@@ -118,13 +143,14 @@ def account_payload(
     positions: Iterable[dict[str, Any]],
     info: Optional[dict[str, Any]] = None,
     digits_lookup: Optional[Any] = None,
+    time_offset: int = 0,
 ) -> dict[str, Any]:
     """One account's snapshot. ``info`` is MT5's account info when it was read
     on the same visit -- omitted, the gateway leaves the stored figures alone
     rather than blanking them."""
     payload: dict[str, Any] = {
         "trading_account_id": trading_account_id,
-        "positions": positions_from_mt5(positions, digits_lookup),
+        "positions": positions_from_mt5(positions, digits_lookup, time_offset),
     }
     if info:
         payload["balance"] = _number(info.get("balance"))
@@ -203,6 +229,7 @@ def payload_from_result(result: Any) -> Optional[dict[str, Any]]:
         result.get("positions") or [],
         result.get("info"),
         digits_lookup=lambda symbol: (result.get("digits") or {}).get(symbol),
+        time_offset=int(result.get("time_offset") or 0),
     )
 
 
@@ -234,6 +261,7 @@ def sweep_positions(
     accounts: list[Any],
     pool: Any,
     master_snapshot: Optional[tuple[str, list[dict[str, Any]]]] = None,
+    master_offset: int = 0,
 ) -> int:
     """Read every pool-routed account at once and report what was seen.
 
@@ -250,7 +278,9 @@ def sweep_positions(
     master_id = None
     if master_snapshot is not None:
         master_id, master_positions = master_snapshot
-        payloads.append(account_payload(master_id, master_positions))
+        payloads.append(
+            account_payload(master_id, master_positions, time_offset=master_offset)
+        )
 
     pending: dict[str, Any] = {}
     for account in sweepable(accounts, pool, master_id):
@@ -263,6 +293,7 @@ def sweep_positions(
             pending[account.id] = future
 
     deadline = time.monotonic() + sweep_deadline_seconds()
+    balances: list[dict[str, Any]] = []
     for account_id, future in pending.items():
         remaining = deadline - time.monotonic()
         if remaining <= 0:
@@ -276,8 +307,65 @@ def sweep_positions(
         payload = payload_from_result(result)
         if payload is not None:
             payloads.append(payload)
+            row = balance_row(payload)
+            if row is not None:
+                balances.append(row)
 
-    return report_accounts(payloads)
+    reported = report_accounts(payloads)
+    report_balances(balances)
+    return reported
+
+
+def balance_row(payload: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """The account-balances row a successful sweep read implies, if it read one."""
+    if payload.get("balance") is None and payload.get("equity") is None:
+        return None
+    row: dict[str, Any] = {
+        "trading_account_id": payload["trading_account_id"],
+        "balance": payload.get("balance"),
+        "equity": payload.get("equity"),
+        # The read succeeded, so the account is reachable -- which is what the
+        # inline balance sweep used to establish by logging in to it.
+        "connection_status": "connected",
+    }
+    if payload.get("currency"):
+        row["currency"] = payload["currency"]
+    return row
+
+
+_last_balance_report: float = 0.0
+
+
+def report_balances(rows: list[dict[str, Any]], now: Optional[float] = None) -> int:
+    """Hand pool-read balances to the gateway, at the balance cadence.
+
+    These accounts are no longer visited by the inline balance sweep (see
+    balance_sync.accounts_to_visit), so this is how their balance, equity,
+    connection status and daily opening snapshot stay current. Throttled to the
+    same interval that sweep used: the positions report every two seconds
+    already carries live figures for the page, and trading_accounts is streamed
+    to the Trade Copier page, which would otherwise reload on every sweep.
+    """
+    global _last_balance_report
+    if not rows:
+        return 0
+    moment = time.time() if now is None else now
+    interval = float(os.environ.get("WORKER_BALANCE_SYNC_SECONDS", "90"))
+    if moment - _last_balance_report < interval:
+        return 0
+
+    from engine.api_client import get_api_client
+
+    client = get_api_client()
+    if not client.enabled or not client.user_id:
+        return 0
+    try:
+        client.post_account_balances(rows)
+    except Exception as exc:
+        logger.debug("pooled_balance_report_failed", count=len(rows), error=str(exc))
+        return 0
+    _last_balance_report = moment
+    return len(rows)
 
 
 _sweep_thread: Optional[threading.Thread] = None
@@ -288,6 +376,7 @@ def sweep_in_background(
     accounts: list[Any],
     pool: Any,
     master_snapshot: Optional[tuple[str, list[dict[str, Any]]]] = None,
+    master_offset: int = 0,
 ) -> bool:
     """Start a sweep off the copy loop's thread, if one is not already running.
 
@@ -307,7 +396,7 @@ def sweep_in_background(
 
         def run() -> None:
             try:
-                sweep_positions(accounts, pool, master_snapshot)
+                sweep_positions(accounts, pool, master_snapshot, master_offset)
             except Exception as exc:
                 logger.debug("position_sweep_failed", error=str(exc))
 

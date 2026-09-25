@@ -9,6 +9,12 @@ export interface Account {
   accountNumber?: string   // optional: broker/firm account number
 
   size: number             // account size (initial capital)
+  // When `size` was read, for an account whose opening balance came from its
+  // broker rather than being typed in. Everything closed before this instant is
+  // already inside `size`, so the ledger does not add it again — see
+  // utils/ledger.ts `sinceOpening`. Unset means size is the true starting
+  // capital and every trade counts.
+  openingBalanceAt?: string
   balance: number          // current balance
   highestBalance: number   // for trailing drawdown tracking
   currency?: string        // default 'USD'
@@ -65,7 +71,7 @@ export interface Reward {
 export interface Trade {
   id?: string
   accountId: string
-  date: string // ISO date, entryTime's date — for calendar/day grouping
+  date: string // local day the trade closed (utils/tradingDay.ts tradeDayOf) — for calendar/day grouping
   symbol: string
   side: 'long' | 'short'
   qty: number

@@ -16,6 +16,7 @@ import type { Trade } from '@/db/schema'
 import { tradeDurationMinutes } from '@/utils/tradeStats'
 import { formatDuration } from '@/utils/format'
 import { ChartTooltipRow } from './ChartTooltipRow'
+import { useMoney } from '@/components/money-context'
 
 /* Converted off bare Recharts + `.card` onto the shared ChartContainer — same
  * change as its sibling scatter, for the same reason. */
@@ -25,11 +26,8 @@ const chartConfig = {
 	loss: { label: 'Loss', color: 'var(--critical)' },
 } satisfies ChartConfig
 
-function money(value: number): string {
-	return `${value < 0 ? '-' : ''}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-}
-
 export function TradeDurationScatter({ trades }: { trades: Trade[] }) {
+	const { whole: money } = useMoney()
 	const points = (list: Trade[]) =>
 		list.map((t) => ({
 			duration: tradeDurationMinutes(t.entryTime, t.exitTime),
@@ -63,7 +61,7 @@ export function TradeDurationScatter({ trades }: { trades: Trade[] }) {
 							axisLine={false}
 							dataKey="pnl"
 							name="P&L"
-							tickFormatter={(v) => `$${Number(v).toLocaleString()}`}
+							tickFormatter={(v) => money(Number(v))}
 							tickLine={false}
 							type="number"
 							width={56}

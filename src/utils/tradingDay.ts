@@ -25,6 +25,20 @@ export function tradingDayOf(instant: string | number | Date): string {
   return formatLocalDate(d)
 }
 
+/** The day a trade's RESULT belongs to: the local day it closed.
+ *
+ * This used to be the day it opened, so a position opened on Monday evening and
+ * closed on Tuesday put Tuesday's realised P&L on Monday's calendar cell, left
+ * "today" unchanged by a close that happened today, and counted against the
+ * wrong day's loss limit — every broker and prop firm books realised P&L on the
+ * day it is realised. One definition, used by the stored `date`, the ledger and
+ * every day-grouped view, so none of them can disagree about it again.
+ *
+ * Falls back to the entry time for a row with no readable exit. */
+export function tradeDayOf(trade: { entryTime: string; exitTime?: string | null }): string {
+  return (trade.exitTime ? tradingDayOf(trade.exitTime) : '') || tradingDayOf(trade.entryTime)
+}
+
 /** Today's local calendar day. Replaces `new Date().toISOString().slice(0, 10)`,
  * which returns tomorrow's date for anyone east of UTC late in their evening. */
 export function todayTradingDay(): string {

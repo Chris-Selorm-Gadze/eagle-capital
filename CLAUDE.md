@@ -30,15 +30,23 @@ The marketing copy is deliberately narrow about broker support, because only `mt
 
 **Balance is derived, never stored.** `utils/ledger.ts` is the single definition:
 `size + realised P&L − withdrawals`, where a day's *trades* win over a day's
-*session* summary so logging both can't double-count. The `accounts.balance` and
+*session* summary so logging both can't double-count. An account created from a
+connected broker account sets `opening_balance_at`: its `size` is the broker's
+balance at that instant, so only activity after it moves the balance
+(`sinceOpening`) — otherwise the 72h backfill is counted twice. The `accounts.balance` and
 `accounts.highest_balance` columns still exist (NOT NULL) but are written once at
 creation and read by nothing — don't reintroduce them into a display path. The app
 previously had two balances that disagreed on the same tile.
 
 **The trading day is local, never UTC.** `utils/tradingDay.ts` owns it. Never use
 `toISOString().slice(0, 10)` to get a date: that's the UTC day, and it files every
-evening US session on the following day. `trades.date` is derived from `entry_time`
-on read for the same reason, so rows written before this fix group correctly too.
+evening US session on the following day. A trade's day is the day it **closed**
+(`tradeDayOf`) — realised P&L belongs to the day it was realised. `trades.date` is
+derived from `exit_time` on read, so every row follows the rule with no backfill.
+
+**Two currencies never add.** There is no FX source, so every money figure is
+computed within one currency (`utils/money.ts`); the dashboard shows one currency
+at a time and components print money through `useMoney()`, never a literal `$`.
 
 ## Conventions
 - Money formatting: whole dollars, `toLocaleString()`. Dates: ISO strings in DB.

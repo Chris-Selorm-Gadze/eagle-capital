@@ -6,6 +6,7 @@ import {
 import { dailyPnlSeries, mostActiveWeekday, mostProfitableWeekday, leastProfitableWeekday } from '../../../utils/tradeAggregates'
 import { formatDuration } from '../../../utils/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useMoney } from '@/components/money-context'
 
 /* Converted onto shadcn Card — the dashboard's last CSS-Module tile. */
 
@@ -15,10 +16,6 @@ interface StatRow {
   color?: string
 }
 
-function fmtMoney(n: number): string {
-  return `${n >= 0 ? '+' : '-'}$${Math.abs(n).toLocaleString()}`
-}
-
 /** Color follows the actual sign of the value, not which stat it is —
  * e.g. "least profitable day" can still be net-positive if every day won. */
 function signColor(n: number): string {
@@ -26,6 +23,7 @@ function signColor(n: number): string {
 }
 
 export function TradeStatsList({ trades }: { trades: Trade[] }) {
+  const { signedExact: fmtMoney } = useMoney()
   const daily = dailyPnlSeries(trades)
   const active = mostActiveWeekday(daily)
   const mostProfitable = mostProfitableWeekday(daily)

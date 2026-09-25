@@ -42,50 +42,72 @@ export function useSupabaseData(userId: string | undefined): SupabaseData {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Guards against a slow first load resolving after a later one and overwriting
+  // Guard against a slow load resolving after a later one and overwriting
   // fresher data — and against setting state on an unmounted component.
-  const requestId = useRef(0)
+  //
+  // Two counters, not one. They used to share a single counter, so a trade
+  // arriving from the worker in the middle of a full reload bumped it and the
+  // reload's accounts, sessions, payouts and rewards were thrown away whole —
+  // a dashboard account created from the Trade Copier then did not appear
+  // until the next full reload, and neither did its trades' P&L on the tiles.
+  // Every read of `trades` bumps `tradesRequest`; only a full reload bumps
+  // `fullRequest`. Each result is applied if nothing newer of its own kind has
+  // started, so the trade list is always the newest and the rest never lost.
+  const fullRequest = useRef(0)
+  const tradesRequest = useRef(0)
+  // Which kind of read the current error came from. A trades-only read that
+  // succeeds must not clear a failed full reload's error: that would swap the
+  // error panel for a dashboard with no accounts on it.
+  const errorFrom = useRef<'full' | 'trades' | null>(null)
 
   const refresh = useCallback(async () => {
     if (!userId) return
-    const id = ++requestId.current
+    const id = ++fullRequest.current
+    const tid = ++tradesRequest.current
     try {
       const [a, s, p, r, t] = await Promise.all([
         listAccounts(), listSessions(), listPayouts(), listRewards(), listTrades(),
       ])
-      if (id !== requestId.current) return
+      if (id !== fullRequest.current) return
       setAccounts(a)
       setSessions(s)
       setPayouts(p)
       setRewards(r)
-      setTrades(t)
+      if (tid === tradesRequest.current) setTrades(t)
+      errorFrom.current = null
       setError(null)
     } catch (err) {
-      if (id !== requestId.current) return
+      if (id !== fullRequest.current) return
+      errorFrom.current = 'full'
       setError(errorMessage(err))
     }
   }, [userId])
 
-  /* Trades only. Shares the request counter with refresh() so a full reload
-   * landing after this one still wins -- otherwise a stream update arriving
-   * mid-reload could be overwritten by the older trade list. */
+  /* Trades only. A full reload that started earlier still applies everything
+   * else it read; only its (older) trade list is dropped in favour of this. */
   const refreshTrades = useCallback(async () => {
     if (!userId) return
-    const id = ++requestId.current
+    const tid = ++tradesRequest.current
     try {
       const t = await listTrades()
-      if (id !== requestId.current) return
+      if (tid !== tradesRequest.current) return
       setTrades(t)
-      setError(null)
+      if (errorFrom.current === 'trades') {
+        errorFrom.current = null
+        setError(null)
+      }
     } catch (err) {
-      if (id !== requestId.current) return
+      if (tid !== tradesRequest.current) return
+      if (errorFrom.current !== 'full') errorFrom.current = 'trades'
       setError(errorMessage(err))
     }
   }, [userId])
 
   useEffect(() => {
     if (!userId) {
-      requestId.current++
+      fullRequest.current++
+      tradesRequest.current++
+      errorFrom.current = null
       setAccounts([])
       setSessions([])
       setPayouts([])

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tradingDayOf, todayTradingDay, formatLocalDate, parseLocalDate, addDays, weekdayOf } from './tradingDay'
+import { tradingDayOf, todayTradingDay, formatLocalDate, parseLocalDate, addDays, weekdayOf, tradeDayOf } from './tradingDay'
 
 describe('tradingDayOf', () => {
   // The bug this module exists for: the day was `toISOString().slice(0, 10)`,
@@ -76,5 +76,16 @@ describe('weekdayOf', () => {
 describe('todayTradingDay', () => {
   it('matches the local calendar date', () => {
     expect(todayTradingDay()).toBe(formatLocalDate(new Date()))
+  })
+})
+
+describe('tradeDayOf', () => {
+  it('is the local day the trade closed', () => {
+    expect(tradeDayOf({ entryTime: '2026-03-02T20:00:00', exitTime: '2026-03-03T10:00:00' })).toBe('2026-03-03')
+  })
+
+  it('falls back to the entry when the exit is unreadable', () => {
+    expect(tradeDayOf({ entryTime: '2026-03-02T20:00:00', exitTime: 'garbage' })).toBe('2026-03-02')
+    expect(tradeDayOf({ entryTime: '2026-03-02T20:00:00' })).toBe('2026-03-02')
   })
 })

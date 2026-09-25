@@ -1,6 +1,10 @@
-import { createContext, memo, useContext, useEffect, useState } from 'react'
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../auth/AuthContext'
 import { AuthPage } from '../auth/AuthPage'
+import { closePosition, flattenAccount, waitForCommand } from '../../db/copierActions'
+import { useConfirm } from '../../shared/ui/confirm'
+import { errorMessage } from '../../utils/errors'
 import {
   freshnessLabel,
   snapshotAgeSeconds,
@@ -28,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { StatusIndicator } from '@/components/indicator'
 import { EmptyState, ErrorNotice, LoadingRows, PageHeader } from '@/shared/ui/page'
 import { cn } from 'cn'
@@ -142,7 +147,139 @@ function TickCell({ value, text, className }: {
   )
 }
 
-const PositionRow = memo(function PositionRow({ position }: { position: LivePosition }) {
+/* Closing from the page.
+ *
+ * A close is a worker command, like flatten: only the worker holds the
+ * terminal, so the browser queues it and waits for the answer. The row keeps
+ * saying "Closing…" until the worker replies; the position then drops out on
+ * the next snapshot, which the worker sends straight after a close rather than
+ * at its usual beat.
+ *
+ * Provided through context so the memoised rows only re-render when something
+ * is actually closing, not on every parent render. */
+interface Closer {
+  closing: ReadonlySet<string>
+  close: (account: LiveAccountPositions, position: LivePosition) => void
+  closeAll: (account: LiveAccountPositions) => void
+}
+
+const CloserContext = createContext<Closer | null>(null)
+
+const ALL = '*'
+const closingKey = (accountId: string, ticket: string) => `${accountId}:${ticket}`
+
+function describeSide(position: LivePosition): string {
+  return `${position.side} ${formatLots(position.volume)} ${position.symbol}`
+}
+
+function useCloser(): Closer {
+  const confirm = useConfirm()
+  const [closing, setClosing] = useState<ReadonlySet<string>>(() => new Set())
+
+  const mark = useCallback((key: string, on: boolean) => {
+    setClosing((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(key)
+      else next.delete(key)
+      return next
+    })
+  }, [])
+
+  const run = useCallback(async (key: string, what: string, queue: () => Promise<string>) => {
+    mark(key, true)
+    try {
+      const outcome = await waitForCommand(await queue())
+      if (outcome.status === 'completed') {
+        const result = outcome.result
+        const closed = Number(result.closed ?? 0)
+        const gone = Array.isArray(result.already_closed) ? result.already_closed.length : 0
+        if (closed === 0 && gone > 0) toast.info(`${what} had already closed.`)
+        else if (closed === 0) toast.info(`Nothing was open on ${what}.`)
+        else toast.success(`Closed ${what}.`)
+      } else if (outcome.status === 'failed') {
+        toast.error(`Could not close ${what}: ${outcome.error}`)
+      } else {
+        toast.warning(
+          `No worker has picked up the close for ${what} yet. It stays queued and runs `
+          + 'as soon as the worker is back.',
+        )
+      }
+    } catch (err) {
+      toast.error(`Could not close ${what}: ${errorMessage(err)}`)
+    } finally {
+      mark(key, false)
+    }
+  }, [mark])
+
+  const close = useCallback(async (account: LiveAccountPositions, position: LivePosition) => {
+    const what = `${describeSide(position)} on ${account.label}`
+    const ok = await confirm({
+      title: `Close ${describeSide(position)}?`,
+      description:
+        `Closes this position on ${account.label} at market. If this account is a copy master, `
+        + 'its followers’ copies close with it.',
+      confirmLabel: 'Close position',
+      destructive: true,
+    })
+    if (!ok) return
+    void run(closingKey(account.accountId, position.ticket), what, () =>
+      closePosition(account.accountId, position.ticket))
+  }, [confirm, run])
+
+  const closeAll = useCallback(async (account: LiveAccountPositions) => {
+    const count = account.positions.length
+    const ok = await confirm({
+      title: `Close all ${count} position${count === 1 ? '' : 's'} on ${account.label}?`,
+      description:
+        'Closes every open position on this account at market. If it is a copy master, '
+        + 'its followers’ copies close with them.',
+      confirmLabel: 'Close all',
+      destructive: true,
+    })
+    if (!ok) return
+    void run(closingKey(account.accountId, ALL), `every position on ${account.label}`, () =>
+      flattenAccount(account.accountId))
+  }, [confirm, run])
+
+  return useMemo(() => ({ closing, close, closeAll }), [closing, close, closeAll])
+}
+
+function CloseButton({ account, position }: { account: LiveAccountPositions; position: LivePosition }) {
+  const closer = useContext(CloserContext)
+  if (!closer) return null
+  const busy = closer.closing.has(closingKey(account.accountId, position.ticket))
+    || closer.closing.has(closingKey(account.accountId, ALL))
+  return (
+    <Button
+      aria-label={`Close ${describeSide(position)}`}
+      disabled={busy}
+      onClick={() => closer.close(account, position)}
+      size="xs"
+      variant="outline"
+    >
+      {busy ? 'Closing…' : 'Close'}
+    </Button>
+  )
+}
+
+function CloseAllButton({ account }: { account: LiveAccountPositions }) {
+  const closer = useContext(CloserContext)
+  if (!closer || account.positions.length === 0) return null
+  const busy = closer.closing.has(closingKey(account.accountId, ALL))
+  return (
+    <Button disabled={busy} onClick={() => closer.closeAll(account)} size="xs" variant="outline">
+      {busy ? 'Closing…' : 'Close all'}
+    </Button>
+  )
+}
+
+const PositionRow = memo(function PositionRow({
+  account,
+  position,
+}: {
+  account: LiveAccountPositions
+  position: LivePosition
+}) {
   return (
     <TableRow>
       <TableCell className="font-medium">{position.symbol}</TableCell>
@@ -173,6 +310,9 @@ const PositionRow = memo(function PositionRow({ position }: { position: LivePosi
           text={formatPnl(position.unrealizedPnl)}
           value={position.unrealizedPnl}
         />
+      </TableCell>
+      <TableCell className="text-right">
+        <CloseButton account={account} position={position} />
       </TableCell>
     </TableRow>
   )
@@ -213,6 +353,7 @@ const AccountPanel = memo(function AccountPanel({ account }: { account: LiveAcco
             </span>
           )}
           <Freshness offline={offline} reportedAt={account.reportedAt} />
+          <CloseAllButton account={account} />
         </div>
       </CardHeader>
 
@@ -237,11 +378,12 @@ const AccountPanel = memo(function AccountPanel({ account }: { account: LiveAcco
                   <TableHead className="text-right">Last</TableHead>
                   <TableHead className="text-right">Age</TableHead>
                   <TableHead className="text-right">P&amp;L</TableHead>
+                  <TableHead className="w-0"><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {account.positions.map((p) => (
-                  <PositionRow key={`${account.accountId}:${p.ticket}`} position={p} />
+                  <PositionRow account={account} key={`${account.accountId}:${p.ticket}`} position={p} />
                 ))}
               </TableBody>
             </Table>
@@ -268,6 +410,7 @@ function Summary({ label, value, valueClass }: {
 
 function LivePositionsWorkspace() {
   const { accounts, error, streaming, totals } = useLivePositions()
+  const closer = useCloser()
 
   if (accounts === null) {
     // A failure before the first snapshot is the whole page; after one, it sits
@@ -314,11 +457,13 @@ function LivePositionsWorkspace() {
           title="No connected accounts yet"
         />
       ) : (
-        <Clock>
-          <div className="grid gap-4 xl:grid-cols-2">
-            {accounts.map((a) => <AccountPanel account={a} key={a.accountId} />)}
-          </div>
-        </Clock>
+        <CloserContext.Provider value={closer}>
+          <Clock>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {accounts.map((a) => <AccountPanel account={a} key={a.accountId} />)}
+            </div>
+          </Clock>
+        </CloserContext.Provider>
       )}
     </div>
   )

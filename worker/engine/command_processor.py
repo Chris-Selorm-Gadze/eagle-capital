@@ -20,67 +20,112 @@ from engine.terminal_session_manager import Mt5Account, get_terminal_manager
 logger = structlog.get_logger()
 
 
-def flatten_account(session: AccountSession) -> dict[str, Any]:
-    if mt5 is None:
-        return {"success": False, "error": "MetaTrader5 not available"}
+# How long the command loop waits for a pool worker to finish a close. A close
+# is one order per position; past this the terminal is stuck, and saying so
+# beats holding the copy loop.
+_CLOSE_DEADLINE_S = 30.0
 
-    mgr = get_terminal_manager()
-    if not mgr.ensure_account(Mt5Account.from_session(session)):
-        return {"success": False, "error": "Failed to login for flatten"}
 
-    positions = session.connector.get_open_positions()
-    closed = 0
-    errors: list[str] = []
+def _log_closes(session: AccountSession, event_type: str, result: dict[str, Any]) -> None:
+    """One execution event per position closed, on the side it belongs to.
 
-    for pos in positions:
-        ticket = pos.get("ticket")
-        symbol = pos.get("symbol")
-        volume = pos.get("volume")
-        side = pos.get("type")
-        if ticket is None:
-            continue
+    Recorded under ``follower_ticket`` for a follower, which is what open-links
+    reads to decide a copy link is finished: a follower closed by hand from the
+    app must not be restored as open after a worker restart.
+    """
+    side = "follower" if session.role == "follower" else "master"
+    for pos in result.get("closed_positions") or []:
+        append_event(
+            {
+                "status": "closed",
+                "event_type": event_type,
+                f"{side}_ticket": pos.get("ticket"),
+                f"{side}_account_id": session.account_id,
+                "symbol": pos.get("symbol"),
+                "side": pos.get("side"),
+                "executed_lot": pos.get("volume"),
+            }
+        )
 
-        close_type = mt5.ORDER_TYPE_SELL if side == 0 else mt5.ORDER_TYPE_BUY
-        tick = mt5.symbol_info_tick(symbol)
-        if tick is None:
-            errors.append(f"No tick for {symbol}")
-            continue
 
-        price = tick.bid if close_type == mt5.ORDER_TYPE_SELL else tick.ask
-        request = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": symbol,
-            "volume": volume,
-            "type": close_type,
-            "position": ticket,
-            "price": price,
-            "deviation": 20,
-            "magic": 0,
-            "comment": "copymorphic-flatten",
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        }
-        result = mt5.order_send(request)
-        if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-            closed += 1
-            append_event(
-                {
-                    "status": "closed",
-                    "event_type": "flatten",
-                    "master_ticket": ticket,
-                    "symbol": symbol,
-                    "executed_lot": volume,
-                }
-            )
-        else:
-            code = result.retcode if result else "unknown"
-            errors.append(f"ticket {ticket}: retcode {code}")
-
+def _pool_job(session: AccountSession, tickets: Optional[list[int]]) -> dict[str, Any]:
     return {
-        "success": len(errors) == 0,
-        "closed": closed,
-        "errors": errors,
+        "terminal_path": session.terminal_path,
+        "tickets": tickets,
+        "account": {
+            "id": session.account_id,
+            "label": session.label,
+            "role": session.role,
+            "login": str(session.login),
+            "password": session.password,
+            "server": session.server,
+            "platform": session.platform,
+            "terminal_path": session.terminal_path,
+        },
     }
+
+
+def close_positions(
+    session: AccountSession,
+    tickets: Optional[list[int]],
+    *,
+    pool: Any = None,
+    event_type: str = "manual_close",
+) -> dict[str, Any]:
+    """Close ``tickets`` on this account, or every position for None.
+
+    Routed through the account's own terminal worker when the pool has one --
+    no switch, and the copy loop keeps its master attached. Anything unrouted
+    is closed here, on this process's attach, which the copy loop re-takes on
+    its next poll.
+    """
+    from engine.manual_close import close_on_connector
+    from engine.platform_capabilities import is_mt5
+
+    if not is_mt5(session.platform):
+        return {"success": False, "error": "Closing from the app is only supported for MT5 accounts."}
+    if tickets is not None and not tickets:
+        return {"success": False, "error": "No position ticket was given."}
+
+    result: Optional[dict[str, Any]] = None
+    routed = False
+    try:
+        routed = bool(pool is not None and pool.has(session.account_id))
+    except Exception:
+        routed = False
+
+    if routed:
+        future = pool.submit_close(session.account_id, _pool_job(session, tickets))
+        if future is not None:
+            try:
+                result = future.result(timeout=_CLOSE_DEADLINE_S)
+            except Exception as exc:
+                return {"success": False, "error": f"The terminal did not answer: {exc}"}
+
+    if result is None:
+        if mt5 is None:
+            return {"success": False, "error": "MetaTrader5 not available"}
+        mgr = get_terminal_manager()
+        if not mgr.ensure_account(Mt5Account.from_session(session)):
+            return {"success": False, "error": "Could not log in to the account to close it."}
+        result = close_on_connector(session.connector, tickets)
+
+    _log_closes(session, event_type, result)
+
+    if result.get("closed") or result.get("already_closed"):
+        # Something changed on the account: journal it and redraw Live Trading
+        # now, not at the next scheduled pass.
+        from engine.position_feed import request_report
+        from engine.trade_journal import request_trade_sync
+
+        request_trade_sync()
+        request_report()
+
+    return result
+
+
+def flatten_account(session: AccountSession, *, pool: Any = None) -> dict[str, Any]:
+    return close_positions(session, None, pool=pool, event_type="flatten")
 
 
 def _folder_of(path: str) -> str:
@@ -324,6 +369,7 @@ def process_command(
     sessions: dict[str, AccountSession],
     *,
     master_session: AccountSession | None = None,
+    pool: Any = None,
 ) -> dict[str, Any]:
     cmd_type = command.get("command_type")
     account_id = command.get("trading_account_id")
@@ -336,9 +382,17 @@ def process_command(
 
     session = sessions.get(account_id or "")
 
-    if cmd_type == "flatten":
+    if cmd_type in ("flatten", "close_position"):
         if not session:
-            return {"success": False, "error": f"No session for account {account_id}"}
-        return flatten_account(session)
+            return {
+                "success": False,
+                "error": "The worker is not running this account. Check it is enabled on the Trade Copier page.",
+            }
+        if cmd_type == "flatten":
+            return flatten_account(session, pool=pool)
+        from engine.manual_close import requested_tickets
+
+        tickets = requested_tickets(command.get("payload"))
+        return close_positions(session, tickets or [], pool=pool)
 
     return {"success": False, "error": f"Unknown command type: {cmd_type}"}

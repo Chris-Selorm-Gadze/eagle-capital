@@ -47,6 +47,10 @@ def _build_api_payload(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     follower_account_id = None
     if copier_id and copier_id in ctx.copier_accounts:
         master_account_id, follower_account_id = ctx.copier_accounts[copier_id]
+    # An event with no copy link behind it -- a close or flatten asked for from
+    # the app -- names its account directly, or it lands in the log unattributed.
+    master_account_id = master_account_id or event.get("master_account_id")
+    follower_account_id = follower_account_id or event.get("follower_account_id")
 
     status = _normalize_status(str(event.get("status", "failed")))
     payload: Dict[str, Any] = {

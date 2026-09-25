@@ -32,9 +32,65 @@ def should_sync_balances() -> bool:
     return True
 
 
+# Which unrouted MT5 account the inline sweep visits next. See sync_all_balances.
+_cursor: int = 0
+
+
+def reset_state() -> None:
+    """Forget the throttle and the rotation. For tests."""
+    global _last_sync, _cursor
+    _last_sync = 0.0
+    _cursor = 0
+
+
+def accounts_to_visit(
+    accounts: list[AccountConfig],
+    pool: object | None = None,
+    *,
+    rotate: bool = True,
+) -> list[AccountConfig]:
+    """The accounts this pass reads inline, on the calling process's own attach.
+
+    Pool-routed accounts are never on the list: their terminal subprocess reads
+    balance and positions every couple of seconds already (position_feed), and
+    that sweep reports their balances too. Visiting them here as well meant the
+    copy loop logged into every account in turn every 90 seconds -- a burst of
+    terminal switches landing on the same thread that places copies.
+
+    What is left: the master (the copy loop keeps it attached, so it is free),
+    DXtrade accounts (HTTP, no terminal), and MT5 accounts with no terminal of
+    their own. Those last ones do cost a switch each, so with ``rotate`` only
+    one of them is visited per pass.
+    """
+    global _cursor
+
+    def routed(acc: AccountConfig) -> bool:
+        if pool is None:
+            return False
+        try:
+            return bool(pool.has(acc.id))  # type: ignore[attr-defined]
+        except Exception:
+            return False
+
+    enabled = [a for a in accounts if a.enabled and not routed(a)]
+    free = [a for a in enabled if a.role == "master" or is_dxtrade(a.platform)]
+    switching = sorted(
+        (a for a in enabled if a not in free and is_mt5(a.platform)),
+        key=lambda a: a.id,
+    )
+    if not rotate or not switching:
+        return free + switching
+    pick = switching[_cursor % len(switching)]
+    _cursor = (_cursor + 1) % len(switching)
+    return free + [pick]
+
+
 def sync_all_balances(
     accounts: list[AccountConfig],
     sessions: dict[str, "AccountSession"],
+    pool: object | None = None,
+    *,
+    rotate: bool = True,
 ) -> int:
     from engine.api_client import get_api_client
 
@@ -42,12 +98,12 @@ def sync_all_balances(
     if not client.enabled or not client.user_id:
         return 0
 
+    accounts = accounts_to_visit(accounts, pool, rotate=rotate)
+
     updates: list[dict] = []
     snapshots: list[dict] = []
 
     for acc in accounts:
-        if not acc.enabled:
-            continue
         try:
             session = sessions.get(acc.id)
             row = _read_balance(acc, session)

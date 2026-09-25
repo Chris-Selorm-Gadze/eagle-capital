@@ -15,9 +15,9 @@ terminal that was closed mid-session. Duplicate suppression is the
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Protocol
+from typing import Any, Collection, Optional, Protocol
 
 import structlog
 
@@ -35,6 +35,18 @@ DEFAULT_LOOKBACK_HOURS = 72
 # because the external_id index makes a repeat a no-op.
 DEFAULT_OVERLAP_SECONDS = 300
 
+# The window handed to MT5 is in the trade server's clock, not UTC (see the
+# note on the broker's clock in mt5_connector). Its end is pushed a day ahead
+# because no deal can be in the future, so an over-generous end costs nothing
+# and an under-generous one hides every trade closed in the last N hours. Its
+# start is pulled back by a margin so a reading one hour out (a DST change the
+# cache has not caught yet) still covers the window.
+FUTURE_SLACK = timedelta(days=1)
+OFFSET_MARGIN = timedelta(hours=2)
+# With no offset measured at all, reach back far enough to cover any timezone.
+# Positions already journalled are skipped, so the wider read is cheap.
+UNKNOWN_OFFSET_MARGIN = timedelta(hours=15)
+
 
 class HistoryReader(Protocol):
     """The part of MT5Connector this needs. Kept narrow so tests can stub it."""
@@ -44,6 +56,32 @@ class HistoryReader(Protocol):
     ) -> Optional[list[dict[str, Any]]]: ...
 
     def history_deals_for_position(self, position_ticket: int) -> list[dict[str, Any]]: ...
+
+    # Optional: MT5Connector.server_time_offset. A reader without it is taken to
+    # be on UTC, which is what the test stubs are.
+
+
+def reader_offset(reader: Any) -> Optional[int]:
+    """The reader's server offset in seconds, 0 for a reader that has no clock
+    of its own, or None when it has one and could not measure it."""
+    probe = getattr(reader, "server_time_offset", None)
+    if probe is None:
+        return 0
+    try:
+        value = probe()
+    except Exception:
+        return None
+    return int(value) if value is not None else None
+
+
+def server_window(
+    start: datetime, end: datetime, offset_seconds: Optional[int]
+) -> tuple[datetime, datetime]:
+    """A real-UTC window, as the window to ask MT5 for in its own clock."""
+    if offset_seconds is None:
+        return (start - UNKNOWN_OFFSET_MARGIN, end + FUTURE_SLACK)
+    shift = timedelta(seconds=offset_seconds)
+    return (start + shift - OFFSET_MARGIN, end + shift + FUTURE_SLACK)
 
 
 @dataclass
@@ -57,6 +95,12 @@ class SyncResult:
     trades: list[ClosedTrade]
     synced_to: Optional[datetime]
     positions_seen: int = 0
+    # Seconds the server clock runs ahead of UTC, as used for this read. None
+    # means it could not be measured and the times were left as MT5 gave them.
+    offset_seconds: Optional[int] = None
+    # Positions this read found fully closed -- safe for the caller to skip on
+    # later reads, unlike a partial close, which must be re-read when it ends.
+    complete_tickets: list[int] = field(default_factory=list)
 
 
 def window_for(
@@ -110,17 +154,31 @@ def sync_account(
     now: Optional[datetime] = None,
     lookback_hours: int = DEFAULT_LOOKBACK_HOURS,
     overlap_seconds: int = DEFAULT_OVERLAP_SECONDS,
+    skip_tickets: Optional[Collection[int]] = None,
 ) -> SyncResult:
     """Finished positions for one account, and the mark to store.
 
     Two phases, for the reason given in ``closing_position_tickets``: the window
     says which positions closed, then each of those is read whole so its opening
     deal is included however long ago it happened.
+
+    ``skip_tickets`` are positions already journalled as fully closed. The
+    window is deliberately generous (see ``server_window``), so without this
+    every pass would re-read and re-post hours of finished trades.
     """
     moment = now or datetime.now(timezone.utc)
     start, end = window_for(
         synced_to, moment, lookback_hours=lookback_hours, overlap_seconds=overlap_seconds
     )
+    offset = reader_offset(reader)
+    if offset is None:
+        logger.warning(
+            "trade_sync_server_offset_unknown",
+            account=trading_account_id,
+            hint="Journalled times are the broker's clock until a quote arrives.",
+        )
+    start, end = server_window(start, end, offset)
+    skip = set(skip_tickets or ())
 
     deals = reader.history_deals_window(start, end)
     if deals is None:
@@ -133,11 +191,13 @@ def sync_account(
             start=start.isoformat(),
             end=end.isoformat(),
         )
-        return SyncResult(trades=[], synced_to=None)
+        return SyncResult(trades=[], synced_to=None, offset_seconds=offset)
 
     tickets = closing_position_tickets(deals)
     trades: list[ClosedTrade] = []
     for ticket in tickets:
+        if ticket in skip:
+            continue
         position_deals = reader.history_deals_for_position(ticket)
         if not position_deals:
             # Refusing to build a trade from the window's closing deal alone:
@@ -149,7 +209,7 @@ def sync_account(
                 position=ticket,
             )
             continue
-        trade = trade_from_deals(position_deals, trading_account_id)
+        trade = trade_from_deals(position_deals, trading_account_id, offset or 0)
         if trade is not None:
             trades.append(trade)
 
@@ -167,6 +227,8 @@ def sync_account(
         trades=trades,
         synced_to=next_mark(synced_to, moment, overlap_seconds=overlap_seconds),
         positions_seen=len(tickets),
+        offset_seconds=offset,
+        complete_tickets=[t.position_ticket for t in trades if t.complete],
     )
 
 

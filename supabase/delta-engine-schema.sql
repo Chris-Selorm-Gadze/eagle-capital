@@ -589,13 +589,14 @@ create policy "queue own worker commands" on public.worker_commands for insert
     )
   );
 
--- Exactly the three the worker implements: `flatten` and `test_connection` in
--- command_processor.process_command, and `reload_config`, which copier_engine
--- handles separately by forcing an immediate config refresh. Anything else sits
--- pending forever, looking like a queued action that silently never happens.
+-- Exactly the four the worker implements: `flatten`, `close_position` and
+-- `test_connection` in command_processor.process_command, and `reload_config`,
+-- which copier_engine handles separately by forcing an immediate config
+-- refresh. Anything else sits pending forever, looking like a queued action
+-- that silently never happens.
 alter table public.worker_commands drop constraint if exists worker_commands_known_type;
 alter table public.worker_commands add constraint worker_commands_known_type
-  check (command_type in ('flatten', 'test_connection', 'reload_config'));
+  check (command_type in ('flatten', 'test_connection', 'reload_config', 'close_position'));
 
 drop policy if exists "read own live positions" on public.live_positions;
 create policy "read own live positions" on public.live_positions for select using (auth.uid() = user_id);

@@ -104,3 +104,47 @@ describe('balanceSeries', () => {
     expect(balanceSeries([account()], [], [], [])).toEqual([])
   })
 })
+
+describe('an opening balance read from a broker', () => {
+  // Linked at 2026-03-04 15:00 local with the broker reading 50,000 — a figure
+  // that already contains everything closed before that moment.
+  const linked = account({ openingBalanceAt: new Date(2026, 2, 4, 15, 0).toISOString() })
+
+  it('does not add trades that closed before the balance was read', () => {
+    const trades = [
+      trade('2026-03-03', 700), // backfilled: already inside the 50,000
+      trade('2026-03-04', 200, { exitTime: '2026-03-04T14:00:00' }), // also before 15:00
+      trade('2026-03-04', 300, { entryTime: '2026-03-04T15:30:00', exitTime: '2026-03-04T16:00:00' }),
+    ]
+    const l = buildLedger(linked, trades, [], [])
+    expect(l.tradePnl).toBe(300)
+    expect(l.balance).toBe(50_300)
+  })
+
+  it('still counts every trade as trading activity', () => {
+    const l = buildLedger(linked, [trade('2026-03-03', 700)], [], [])
+    expect(l.tradingDays).toBe(1)
+  })
+
+  it('draws the balance curve from the same rule as the figure', () => {
+    const trades = [trade('2026-03-03', 700), trade('2026-03-05', 100)]
+    const series = balanceSeries([linked], trades, [], [])
+    expect(series.at(-1)!.balance).toBe(50_100)
+    expect(series.at(-1)!.balance).toBe(buildLedger(linked, trades, [], []).balance)
+  })
+
+  it('leaves an account without an anchor exactly as before', () => {
+    const l = buildLedger(account(), [trade('2026-03-03', 700)], [], [])
+    expect(l.balance).toBe(50_700)
+  })
+})
+
+describe('the day a result belongs to', () => {
+  it('books a position held overnight on the day it closed', () => {
+    const held = trade('2026-03-02', 400, {
+      entryTime: '2026-03-02T20:00:00', exitTime: '2026-03-03T10:00:00',
+    })
+    const series = balanceSeries([account()], [held], [], [])
+    expect(series.map((p) => p.date)).toEqual(['2026-03-03'])
+  })
+})

@@ -325,7 +325,7 @@ class TestSweepInBackground:
         import threading
         seen = {}
 
-        def fake(accounts, pool, master_snapshot=None):
+        def fake(accounts, pool, master_snapshot=None, master_offset=0):
             seen["thread"] = threading.current_thread().name
             return 1
 
@@ -340,7 +340,7 @@ class TestSweepInBackground:
         import threading
         release = threading.Event()
 
-        def fake(accounts, pool, master_snapshot=None):
+        def fake(accounts, pool, master_snapshot=None, master_offset=0):
             release.wait(timeout=2)
             return 1
 
@@ -357,3 +357,29 @@ class TestSweepInBackground:
         monkeypatch.setattr(position_feed, "sweep_positions", boom)
         assert position_feed.sweep_in_background([], FakePool([])) is True
         position_feed._sweep_thread.join(timeout=2)
+
+
+class TestBrokerClock:
+    """MT5 gives a position's open time in the broker's clock. On a GMT+3
+    server that read three hours in the future, and the page's age column sat
+    at 0s for the first three hours of every trade."""
+
+    def test_the_open_time_is_moved_back_to_utc(self):
+        row = position_feed.position_row(
+            {"ticket": 1, "symbol": "EURUSD", "type": 0, "time": 1_760_010_800},
+            time_offset=3 * 3600,
+        )
+        assert row["opened_at"] == 1_760_000_000
+
+    def test_a_pool_read_carries_its_offset_through(self):
+        payload = position_feed.payload_from_result({
+            "ok": True,
+            "trading_account_id": "a",
+            "positions": [{"ticket": 1, "symbol": "EURUSD", "type": 0, "time": 1_760_010_800}],
+            "time_offset": 3 * 3600,
+        })
+        assert payload["positions"][0]["opened_at"] == 1_760_000_000
+
+    def test_no_open_time_stays_unknown(self):
+        row = position_feed.position_row({"ticket": 1, "symbol": "EURUSD", "type": 0, "time": 0})
+        assert row["opened_at"] is None

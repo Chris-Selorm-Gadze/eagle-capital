@@ -46,6 +46,55 @@ def _describe_mt5_error(err: Optional[Tuple[int, str]]) -> str:
     return f"{base}. {help_text}" if help_text else base
 
 
+# ── The broker's clock ──────────────────────────────────────────────────────
+#
+# MetaTrader stamps deals, positions and quotes in the TRADE SERVER's wall
+# clock, written as if it were UTC. Most brokers run their servers on
+# GMT+2/GMT+3 so the daily candle closes at New York 17:00, which means a deal
+# closed at 14:00 UTC carries a timestamp of 17:00 "UTC". history_deals_get()
+# filters on that same clock.
+#
+# Asking for deals up to real-UTC *now* on such a server therefore returns
+# nothing closed in the last two or three hours: the journal sat on every trade
+# for as long as the broker's offset, and accounts on a GMT+0 broker were
+# journalled at once while the rest were not -- the same copy group looking
+# half-recorded. The same shift put every journalled entry/exit time, and every
+# live position's age, hours out.
+
+# Server offsets are whole hours on every MT5 broker in practice.
+_OFFSET_STEP_S = 3600
+# Largest offset any timezone has. A reading beyond it is a stale quote
+# (market closed), not a timezone.
+MAX_SERVER_OFFSET_S = 14 * 3600
+# How close the freshest quote must sit to a whole-hour offset to be believed.
+# Anything further out is a quiet market, not a clock.
+_OFFSET_TOLERANCE_S = 90
+_OFFSET_TTL_S = 600.0
+# server -> (offset seconds, measured at). Module level so every connector to
+# the same broker server in this process shares one measurement.
+_server_offsets: Dict[str, Tuple[int, float]] = {}
+
+
+def offset_from_quote_times(quote_times: List[float], now: float) -> Optional[int]:
+    """The server's UTC offset, from the times of the quotes it last sent.
+
+    The freshest quote in Market Watch is, while any market is open, a second
+    or two old in server time -- so its distance from real now IS the offset,
+    to within that second. Returns None when the freshest quote is too old to
+    say (weekend, holiday, disconnected terminal).
+    """
+    fresh = [t for t in quote_times if t]
+    if not fresh:
+        return None
+    raw = max(fresh) - now
+    rounded = round(raw / _OFFSET_STEP_S) * _OFFSET_STEP_S
+    if abs(raw - rounded) > _OFFSET_TOLERANCE_S:
+        return None
+    if abs(rounded) > MAX_SERVER_OFFSET_S:
+        return None
+    return int(rounded)
+
+
 class MT5Connector:
     def __init__(self, login: int, password: str, server: str, terminal_path: Optional[str] = None):
         self.login = login
@@ -321,6 +370,40 @@ class MT5Connector:
             # repeated read, which the external_id index absorbs anyway.
             return None
         return [d._asdict() for d in deals]
+
+    def server_time_offset(self) -> Optional[int]:
+        """Seconds the trade server's clock runs ahead of UTC, or None if unknown.
+
+        Measured from Market Watch's quote times (one local call, no broker
+        round trip) and cached per server for ten minutes, which is short enough
+        to follow a DST change. When the market is closed and nothing can be
+        measured, the last good reading for this server is kept -- a broker's
+        offset does not change because it is the weekend.
+        """
+        if mt5 is None:
+            return None
+        key = str(self.server or "")
+        cached = _server_offsets.get(key)
+        now = time.time()
+        if cached is not None and now - cached[1] < _OFFSET_TTL_S:
+            return cached[0]
+        try:
+            symbols = mt5.symbols_get() or ()
+            quote_times = [
+                float(getattr(s, "time", 0) or 0)
+                for s in symbols
+                if getattr(s, "visible", False)
+            ]
+        except Exception as exc:
+            logger.debug("server_offset_read_failed", server=key, error=str(exc))
+            quote_times = []
+        measured = offset_from_quote_times(quote_times, now)
+        if measured is None:
+            return cached[0] if cached is not None else None
+        if cached is None or cached[0] != measured:
+            logger.info("server_time_offset", server=key, offset_hours=measured / 3600)
+        _server_offsets[key] = (measured, now)
+        return measured
 
     def history_deals_for_position(self, position_ticket: int) -> List[Dict[str, Any]]:
         """Every deal of one position, however long ago it opened.

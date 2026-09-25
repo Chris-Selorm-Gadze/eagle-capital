@@ -13,6 +13,7 @@ export function fromRow(row: Record<string, any>): Account {
     label: row.label,
     accountNumber: row.account_number ?? undefined,
     size: Number(row.size),
+    openingBalanceAt: row.opening_balance_at ?? undefined,
     balance: Number(row.balance),
     highestBalance: Number(row.highest_balance),
     currency: row.currency ?? undefined,
@@ -39,6 +40,7 @@ export function toRow(a: Partial<Account>): Record<string, unknown> {
   if (a.label !== undefined) row.label = a.label
   if (a.accountNumber !== undefined) row.account_number = a.accountNumber
   if (a.size !== undefined) row.size = a.size
+  if (a.openingBalanceAt !== undefined) row.opening_balance_at = a.openingBalanceAt
   if (a.balance !== undefined) row.balance = a.balance
   if (a.highestBalance !== undefined) row.highest_balance = a.highestBalance
   if (a.currency !== undefined) row.currency = a.currency

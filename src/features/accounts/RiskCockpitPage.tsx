@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { Account, Payout, Reward, SessionLog, Trade } from '../../db/schema'
 import type { AccountLedger } from '../../utils/ledger'
-import { tradingDayOf } from '../../utils/tradingDay'
 import { setAccountActive } from '../../db/accounts'
 import { AccountCard } from './components/AccountCard'
 import { EditAccountDialog } from './components/EditAccountDialog'
@@ -82,7 +81,7 @@ export function RiskCockpitPage({
 
   const tradeDaysByAccount = new Map<string, Set<string>>()
   for (const t of trades) {
-    const day = tradingDayOf(t.entryTime)
+    const day = t.date
     if (!day) continue
     const set = tradeDaysByAccount.get(t.accountId)
     if (set) set.add(day)

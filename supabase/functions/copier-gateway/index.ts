@@ -201,21 +201,29 @@ async function getRuntimeConfig(userId: string): Promise<Response> {
   if (copierErr) return json({ detail: copierErr.message }, 500)
 
   const copiers = copierRows ?? []
-  const enabled = copiers.filter((r) => r.is_enabled)
-  // 404 rather than an empty payload, matching the original. The worker treats
-  // this as "nothing to run" and keeps polling rather than tearing down.
-  if (enabled.length === 0) {
-    return json({ detail: 'No enabled copier relations for this user' }, 404)
-  }
 
-  const accountIds = [...new Set(copiers.flatMap((r) => [r.master_account_id, r.follower_account_id]))]
+  // Accounts in any copy link, armed or not, plus every account pointed at a
+  // dashboard account. The second set is what keeps the journal and Live
+  // Trading running for an account nobody is copying.
+  //
+  // This used to answer 404 whenever no link was armed. The worker's fetch
+  // raises on a 404, so its idle loop never learned a single account -- and the
+  // idle journalling, idle live positions and idle Close/Flatten it runs for
+  // exactly this case silently did nothing. Pausing every copy link stopped
+  // closed trades reaching the dashboard at all.
+  const linkedIds = [...new Set(copiers.flatMap((r) => [r.master_account_id, r.follower_account_id]))]
 
   const { data: accountRows, error: accErr } = await admin
     .from('trading_accounts').select('*')
-    .eq('user_id', userId).in('id', accountIds).eq('is_enabled', true)
+    .eq('user_id', userId).eq('is_enabled', true)
   if (accErr) return json({ detail: accErr.message }, 500)
-  if (!accountRows || accountRows.length === 0) {
-    return json({ detail: 'No enabled trading accounts found' }, 404)
+
+  const inLinks = new Set(linkedIds)
+  const rows = (accountRows ?? []).filter((row) => inLinks.has(row.id) || row.account_id)
+  if (rows.length === 0) {
+    // Still a 404, for the one case that really has nothing to run: the worker
+    // treats it as "keep polling", and show_config.py explains it.
+    return json({ detail: 'No enabled trading accounts to run for this user' }, 404)
   }
 
   const roles = deriveRoles(copiers)
@@ -223,7 +231,9 @@ async function getRuntimeConfig(userId: string): Promise<Response> {
   let accounts
   try {
     accounts = await Promise.all(
-      accountRows.map((row) => runtimeAccount(row, roles.get(row.id) ?? 'follower')),
+      // 'standalone' for an account journalled but in no copy link. Nothing in
+      // the worker copies to or from it; it is read, never traded.
+      rows.map((row) => runtimeAccount(row, roles.get(row.id) ?? 'standalone')),
     )
   } catch (e) {
     // A password that will not decrypt is not a 500 to shrug at: it means the
@@ -283,11 +293,11 @@ async function getRuntimeConfig(userId: string): Promise<Response> {
 
 /** Diagnostic: what does this worker's user id actually own?
  *
- * runtime-config answers 404 whenever nothing is armed — and it answers exactly
- * the same 404 for a user id that does not exist at all. So the single most
- * common setup mistake (pointing a worker at the wrong user) is invisible until
- * someone arms a live copy link to find out, which is the worst possible moment
- * to discover it.
+ * runtime-config answers 404 when the user has nothing to run — and it answers
+ * exactly the same 404 for a user id that does not exist at all. So the single
+ * most common setup mistake (pointing a worker at the wrong user) is invisible
+ * until someone arms a live copy link to find out, which is the worst possible
+ * moment to discover it.
  *
  * This is read-only, returns counts and labels rather than credentials, and is
  * called by show_config.py. The worker itself never calls it.
@@ -348,7 +358,11 @@ async function getOpenLinks(userId: string): Promise<Response> {
     .eq('user_id', userId)
     .eq('event_type', 'position_opened')
     .eq('status', 'success')
-    .order('created_at', { ascending: true })
+    // Newest first, then walked oldest-first below. Ascending read the OLDEST
+    // rows -- and PostgREST's max-rows caps any page at 1000 whatever the limit
+    // says -- so past a thousand copies a restarted worker restored no links for
+    // the positions actually open, and master closes stopped reaching them.
+    .order('created_at', { ascending: false })
     .limit(5000)
   if (error) return json({ detail: error.message }, 500)
 
@@ -356,16 +370,19 @@ async function getOpenLinks(userId: string): Promise<Response> {
     .from('execution_events')
     .select('follower_ticket,status,event_type')
     .eq('user_id', userId)
-    .in('event_type', ['position_closed', 'flatten'])
+    // manual_close is a position closed from the app's Live Trading page. It
+    // ends a copy link exactly as a copied close does.
+    .in('event_type', ['position_closed', 'flatten', 'manual_close'])
     .in('status', ['closed', 'success'])
-    .limit(5000)
+    .order('created_at', { ascending: false })
+    .limit(10000)
 
   const closedTickets = new Set(
     (closedRows ?? []).filter((r) => r.follower_ticket).map((r) => String(r.follower_ticket)),
   )
 
   const links = new Map<string, Record<string, unknown>>()
-  for (const row of opened ?? []) {
+  for (const row of [...(opened ?? [])].reverse()) {
     const ft = row.follower_ticket
     const mt = row.master_ticket
     const cr = row.copier_relation_id
@@ -782,11 +799,11 @@ function tradeRow(
     // crypto. src/db/trades.ts carries the same warning as `pnlOverride`.
     pnl,
     // NOT NULL, so it needs a value -- but it is not the value the app reads.
-    // src/db/trades.ts `fromRow` derives the trading day from entry_time in the
-    // trader's own zone, precisely because a UTC date files an evening US
-    // session on the following day. This is the same UTC slice existing rows
-    // have, and is corrected on read.
-    date: entryTime.slice(0, 10),
+    // src/db/trades.ts `fromRow` derives the trading day from exit_time in the
+    // trader's own zone (a result belongs to the day it closed), precisely
+    // because a UTC date files an evening US session on the following day. A
+    // UTC slice of the same instant, corrected on read.
+    date: exitTime.slice(0, 10),
   }
 }
 
